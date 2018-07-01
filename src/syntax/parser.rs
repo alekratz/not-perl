@@ -389,8 +389,7 @@ impl<'n, S> Parser<'n, S>
         let mut next = self.lexer.next();
         while let Some(token) = next {
             let range_token = token?;
-            let token = range_token.token();
-            if token != &Token::Comment {
+            if range_token.token() != &Token::Comment {
                 next = Some(Ok(range_token));
                 break;
             }

@@ -1,7 +1,6 @@
-#![feature(nll)]
-
-pub mod syntax;
 mod common;
+pub mod syntax;
+pub mod ir;
 
 use std::{
     env,
