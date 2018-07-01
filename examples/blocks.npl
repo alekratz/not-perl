@@ -1,0 +1,21 @@
+$continue = true
+
+loop {
+    $user-line = prompt-line("Collatz sequence of which number?")
+    if !$user-number ~~ int {
+        print("That doesn't look like a number.")
+        continue
+    }
+
+    while $user-number > 1 {
+        if $user-number %% 2 {
+            $user-number /= 2
+        } else {
+            $user-number += 1
+            $user-number *= 3
+        }
+        print($user-number)
+    }
+
+    $continue = user-prompt-yes-no("Another one?")
+}
