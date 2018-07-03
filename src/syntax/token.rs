@@ -1,9 +1,8 @@
 use std::{
     fmt::{self, Formatter, Display},
-    ops::Deref,
 };
 use syntax::{
-    Pos,
+    Ranged,
     tree::Ast,
 };
 
@@ -147,6 +146,7 @@ pub enum Token {
     WhileKw,
     LoopKw,
     ContinueKw,
+    BreakKw,
     TrueKw,
     FalseKw,
 
@@ -230,6 +230,7 @@ impl Token {
             WhileKw => "while".to_string(),
             LoopKw => "loop".to_string(),
             ContinueKw => "continue".to_string(),
+            BreakKw => "break".to_string(),
             TrueKw => "true".to_string(),
             FalseKw => "false".to_string(),
             Op(s) => s.to_string(),
@@ -262,6 +263,7 @@ impl Display for Token {
             WhileKw => write!(fmt, "while keyword"),
             LoopKw => write!(fmt, "loop keyword"),
             ContinueKw => write!(fmt, "continue keyword"),
+            BreakKw => write!(fmt, "break keyword"),
             TrueKw => write!(fmt, "true keyword"),
             FalseKw => write!(fmt, "false keyword"),
             Op(s) =>  write!(fmt, "operator {}", s),
@@ -280,41 +282,20 @@ impl Display for Token {
 
 impl<'n> From<RangeToken<'n>> for Token {
     fn from(other: RangeToken<'n>) -> Self {
-        other.2
+        other.1
     }
 }
 
 impl<'n> Display for RangeToken<'n> {
     fn fmt(&self, fmt: &mut Formatter) -> fmt::Result {
-        (self.2).fmt(fmt)
+        (self.1).fmt(fmt)
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub struct RangeToken<'s>(Pos<'s>, Pos<'s>, Token);
+pub type RangeToken<'n> = Ranged<'n, Token>;
 
-impl<'s> RangeToken<'s> {
-    pub fn new(start: Pos<'s>, end: Pos<'s>, token: Token) -> Self {
-        RangeToken(start, end, token)
-    }
-
-    pub fn start(&self) -> Pos<'s> {
-        self.0
-    }
-
-    pub fn end(&self) -> Pos<'s> {
-        self.1
-    }
-
+impl<'n> RangeToken<'n> {
     pub fn token(&self) -> &Token {
-        &self.2
-    }
-}
-
-impl<'s> Deref for RangeToken<'s> {
-    type Target = Token;
-
-    fn deref(&self) -> &Self::Target {
-        self.token()
+        &self.1
     }
 }

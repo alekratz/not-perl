@@ -10,22 +10,6 @@ use syntax::{
     token::*,
 };
 
-macro_rules! match_token {
-    ($next:expr, $token:pat, $expected:expr) => {{
-        let next = $next;
-        let is_match = if let Some(&$token) = next.as_ref().map(|t| t.token()) {
-            true
-        } else {
-            false
-        };
-        if is_match {
-            next.unwrap()
-        } else {
-            return Err(($expected)(next.as_ref()))
-        }
-    }};
-}
-
 macro_rules! matches {
     ($pat:pat, $expr:expr) => {{ if let $pat = $expr { true } else { false } }}
 }
@@ -106,6 +90,10 @@ impl<'n, S> Parser<'n, S>
         // TODO : expect EOL or EOF after every expression
         let stmt = match curr {
             Token::ContinueKw => {
+                self.next_token_or_newline()?;
+                Stmt::Continue
+            }
+            Token::BreakKw => {
                 self.next_token_or_newline()?;
                 Stmt::Continue
             }
@@ -333,15 +321,6 @@ impl<'n, S> Parser<'n, S>
             .unwrap_or(false)
     }
 
-    /// Checks if the current token matches the given AST type's lookaheads.
-    fn is_match<A: Ast>(&mut self) -> bool {
-        if let Some(ref curr) = self.curr {
-            curr.is_lookahead::<A>()
-        } else {
-            false
-        }
-    }
-
     fn is_token_match(&mut self, token: &Token) -> bool {
         if let Some(ref curr) = self.curr {
             curr.token() == token
@@ -366,17 +345,6 @@ impl<'n, S> Parser<'n, S>
                 .ok_or_else(|| self.err_expected_got_eof(token.to_string()))
         } else {
             let expected = token.to_string();
-            Err(self.err_expected_got(expected, self.curr.as_ref()))
-        }
-    }
-
-    fn match_lookahead<A: Ast>(&mut self) -> Result<'n, RangeToken<'n>> {
-        if self.curr.as_ref().map(|t| A::token_is_lookahead(t)).unwrap_or(false) {
-            self.next_token()?
-                .ok_or_else(|| self.err_expected_got_eof(A::name()))
-        } else {
-            // TODO: starts_with list
-            let expected = A::name();
             Err(self.err_expected_got(expected, self.curr.as_ref()))
         }
     }

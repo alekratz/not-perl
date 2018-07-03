@@ -8,6 +8,7 @@ use std::{
 };
 
 use syntax::{Lexer, Parser};
+use ir::{IrTree, Ir};
 use common::read_file;
 
 fn main() {
@@ -36,4 +37,7 @@ fn main() {
             process::exit(1);
         },
     };
+
+    let ir_tree = IrTree::from_syntax(&tree);
+    println!("{:?}", ir_tree);
 }

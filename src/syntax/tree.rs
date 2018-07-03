@@ -21,6 +21,14 @@ pub struct SyntaxTree<'n> {
     pub stmts: Vec<Stmt<'n>>,
 }
 
+impl<'n> Ast for SyntaxTree<'n> {
+    fn token_is_lookahead(token: &Token) -> bool {
+        Stmt::token_is_lookahead(token)
+    }
+
+    fn name() -> &'static str { "syntax tree" }
+}
+
 impl<'n> Default for SyntaxTree<'n> {
     fn default() -> Self {
         SyntaxTree { stmts: vec![] }
@@ -39,6 +47,7 @@ pub enum Stmt<'n> {
         else_block: Option<Block<'n>>,
     },
     Continue,
+    Break,
 }
 
 impl<'n> Ast for Stmt<'n> {

@@ -1,6 +1,7 @@
 use std::{
     cmp::Ordering,
-    fmt::{self, Formatter, Display},
+    fmt::{self, Formatter, Display, Debug},
+    ops::Deref,
 };
 
 /// A position in a character stream.
@@ -67,5 +68,52 @@ impl<'n> PartialOrd for Pos<'n> {
 impl<'n> PartialEq for Pos<'n> {
     fn eq(&self, other: &Self) -> bool {
         true
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+#[cfg_attr(not(test), derive(PartialEq))]
+pub struct Range<'n>(Pos<'n>, Pos<'n>);
+
+impl<'n> Range<'n> {
+    pub fn new(start: Pos<'n>, end: Pos<'n>) -> Self {
+        Range(start, end)
+    }
+
+    pub fn start(&self) -> Pos<'n> {
+        self.0
+    }
+
+    pub fn end(&self) -> Pos<'n> {
+        self.1
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct Ranged<'n, T>(Range<'n>, pub (in syntax) T)
+    where T: Sized + Clone + Debug;
+
+impl<'n, T> Ranged<'n, T>
+    where T: Sized + Clone + Debug
+{
+    pub fn new(range: Range<'n>, value: T) -> Self {
+        Ranged(range, value)
+    }
+}
+
+impl<'n, T> Deref for Ranged<'n, T>
+    where T: Sized + Clone + Debug
+{
+    type Target = T;
+    fn deref(&self) -> &Self::Target {
+        &self.1
+    }
+}
+
+impl<'n, T> PartialEq for Ranged<'n, T>
+    where T: Sized + Clone + Debug + PartialEq
+{
+    fn eq(&self, other: &Self) -> bool {
+        self.1.eq(&other.1)
     }
 }

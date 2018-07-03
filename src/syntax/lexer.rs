@@ -2,7 +2,10 @@ use std::{
     mem,
 };
 use syntax::{
-    Pos, Result, SyntaxError,
+    Pos,
+    Range,
+    Result,
+    SyntaxError,
     token::*,
 };
 
@@ -212,6 +215,7 @@ impl<'n, S> Lexer<'n, S>
             "while" => Ok(Token::WhileKw),
             "loop" => Ok(Token::LoopKw),
             "continue" => Ok(Token::ContinueKw),
+            "break" => Ok(Token::BreakKw),
             "true" => Ok(Token::TrueKw),
             "false" => Ok(Token::FalseKw),
             _ => Ok(Token::Bareword(bareword))
@@ -322,7 +326,7 @@ impl<'n, S> Iterator for Lexer<'n, S>
         let token = self.next_token();
         let end = self.pos;
         // next_token returns Option<Result<Token>>, we need O<R<RangeToken>>
-        token.map(|r| r.map(|t| RangeToken::new(start, end, t)))
+        token.map(|r| r.map(|t| RangeToken::new(Range::new(start, end), t)))
     }
 }
 
