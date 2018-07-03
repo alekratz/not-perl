@@ -384,9 +384,6 @@ mod test {
         let op = first_token!("~");
         assert_eq!(op, Token::Op(Op::Tilde));
 
-        let op = first_token!("=");
-        assert_eq!(op, Token::Op(Op::Equals));
-
         let op = first_token!("==");
         assert_eq!(op, Token::Op(Op::DoubleEquals));
 
@@ -395,7 +392,7 @@ mod test {
 
 
         let double_tilde = first_token!("~~");
-        assert_eq!(double_tilde, Token::Op(Op::Custom("~~".to_string())));
+        assert_eq!(double_tilde, Token::Op(Op::DoubleTilde));
 
         let very_long_op = first_token!("/<+~-~+>/");
         assert_eq!(very_long_op, Token::Op(Op::Custom("/<+~-~+>/".to_string())));

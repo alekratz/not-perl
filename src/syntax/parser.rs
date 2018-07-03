@@ -439,7 +439,7 @@ mod test {
     }
 
     macro_rules! token {
-        ($($token:tt)+) => { RangeToken::new(Pos::default(), Pos::default(), $($token)+) }
+        ($($token:tt)+) => { RangeToken::new(Range::new(Pos::default(), Pos::default()), $($token)+) }
     }
 
     #[test]

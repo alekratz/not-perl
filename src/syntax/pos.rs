@@ -66,9 +66,7 @@ impl<'n> PartialOrd for Pos<'n> {
 // Pos is only equal during testing
 #[cfg(test)]
 impl<'n> PartialEq for Pos<'n> {
-    fn eq(&self, other: &Self) -> bool {
-        true
-    }
+    fn eq(&self, _other: &Self) -> bool { true }
 }
 
 #[derive(Clone, Copy, Debug)]
