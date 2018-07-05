@@ -1,9 +1,40 @@
+fun prompt-line($prompt = "> ", $empty-ok = false): Str {
+    loop {
+        print($prompt)
+        $user-line = readln();
+        if $user-line || $empty-ok {
+            return $user-line
+        }
+    }
+}
+
+fun prompt-yes-no($prompt, $default = false): Bool {
+    if $default == "y" {
+        $prompt ~= " [Y/n] "
+    } else if $default == false {
+        $prompt ~= " [y/n] "
+    } else {
+        $prompt ~= " [y/N] "
+    }
+
+    loop {
+        $user-line = prompt-line($prompt, false)[0]
+        if $user-line ~~ "y" {
+            return true
+        } else if $user-line ~~ "n" {
+            return false
+        } else if $default != false {
+            return $default == "y"
+        }
+    }
+}
+
 $continue = true
 
 loop {
     $user-line = prompt-line("Collatz sequence of which number?")
     if !$user-number ~~ int {
-        print("That doesn't look like a number.")
+        println("That doesn't look like a number.")
         continue
     }
 
@@ -14,8 +45,8 @@ loop {
             $user-number += 1
             $user-number *= 3
         }
-        print($user-number)
+        println($user-number)
     }
 
-    $continue = user-prompt-yes-no("Another one?")
+    $continue = prompt-yes-no("Another one?")
 }

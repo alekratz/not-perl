@@ -1,39 +1,43 @@
-use ir::{Ir, Value};
+use ir::{Ir, Value, Function};
 use syntax::{
     tree::{Stmt, ConditionBlock},
     token::AssignOp,
 };
+use vm::bc::Bc;
 
 /// An executable action.
 ///
 /// This is something that changes the state of the VM (e.g. assign a value, evaluate an
 /// expression, conditionally execute).
 #[derive(Debug)]
-pub enum Action {
-    Eval(Value),
-    Assign(Value, AssignOp, Value),
-    Loop(Block),
-    Block(Block),
+pub enum Action<'n> {
+    Eval(Value<'n>),
+    Assign(Value<'n>, AssignOp, Value<'n>),
+    Loop(Block<'n>),
+    Block(Block<'n>),
     ConditionBlock {
-        if_block: Box<ConditionAction>,
-        elseif_blocks: Vec<ConditionAction>,
-        else_block: Option<Box<Action>>,
+        if_block: Box<ConditionAction<'n>>,
+        elseif_blocks: Vec<ConditionAction<'n>>,
+        else_block: Option<Box<Action<'n>>>,
     },
     Break,
     Continue,
+    Return(Option<Value<'n>>),
 }
 
-impl Action {
-    pub fn from_syntax_block<'n>(block: impl AsRef<[Stmt<'n>]>) -> Self {
+impl<'n> Action<'n> {
+    pub fn from_syntax_block(block: impl AsRef<[Stmt<'n>]>) -> Self {
         Action::Block(block.as_ref().iter()
             .map(Action::from_syntax)
             .collect())
     }
 }
 
-impl<'n> Ir<Stmt<'n>> for Action {
+impl<'n> Ir<Stmt<'n>> for Action<'n> {
     fn from_syntax(stmt: &Stmt<'n>) -> Self {
         match stmt {
+            Stmt::Function { name: n, params: _, return_ty: _, body: _, } =>
+                panic!("Action::from_syntax is not applicable to functions (function {})", n),
             Stmt::Expr(expr) => Action::Eval(Value::from_syntax(expr)),
             Stmt::Assign(lhs, op, rhs) => {
                 let lhs = Value::from_syntax(lhs);
@@ -67,7 +71,8 @@ impl<'n> Ir<Stmt<'n>> for Action {
                 loop_block.push(condition);
                 Action::Loop(loop_block)
             }
-            Stmt::Loop(ref block) => Action::Loop(block.iter().map(Action::from_syntax).collect()),
+            Stmt::Loop(block) => Action::Loop(block.iter().map(Action::from_syntax).collect()),
+            Stmt::Return(expr) => Action::Return(expr.as_ref().map(Value::from_syntax)),
             Stmt::Break => Action::Break,
             Stmt::Continue => Action::Continue,
         }
@@ -75,17 +80,17 @@ impl<'n> Ir<Stmt<'n>> for Action {
 }
 
 /// A block of actions.
-pub type Block = Vec<Action>;
+pub type Block<'n> = Vec<Action<'n>>;
 
 /// An action that executes as a result of the given condition value.
 #[derive(Debug)]
-pub struct ConditionAction {
-    pub condition: Value,
-    pub action: Action,
+pub struct ConditionAction<'n> {
+    pub condition: Value<'n>,
+    pub action: Action<'n>,
 }
 
-impl ConditionAction {
-    pub fn from_condition_block(cond_block: &ConditionBlock) -> Self {
+impl<'n> ConditionAction<'n> {
+    pub fn from_condition_block(cond_block: &ConditionBlock<'n>) -> Self {
         ConditionAction {
             condition: Value::from_syntax(&cond_block.condition),
             action: Action::from_syntax_block(&cond_block.block),

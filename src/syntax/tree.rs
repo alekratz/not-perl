@@ -37,6 +37,12 @@ impl<'n> Default for SyntaxTree<'n> {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Stmt<'n> {
+    Function {
+        name: String,
+        params: Vec<FunctionParam<'n>>,
+        return_ty: Option<String>,
+        body: Block<'n>,
+    },
     Expr(Expr<'n>),
     Assign(Expr<'n>, AssignOp, Expr<'n>),
     While(ConditionBlock<'n>),
@@ -48,17 +54,39 @@ pub enum Stmt<'n> {
     },
     Continue,
     Break,
+    Return(Option<Expr<'n>>),
 }
 
 impl<'n> Ast for Stmt<'n> {
     fn token_is_lookahead(token: &Token) -> bool {
-        Expr::token_is_lookahead(token)
+        Expr::token_is_lookahead(token) || token_is_lookahead!(token, Token::FunKw, Token::ReturnKw, Token::IfKw)
     }
 
     fn name() -> &'static str { "statement" }
 }
 
 pub type Block<'n> = Vec<Stmt<'n>>;
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct FunctionParam<'n> {
+    pub name: String,
+    pub ty: Option<String>,
+    pub default: Option<Expr<'n>>,
+}
+
+impl<'n> FunctionParam<'n> {
+    pub fn new(name: String, ty: Option<String>, default: Option<Expr<'n>>) -> Self {
+        FunctionParam { name, ty, default }
+    }
+}
+
+impl<'n> Ast for FunctionParam<'n> {
+    fn token_is_lookahead(token: &Token) -> bool {
+        matches!(token, Token::Variable(_))
+    }
+
+    fn name() -> &'static str { "function parameter" }
+}
 
 /// A generic block that comes with a (presumably) conditional expression.
 #[derive(Debug, Clone, PartialEq)]

@@ -1,5 +1,9 @@
-use syntax::token::Token;
+use syntax::{
+    token::Token,
+    Ranged,
+};
 
+/// A symbol which is used to point to a value.
 #[derive(Clone, Debug)]
 pub enum Symbol {
     /// A function
@@ -10,12 +14,6 @@ pub enum Symbol {
 
     /// A bareword that hasn't been resolved yet.
     Bareword(String),
-
-    /// An anonymous value.
-    AnonVal(usize),
-
-    /// An anonymous function.
-    AnonFun(usize),
 }
 
 impl Symbol {
@@ -26,4 +24,14 @@ impl Symbol {
             _ => panic!("invalid conversion from Token {:?} to Symbol", token),
         }
     }
+
+    pub fn name(&self) -> &str {
+        match self {
+            | Symbol::Function(s)
+            | Symbol::Variable(s)
+            | Symbol::Bareword(s) => s
+        }
+    }
 }
+
+pub type RangeSymbol<'n> = Ranged<'n, Symbol>;

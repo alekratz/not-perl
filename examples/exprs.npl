@@ -1,12 +1,12 @@
 $some-string = "Hell world"
 
-print($some-string)
+#print($some-string)
 
-$yo-mama = [
-    "when she goes camping, the bears hide *their* food!",
-    "when she sits around the house, she sits *around* the house!",
-    "she can eat 10 pizzas!",
-]
+#$yo-mama = [
+#    "when she goes camping, the bears hide *their* food!",
+#    "when she sits around the house, she sits *around* the house!",
+#    "she can eat 10 pizzas!",
+#]
 
-print("Yo mama so fat, " ~ choose($yo-mama))
+#print("Yo mama so fat, " ~ choose($yo-mama))
 

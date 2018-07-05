@@ -41,7 +41,7 @@ macro_rules! char_class {
 }
 
 char_class!(VARIABLE_NAME_CHARS, "variable name", |c| { c.is_alphanumeric() || "_-".contains(c) });
-char_class!(OP_CHARS, "operator", |c| { "=+-*/~!@%^&?<>".contains(c) });
+char_class!(OP_CHARS, "operator", |c| { "|&=+-*/~!@%^&?<>".contains(c) });
 char_class!(BAREWORD_START_CHARS, "bareword", |c| { c.is_alphabetic() });
 char_class!(BAREWORD_CHARS, "bareword", |c| { c.is_alphanumeric() || "_-".contains(c) });
 char_class!(STR_LIT_ESCAPE_CHARS, "string escape", |c| { "trn\"\\".contains(c) });
@@ -92,6 +92,7 @@ impl<'n, S> Lexer<'n, S>
             ';' => Some(Ok(Token::LineEnd)),
             '\n' => Some(Ok(Token::NewLine)),
             ',' => Some(Ok(Token::Comma)),
+            ':' => Some(Ok(Token::Colon)),
             '0' ... '9' => Some(self.next_numeric_token()),
             e if OP_CHARS.is_match(e) => Some(self.next_op_token()),
             e if BAREWORD_START_CHARS.is_match(e) => Some(self.next_bareword()),
@@ -218,6 +219,8 @@ impl<'n, S> Lexer<'n, S>
             "break" => Ok(Token::BreakKw),
             "true" => Ok(Token::TrueKw),
             "false" => Ok(Token::FalseKw),
+            "fun" => Ok(Token::FunKw),
+            "return" => Ok(Token::ReturnKw),
             _ => Ok(Token::Bareword(bareword))
         }
     }

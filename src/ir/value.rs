@@ -1,12 +1,18 @@
 use syntax::{
     token::{Token, Op},
     tree::Expr,
+    Ranged,
 };
-use ir::{Ir, Symbol};
+use vm::{
+    self,
+    bc::Bc,
+};
+use ir::{Ir, Symbol, RangeSymbol};
 
+// NOTE: not Eq because f64 is not Eq
 #[derive(Debug, PartialEq, Clone)]
 pub enum Const {
-    String(String),
+    Str(String),
     Int(i64),
     // TODO : Bignum
     Float(f64),
@@ -14,17 +20,19 @@ pub enum Const {
     Bool(bool),
 }
 
-impl From<Token> for Const {
-    fn from(other: Token) -> Self {
+pub type RangeConst<'n> = Ranged<'n, Const>;
+
+impl Const {
+    pub fn from_token(other: &Token) -> Self {
         match other {
-            Token::StrLit(s) => Const::String(s),
+            Token::StrLit(s) => Const::Str(s.clone()),
             Token::IntLit(n, r) => {
-                match i64::from_str_radix(n.as_ref(), r as u32) {
+                match i64::from_str_radix(n.as_str(), *r as u32) {
                     Ok(v) => Const::Int(v),
                     Err(_) => unimplemented!("bigint")
                 }
             },
-            Token::FloatLit(f) => Const::Float(str::parse::<f64>(f.as_ref()).expect("invalid float literal")),
+            Token::FloatLit(ref f) => Const::Float(str::parse::<f64>(f.as_str()).expect("invalid float literal")),
             Token::TrueKw => Const::Bool(true),
             Token::FalseKw => Const::Bool(false),
             _ => panic!("invalid constant value: {:?}", other),
@@ -33,16 +41,16 @@ impl From<Token> for Const {
 }
 
 #[derive(Clone, Debug)]
-pub enum Value {
-    Const(Const),
-    Symbol(Symbol),
-    ArrayAccess(Box<Value>, Box<Value>),
-    BinaryExpr(Box<Value>, Op, Box<Value>),
-    UnaryExpr(Op, Box<Value>),
-    FunCall(Box<Value>, Vec<Value>),
+pub enum Value<'n> {
+    Const(RangeConst<'n>),
+    Symbol(RangeSymbol<'n>),
+    ArrayAccess(Box<Value<'n>>, Box<Value<'n>>),
+    BinaryExpr(Box<Value<'n>>, Op, Box<Value<'n>>),
+    UnaryExpr(Op, Box<Value<'n>>),
+    FunCall(Box<Value<'n>>, Vec<Value<'n>>),
 }
 
-impl<'n> Ir<Expr<'n>> for Value {
+impl<'n> Ir<Expr<'n>> for Value<'n> {
     fn from_syntax(expr: &Expr<'n>) -> Self {
         match expr {
             Expr::FunCall { ref function, ref args } => {
@@ -60,8 +68,8 @@ impl<'n> Ir<Expr<'n>> for Value {
             }
             Expr::Atom(ref token) => match token.token() {
                 | Token::Variable(_)
-                | Token::Bareword(_) => Value::Symbol(Symbol::from_token(token.token())),
-                _ => Value::Const(Const::from(token.token().clone()))
+                | Token::Bareword(_) => Value::Symbol(token.map(Symbol::from_token)),
+                _ => Value::Const(token.map(Const::from_token))
             },
             Expr::Binary(ref lhs, ref op, ref rhs) => {
                 let lhs = Value::from_syntax(lhs);

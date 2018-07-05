@@ -10,10 +10,6 @@ use syntax::{
     token::*,
 };
 
-macro_rules! matches {
-    ($pat:pat, $expr:expr) => {{ if let $pat = $expr { true } else { false } }}
-}
-
 pub struct Parser<'n, S>
     where S: Iterator<Item=char>
 {
@@ -89,6 +85,14 @@ impl<'n, S> Parser<'n, S>
         };
         // TODO : expect EOL or EOF after every expression
         let stmt = match curr {
+            Token::ReturnKw => {
+                self.next_token_or_newline()?;
+                if self.is_lookahead::<Expr>() {
+                    Stmt::Return(Some(self.next_expr()?))
+                } else {
+                    Stmt::Return(None)
+                }
+            }
             Token::ContinueKw => {
                 self.next_token_or_newline()?;
                 Stmt::Continue
@@ -128,6 +132,46 @@ impl<'n, S> Parser<'n, S>
                     if_block,
                     elseif_blocks,
                     else_block,
+                }
+            }
+            Token::FunKw => {
+                self.next_token()?;
+                let name = self.next_bareword()?;
+                let mut params = vec![];
+                let mut return_ty = None;
+                let mut defaults = false;
+                self.match_token(Token::LParen);
+                while !self.is_token_match(&Token::RParen) {
+                    let param_name = self.next_variable()?;
+                    let mut ty = None;
+                    let mut default = None;
+                    if self.is_token_match(&Token::Colon) {
+                        self.match_token(Token::Colon)?;
+                        ty = Some(self.next_bareword()?);
+                    }
+
+                    if defaults || self.is_token_match(&Token::AssignOp(AssignOp::Equals)) {
+                        defaults = true;
+                        self.match_token(Token::AssignOp(AssignOp::Equals))?;
+                        default = Some(self.next_expr()?);
+                    }
+                    params.push(FunctionParam::new(param_name, ty, default));
+
+                    if !self.is_token_match(&Token::RParen) {
+                        self.match_token(Token::Comma)?;
+                    }
+                }
+                self.match_token(Token::RParen);
+                if self.is_token_match(&Token::Colon) {
+                    self.next_token()?;
+                    return_ty = Some(self.next_bareword()?);
+                }
+                let body = self.next_block()?;
+                Stmt::Function {
+                    name,
+                    params,
+                    return_ty,
+                    body,
                 }
             }
             ref t if t.is_lookahead::<Expr>() => {
@@ -178,6 +222,8 @@ impl<'n, S> Parser<'n, S>
         let op_queue = VecDeque::from(vec![
             vec![Op::DoublePercent, Op::DoubleEquals, Op::DoubleTilde, Op::NotEquals,
                  Op::LessEquals, Op::GreaterEquals, Op::Less, Op::Greater],
+            vec![Op::Or],
+            vec![Op::And],
             vec![Op::Tilde],
             vec![Op::Plus, Op::Minus],
             vec![Op::Splat, Op::FSlash], ]);
@@ -254,7 +300,6 @@ impl<'n, S> Parser<'n, S>
             } else {
                 Expr::Atom(self.next_token()?.unwrap())
             }
-
         };
 
         if self.is_token_match(&Token::LParen) {
@@ -265,7 +310,7 @@ impl<'n, S> Parser<'n, S>
         if self.is_token_match(&Token::LBracket) {
             self.next_token()?;
             let index = self.next_expr()?;
-            self.match_token(Token::RBracket)?;
+            self.match_token_preserve_newline(Token::RBracket)?;
             Ok(Expr::ArrayAccess{ array: Box::new(expr), index: Box::new(index) })
         } else {
             Ok(expr)
@@ -290,6 +335,28 @@ impl<'n, S> Parser<'n, S>
         Ok(args)
     }
 
+    fn next_variable(&mut self) -> Result<'n, String> {
+        if let Some(token) = self.next_token()? {
+            match token.as_inner() {
+                Token::Variable(var) => Ok(var.clone()),
+                _ => Err(self.err_expected_got("variable", Some(&token)))
+            }
+        } else {
+            Err(self.err_expected_got_eof("variable"))
+        }
+    }
+
+    fn next_bareword(&mut self) -> Result<'n, String> {
+        if let Some(token) = self.next_token()? {
+            match token.as_inner() {
+                Token::Bareword(bareword) => Ok(bareword.clone()),
+                _ => Err(self.err_expected_got("bareword", Some(&token)))
+            }
+        } else {
+            Err(self.err_expected_got_eof("bareword"))
+        }
+    }
+
     fn next_op(&mut self) -> Result<'n, Op> {
         let matches = if let Some(&Token::Op(_)) = self.curr.as_ref().map(|r| r.token()) { true }
                       else { false };
@@ -301,7 +368,7 @@ impl<'n, S> Parser<'n, S>
     }
 
     fn next_assign_op(&mut self) -> Result<'n, AssignOp> {
-        let matches = matches!(Some(&Token::AssignOp(_)), self.curr.as_ref().map(|r| r.token()));
+        let matches = matches!(self.curr.as_ref().map(|r| r.token()), Some(&Token::AssignOp(_)));
         if matches {
             Ok(Token::from(self.next_token()?.unwrap()).into_assign_op())
         } else {
@@ -311,19 +378,27 @@ impl<'n, S> Parser<'n, S>
 
     fn is_curr_op(&self) -> bool {
         self.curr.as_ref()
-            .map(|t| matches!(&Token::Op(_), t.token()))
+            .map(|t| matches!(t.token(), &Token::Op(_)))
             .unwrap_or(false)
     }
 
     fn is_curr_assign_op(&self) -> bool {
         self.curr.as_ref()
-            .map(|t| matches!(&Token::AssignOp(_), t.token()))
+            .map(|t| matches!(t.token(), &Token::AssignOp(_)))
             .unwrap_or(false)
     }
 
     fn is_token_match(&mut self, token: &Token) -> bool {
         if let Some(ref curr) = self.curr {
             curr.token() == token
+        } else {
+            false
+        }
+    }
+
+    fn is_lookahead<A: Ast>(&mut self) -> bool {
+        if let Some(ref curr) = self.curr {
+            curr.is_lookahead::<A>()
         } else {
             false
         }

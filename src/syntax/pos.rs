@@ -97,6 +97,22 @@ impl<'n, T> Ranged<'n, T>
     pub fn new(range: Range<'n>, value: T) -> Self {
         Ranged(range, value)
     }
+
+    pub fn map<Out>(&self, mapfn: impl FnOnce(&T) -> Out) -> Ranged<'n, Out>
+        where Out: Clone + Debug
+    {
+        let Ranged(range, ref inner) = self;
+        let inner = (mapfn)(inner);
+        Ranged(*range, inner)
+    }
+
+    pub fn into_inner(self) -> T {
+        self.1
+    }
+
+    pub fn as_inner(&self) -> &T {
+        &self.1
+    }
 }
 
 impl<'n, T> Deref for Ranged<'n, T>

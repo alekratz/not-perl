@@ -1,6 +1,10 @@
+#![feature(nll)]
+#[macro_use] extern crate matches;
+
 mod common;
 pub mod syntax;
 pub mod ir;
+pub mod vm;
 
 use std::{
     env,
@@ -8,7 +12,7 @@ use std::{
 };
 
 use syntax::{Lexer, Parser};
-use ir::{IrTree, Ir};
+use ir::{IrTree, Ir, Compile};
 use common::read_file;
 
 fn main() {
@@ -39,5 +43,8 @@ fn main() {
     };
 
     let ir_tree = IrTree::from_syntax(&tree);
-    println!("{:?}", ir_tree);
+    //let bytecode = ir_tree.compile_to_bytecode();
+    let mut compiler = Compile::new();
+    //println!("{:#?}", ir_tree);
+    let code = println!("{:#?}", compiler.compile_ir_tree(&ir_tree).unwrap());
 }
