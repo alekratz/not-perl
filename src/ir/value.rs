@@ -5,7 +5,7 @@ use syntax::{
 };
 use vm::{
     self,
-    bc::Bc,
+    Bc,
 };
 use ir::{Ir, Symbol, RangeSymbol};
 

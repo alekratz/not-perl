@@ -3,7 +3,6 @@ use syntax::{
     tree::{Stmt, ConditionBlock},
     token::AssignOp,
 };
-use vm::bc::Bc;
 
 /// An executable action.
 ///

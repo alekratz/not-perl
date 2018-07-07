@@ -2,15 +2,18 @@ mod value;
 mod symbol;
 mod scope;
 mod function;
-pub mod bc;
+mod ty;
+mod bc;
 
 pub use self::value::*;
 pub use self::symbol::*;
 pub use self::scope::*;
 pub use self::function::*;
+pub use self::ty::*;
+pub use self::bc::*;
 
 use std::iter;
-use vm::bc::Bc;
+use vm::Bc;
 
 pub type Error = String;
 pub type Result<T> = ::std::result::Result<T, Error>;
@@ -35,6 +38,14 @@ pub struct Vm {
 
     /// A list of read-only constants.
     constants: Vec<Value>,
+
+    /// Comparison flag.
+    ///
+    /// This is the result of the most recent Bc::Cmp comparison.
+    cmp_flag: isize,
+
+    /// A stack of program counter values, per call frame.
+    program_counter: Vec<usize>,
 }
 
 impl Vm {
@@ -51,10 +62,9 @@ impl Vm {
     fn run_function(&mut self) -> Result<()> {
         let function = self.current_function()
             .clone();
-        let function_body = function.body()
-            .clone();
+        let function_body = function.body.clone();
         let mut local_stack = vec![];
-        let mut local_scope = Scope::new(Vec::from(function.locals()));
+        let mut local_scope = Scope::new(function.locals.clone());
 
         for bc in function_body {
             match bc {
@@ -74,14 +84,16 @@ impl Vm {
                 Bc::Store(ref _sym, ref _val) => {
                     unimplemented!("Bc::store")
                 }
-
                 Bc::Call(ref _sym) => {
                     unimplemented!("Bc::call")
                 }
-
                 Bc::PopFunctionRefAndCall => {
-                    unimplemented!("Bc::popfunctionrefcall")
+                    unimplemented!("Bc::PopFunctionRefAndCall")
                 }
+                Bc::Cmp(v1, v2) => {
+                    unimplemented!("Bc::Cmp")
+                }
+                _ => unimplemented!(),
             }
         }
         Ok(())
@@ -124,7 +136,7 @@ impl Vm {
             }
             Symbol::Function(idx, _) => {
                 let function = &self.code[*idx];
-                Ok(Value::FunctionRef(function.symbol().clone()))
+                Ok(Value::FunctionRef(function.symbol.clone()))
             }
         }
     }

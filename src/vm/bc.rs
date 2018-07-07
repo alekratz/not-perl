@@ -1,5 +1,9 @@
 use vm::{Value, Symbol};
 
+/// A label in code for the VM.
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
+pub struct Label(pub usize);
+
 #[derive(Debug, Clone)]
 pub enum Bc {
     /// Pushes a value read from a symbol onto the stack.
@@ -26,4 +30,26 @@ pub enum Bc {
 
     /// Pops off a function ref, and calls it.
     PopFunctionRefAndCall,
+
+    /// Compares two values, setting the comparison flag.
+    Cmp(Value, Value),
+
+    /// Jumps to a label, if the comparison flag is 0.
+    JmpEq(Label),
+
+    /// Jumps to a label, if the comparison flag is not 0.
+    JmpNeq(Label),
+    
+    /// Jumps to a label, if the comparison flag is <0.
+    JmpLt(Label),
+
+    /// Jumps to a label, if the comparison flag is <=0.
+    JmpLe(Label),
+
+    /// Jumps to a label, if the comparison flag is >0.
+    JmpGt(Label),
+
+    /// Jumps to a label, if the comparison flag is >=0.
+    JmpGe(Label),
 }
+

@@ -6,32 +6,24 @@ use ir::{
 
 #[derive(Debug)]
 pub struct Function<'n> {
-    name: Symbol,
-    params: Vec<FunctionParam<'n>>,
-    return_ty: Ty,
-    body: Block<'n>,
+    pub symbol: Symbol,
+    pub params: Vec<FunctionParam<'n>>,
+    pub return_ty: Ty,
+    pub body: Block<'n>,
 }
 
 impl<'n> Function<'n> {
-    pub fn new(name: Symbol, params: Vec<FunctionParam<'n>>, return_ty: Ty, body: Block<'n>) -> Self {
-        Function { name, params, return_ty, body }
+    pub fn new(symbol: Symbol, params: Vec<FunctionParam<'n>>, return_ty: Ty, body: Block<'n>) -> Self {
+        Function { symbol, params, return_ty, body }
     }
 
-    pub fn name(&self) -> &str { &self.name.name() }
-
-    pub fn symbol(&self) -> &Symbol { &self.name }
-
-    pub fn params(&self) -> &[FunctionParam<'n>] { &self.params }
-    
-    pub fn return_ty(&self) -> &Ty { &self.return_ty }
-
-    pub fn body(&self) -> &[Action<'n>] { &self.body }
+    pub fn name(&self) -> &str { &self.symbol.name() }
 }
 
 impl<'n> Ir<tree::Stmt<'n>> for Function<'n> {
     fn from_syntax(stmt: &tree::Stmt<'n>) -> Self {
         if let tree::Stmt::Function { name, params, return_ty, body } = stmt {
-            let name = Symbol::Function(name.clone());
+            let symbol = Symbol::Function(name.clone());
             let params = params.iter()
                 .map(FunctionParam::from_syntax)
                 .collect();
@@ -43,7 +35,7 @@ impl<'n> Ir<tree::Stmt<'n>> for Function<'n> {
             let body = body.iter()
                 .map(Action::from_syntax)
                 .collect();
-            Function { name, params, return_ty, body }
+            Function { symbol, params, return_ty, body }
         } else {
             panic!("Attempted to convert non-Function Stmt to IR Function")
         }
@@ -52,9 +44,9 @@ impl<'n> Ir<tree::Stmt<'n>> for Function<'n> {
 
 #[derive(Debug)]
 pub struct FunctionParam<'n> {
-    name: Symbol,
-    ty: Ty,
-    default: Option<Value<'n>>,
+    pub name: Symbol,
+    pub ty: Ty,
+    pub default: Option<Value<'n>>,
 }
 
 impl<'n> FunctionParam<'n> {

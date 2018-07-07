@@ -1,38 +1,46 @@
 use vm::{
     Symbol,
-    bc::Bc,
+    Bc,
+    Label,
+    Ty,
 };
 
 #[derive(Debug, Clone)]
 pub struct Function {
-    symbol: Symbol,
-    body: Vec<Bc>,
-    locals: Vec<Symbol>,
+    pub symbol: Symbol,
+    pub params: Vec<FunctionParam>,
+    pub return_ty: Ty,
+    pub locals: Vec<Symbol>,
+    pub body: Vec<Bc>,
+    pub labels: Vec<Label>,
 }
 
 impl Function {
-    pub fn new(symbol: Symbol, body: Vec<Bc>, locals: Vec<Symbol>) -> Self {
+    pub fn new(symbol: Symbol, params: Vec<FunctionParam>, return_ty: Ty, locals: Vec<Symbol>, body: Vec<Bc>,
+               labels: Vec<Label>) -> Self {
         Function {
             symbol,
-            body,
+            params,
+            return_ty,
             locals,
+            body,
+            labels,
         }
     }
-
-    pub fn body(&self) -> &[Bc] {
-        &self.body
-    }
-
-    pub fn locals(&self) -> &[Symbol] {
-        &self.locals
-    }
-
-    pub fn symbol(&self) -> &Symbol {
-        &self.symbol
-    }
-
     pub fn name(&self) -> &str {
         &self.symbol.name()
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct FunctionParam {
+    pub symbol: Symbol,
+    pub ty: Ty,
+}
+
+impl FunctionParam {
+
+    pub fn name(&self) -> &str {
+        self.symbol.name()
+    }
+}
