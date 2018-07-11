@@ -1,5 +1,4 @@
 use syntax::tree::{Ast, SyntaxTree, Stmt};
-use vm;
 
 mod ty;
 mod function;

@@ -1,5 +1,4 @@
 use vm::ValueIndex;
-use ir;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Symbol {

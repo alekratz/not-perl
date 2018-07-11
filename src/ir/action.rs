@@ -1,4 +1,4 @@
-use ir::{Ir, Value, Function};
+use ir::{Ir, Value};
 use syntax::{
     tree::{Stmt, ConditionBlock},
     token::AssignOp,

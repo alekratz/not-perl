@@ -3,10 +3,6 @@ use syntax::{
     tree::Expr,
     Ranged,
 };
-use vm::{
-    self,
-    Bc,
-};
 use ir::{Ir, Symbol, RangeSymbol};
 
 // NOTE: not Eq because f64 is not Eq

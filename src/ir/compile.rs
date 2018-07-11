@@ -17,7 +17,6 @@ pub struct Compile {
     //constants: Vec<
     local_symbols: Vec<Vec<vm::Symbol>>,
     labels: Vec<Vec<Label>>,
-
     function_count: usize,
     local_symbol_count: usize,
     label_count: usize,
@@ -27,11 +26,16 @@ pub struct Compile {
 impl Compile {
     pub fn new() -> Self {
         Compile {
-            vm_functions: vec![],
+            vm_functions: vec![
+                vm::BUILTIN_FUNCTIONS.iter()
+                    .cloned()
+                    .map(vm::Function::Builtin)
+                    .collect()
+            ],
             local_symbols: vec![],
             labels: vec![],
 
-            function_count: 0,
+            function_count: vm::BUILTIN_FUNCTIONS.len(),
             local_symbol_count: 0,
             label_count: 0,
             block_label: None,
@@ -50,7 +54,7 @@ impl Compile {
             if self.lookup_vm_function(function.name()).is_some() {
                 return Err(self.err(format!("function `{}` defined twice", function.name())));
             }
-            self.insert_vm_function(function);
+            self.insert_vm_function(vm::Function::User(function));
         }
 
         let code = self.compile_action_list(ir_tree.actions())?;
@@ -77,7 +81,7 @@ impl Compile {
     }
 
     fn compile_action<'n>(&mut self, action: &Action<'n>) -> Result<Vec<Bc>> {
-        let mut thunk = match action {
+        let thunk = match action {
             Action::Eval(value) => self.compile_value(value, ValueContext::Push)?,
             Action::Assign(lhs, op, rhs) => self.compile_action_assign(lhs, *op, rhs)?,
             Action::Loop(block) => {
@@ -85,6 +89,7 @@ impl Compile {
                 let old_block_label = mem::replace(&mut self.block_label, Some(start_label));
                 let mut loop_body = self.compile_action_list(block)?;
                 loop_body.push(Bc::Jmp(start_label));
+                self.block_label = old_block_label;
                 loop_body
             },
             Action::Block(block) => self.compile_action_list(block)?,
@@ -97,11 +102,11 @@ impl Compile {
                 let end_of_block_label = self.next_label();
 
                 // else block
-                if let Some(block) = else_block {
+                if let Some(_block) = else_block {
                 }
 
                 // elseif blocks
-                for (block, label) in elseif_blocks.iter().zip(&elseif_labels) {
+                for (_block, _label) in elseif_blocks.iter().zip(&elseif_labels) {
                 }
 
                 // if block
@@ -118,7 +123,7 @@ impl Compile {
                 //Ok(bc)
                 unimplemented!("action condtionblock")
             }
-            Action::Return(_) => unimplemented!("IR compile Action::Return"),
+            Action::Return(s) => unimplemented!("IR compile Action::Return"),
             Action::Break => unimplemented!("IR compile Action::Break"),
             Action::Continue => unimplemented!("IR compile Action::Continue"),
         };
@@ -126,7 +131,7 @@ impl Compile {
     }
 
     /// Compiles an IR function into a VM function.
-    pub fn compile_function<'n>(&mut self, function: &Function<'n>) -> Result<vm::Function>
+    pub fn compile_function<'n>(&mut self, function: &Function<'n>) -> Result<vm::UserFunction>
     {
         self.local_symbols.push(vec![]);
         if let Some(function) = self.lookup_vm_function(function.name()) {
@@ -134,14 +139,11 @@ impl Compile {
         }
         let symbol = match &function.symbol {
             Symbol::Function(name) => {
-                let function_num = self.vm_functions
-                    .last()
-                    .unwrap()
-                    .len();
-                vm::Symbol::Function(function_num, name.to_string())
+                vm::Symbol::Function(self.function_count, name.to_string())
             },
             sym => panic!("got non-function symbol name from IR::Function: {:?}", sym),
         };
+        self.function_count += 1;
 
         let mut params = vec![];
         for param in &function.params {
@@ -171,7 +173,7 @@ impl Compile {
         self.label_count = old_label_count;
         let labels = self.labels.pop().unwrap();
         let locals = self.local_symbols.pop().unwrap();
-        Ok(vm::Function { symbol, params, return_ty, locals, body, labels })
+        Ok(vm::UserFunction { symbol, params, return_ty, locals, body, labels })
     }
 
     fn compile_function_param<'n>(&mut self, FunctionParam { name, ty, default: _ }: &FunctionParam<'n>)
@@ -194,8 +196,8 @@ impl Compile {
             Value::Symbol(range_sym) => {
                 // get the known LHS symbol
                 let vm_symbol = match range_sym.as_inner() {
-                    Symbol::Function(s) => unimplemented!("IR function lookup (return an error because it's on the LHS)"),
-                    Symbol::Bareword(s) => unimplemented!("IR constant lookup (return an error because it's on the LHS)"),
+                    Symbol::Function(_) => unimplemented!("IR function lookup (return an error because it's on the LHS)"),
+                    Symbol::Bareword(_) => unimplemented!("IR constant lookup (return an error because it's on the LHS)"),
                     Symbol::Variable(s) => self.lookup_or_insert_local_symbol(s).clone(),
                 };
                 ValueContext::StoreInto(vm_symbol)
@@ -234,9 +236,9 @@ impl Compile {
                         let function = self.lookup_vm_function(s)
                             .ok_or(format!("unknown function `{}`", s))?
                             .clone();
-                        context.with_value_to_bytecode(vm::Value::FunctionRef(function.symbol.clone()))
+                        context.with_value_to_bytecode(vm::Value::FunctionRef(function.symbol().clone()))
                     }
-                    Symbol::Bareword(s) => unimplemented!("compiling IR to bytecode => constant value lookup"),
+                    Symbol::Bareword(_) => unimplemented!("compiling IR to bytecode => constant value lookup"),
                     Symbol::Variable(s) => {
                         let symbol = self.lookup_or_insert_local_symbol(s).clone();
                         context.with_symbol_to_bytecode(symbol)
@@ -265,7 +267,7 @@ impl Compile {
                     let function = self.lookup_vm_function(function_name)
                         .ok_or(format!("unknown function `{}`", function_name))?
                         .clone();
-                    funcall_body.push(Bc::Call(function.symbol.clone()));
+                    funcall_body.push(Bc::Call(function.symbol().clone()));
                 } else {
                     funcall_body.push(Bc::PushValue(vm::Value::FunctionRefCanary));
                     funcall_body.append(&mut self.compile_value(expr, ValueContext::Push)?);
@@ -409,10 +411,10 @@ impl Compile {
     /// `Some(symbol)` if the function symbol was found - otherwise, `None`.
     fn lookup_vm_function(&self, symbol_name: &str) -> Option<&vm::Function> {
         self.vm_functions
-            .last()
-            .unwrap()
             .iter()
-            .find(|function| function.name() == symbol_name)
+            .rev()
+            .filter_map(|collection| collection.iter().find(|function| function.name() == symbol_name))
+            .next()
     }
 
     /// Creates a new label, incrementing the label sequence in this context.

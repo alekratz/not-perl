@@ -12,9 +12,6 @@ pub use self::function::*;
 pub use self::ty::*;
 pub use self::bc::*;
 
-use std::iter;
-use vm::Bc;
-
 pub type Error = String;
 pub type Result<T> = ::std::result::Result<T, Error>;
 
@@ -62,41 +59,45 @@ impl Vm {
     fn run_function(&mut self) -> Result<()> {
         let function = self.current_function()
             .clone();
-        let function_body = function.body.clone();
-        let mut local_stack = vec![];
-        let mut local_scope = Scope::new(function.locals.clone());
+        if let Function::User(function) = function {
+            let function_body = function.body.clone();
+            let mut local_stack = vec![];
+            let mut local_scope = Scope::new(function.locals.clone());
 
-        for bc in function_body {
-            match bc {
-                Bc::PushSymbolValue(ref symbol) => {
-                    let value = self.load(symbol, &local_scope)?;
-                    local_stack.push(value);
+            for bc in function_body {
+                match bc {
+                    Bc::PushSymbolValue(ref symbol) => {
+                        let value = self.load(symbol, &local_scope)?;
+                        local_stack.push(value);
+                    }
+                    Bc::PushValue(ref value) => local_stack.push(value.clone()),
+                    Bc::PopRefAndStore => {
+                        unimplemented!("Bc::PopRefAndStore")
+                    }
+                    Bc::Pop(ref symbol) => {
+                        let value = local_stack.pop()
+                            .expect("attempted to pop from empty stack in Bc::Pop");
+                        local_scope.set(symbol, value);
+                    }
+                    Bc::Store(ref _sym, ref _val) => {
+                        unimplemented!("Bc::store")
+                    }
+                    Bc::Call(ref _sym) => {
+                        unimplemented!("Bc::call")
+                    }
+                    Bc::PopFunctionRefAndCall => {
+                        unimplemented!("Bc::PopFunctionRefAndCall")
+                    }
+                    Bc::Cmp(_v1, _v2) => {
+                        unimplemented!("Bc::Cmp")
+                    }
+                    _ => unimplemented!(),
                 }
-                Bc::PushValue(ref value) => local_stack.push(value.clone()),
-                Bc::PopRefAndStore => {
-                    unimplemented!("Bc::PopRefAndStore")
-                }
-                Bc::Pop(ref symbol) => {
-                    let value = local_stack.pop()
-                        .expect("attempted to pop from empty stack in Bc::Pop");
-                    local_scope.set(symbol, value);
-                }
-                Bc::Store(ref _sym, ref _val) => {
-                    unimplemented!("Bc::store")
-                }
-                Bc::Call(ref _sym) => {
-                    unimplemented!("Bc::call")
-                }
-                Bc::PopFunctionRefAndCall => {
-                    unimplemented!("Bc::PopFunctionRefAndCall")
-                }
-                Bc::Cmp(v1, v2) => {
-                    unimplemented!("Bc::Cmp")
-                }
-                _ => unimplemented!(),
             }
+            Ok(())
+        } else {
+            unimplemented!("VM: Builtin function call")
         }
-        Ok(())
     }
 
     /// Gets the currently executing function; i.e., the function on top of the call stack.
@@ -136,7 +137,7 @@ impl Vm {
             }
             Symbol::Function(idx, _) => {
                 let function = &self.code[*idx];
-                Ok(Value::FunctionRef(function.symbol.clone()))
+                Ok(Value::FunctionRef(function.symbol().clone()))
             }
         }
     }

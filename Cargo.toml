@@ -5,3 +5,4 @@ authors = ["Alek Ratzloff <alekratz@gmail.com>"]
 
 [dependencies]
 matches = "*"
+lazy_static = "1"

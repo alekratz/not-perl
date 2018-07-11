@@ -140,7 +140,7 @@ impl<'n, S> Parser<'n, S>
                 let mut params = vec![];
                 let mut return_ty = None;
                 let mut defaults = false;
-                self.match_token(Token::LParen);
+                self.match_token(Token::LParen)?;
                 while !self.is_token_match(&Token::RParen) {
                     let param_name = self.next_variable()?;
                     let mut ty = None;
@@ -161,7 +161,7 @@ impl<'n, S> Parser<'n, S>
                         self.match_token(Token::Comma)?;
                     }
                 }
-                self.match_token(Token::RParen);
+                self.match_token(Token::RParen)?;
                 if self.is_token_match(&Token::Colon) {
                     self.next_token()?;
                     return_ty = Some(self.next_bareword()?);
