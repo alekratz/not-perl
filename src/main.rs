@@ -45,6 +45,7 @@ fn main() {
     let ir_tree = IrTree::from_syntax(&tree);
     //let bytecode = ir_tree.compile_to_bytecode();
     let mut compiler = Compile::new();
-    //println!("{:#?}", ir_tree);
-    let code = println!("{:#?}", compiler.compile_ir_tree(&ir_tree).unwrap());
+    println!("{:#?}", ir_tree);
+    let code = println!("{:#?}", compiler.compile_ir_tree(&ir_tree));
+    println!("{:#?}", code);
 }

@@ -54,7 +54,11 @@ impl<'n> Ir<Expr<'n>> for Value<'n> {
     fn from_syntax(expr: &Expr<'n>) -> Self {
         match expr {
             Expr::FunCall { ref function, ref args } => {
-                let function = Value::from_syntax(function);
+                let function = match Value::from_syntax(function) {
+                    Value::Symbol(Ranged(range, Symbol::Bareword(bareword))) =>
+                        Value::Symbol(Ranged(range, Symbol::Function(bareword))),
+                    v => v,
+                };
                 let mut fun_args = vec![];
                 for arg in args.iter() {
                     fun_args.push(Value::from_syntax(arg));

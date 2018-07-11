@@ -1,4 +1,5 @@
-use syntax::token::AssignOp;
+use std::mem;
+use syntax::token::{Op, AssignOp};
 use ir::*;
 use vm::{
     self, Bc, Label
@@ -37,7 +38,7 @@ impl Compile {
         }
     }
 
-    pub fn compile_ir_tree<'n>(&mut self, ir_tree: &IrTree<'n>) -> Result<()> {
+    pub fn compile_ir_tree<'n>(&mut self, ir_tree: &IrTree<'n>) -> Result<CompileUnit> {
         // TODO : can compiler state be re-used after compiling one ir tree?
         self.vm_functions.push(vec![]);
         self.local_symbols.push(vec![]);
@@ -52,29 +53,76 @@ impl Compile {
             self.insert_vm_function(function);
         }
 
-        self.compile_action_list(ir_tree.actions())?;
+        let code = self.compile_action_list(ir_tree.actions())?;
+        let globals = self.local_symbols.pop()
+            .unwrap();
+        let functions = self.vm_functions.pop()
+            .unwrap();
 
-        // TODO : compiled unit
-        Ok(())
+        Ok(CompileUnit {
+            name: String::new(),
+            code,
+            globals,
+            functions,
+        })
     }
 
     /// Converts a sequence of IR actions to a sequence of bytecode.
     fn compile_action_list<'n>(&mut self, actions: &[Action<'n>]) -> Result<Vec<Bc>> {
         let mut body = vec![];
         for action in actions {
-            let mut thunk = match action {
-                Action::Eval(value) => self.compile_value(value, ValueContext::Push)?,
-                Action::Assign(lhs, op, rhs) => self.compile_action_assign(lhs, *op, rhs)?,
-                Action::Loop(_block) => unimplemented!("IR compile Action::Loop"),
-                Action::Block(_block) => unimplemented!("IR compile Action::Block"),
-                Action::ConditionBlock { if_block, elseif_blocks, else_block } => unimplemented!("IR compile Action::CondtionBlock"),
-                Action::Return(_) => unimplemented!("IR compile Action::Return"),
-                Action::Break => unimplemented!("IR compile Action::Break"),
-                Action::Continue => unimplemented!("IR compile Action::Continue"),
-            };
-            body.append(&mut thunk);
+            body.append(&mut self.compile_action(action)?);
         }
         Ok(body)
+    }
+
+    fn compile_action<'n>(&mut self, action: &Action<'n>) -> Result<Vec<Bc>> {
+        let mut thunk = match action {
+            Action::Eval(value) => self.compile_value(value, ValueContext::Push)?,
+            Action::Assign(lhs, op, rhs) => self.compile_action_assign(lhs, *op, rhs)?,
+            Action::Loop(block) => {
+                let start_label = self.next_label();
+                let old_block_label = mem::replace(&mut self.block_label, Some(start_label));
+                let mut loop_body = self.compile_action_list(block)?;
+                loop_body.push(Bc::Jmp(start_label));
+                loop_body
+            },
+            Action::Block(block) => self.compile_action_list(block)?,
+            Action::ConditionBlock { if_block, elseif_blocks, else_block } => {
+                //let mut bc = vec![];
+                let elseif_labels: Vec<_> = elseif_blocks.iter()
+                    .map(|_| self.next_label())
+                    .collect();
+                let else_block_label = else_block.as_ref().map(|_| self.next_label());
+                let end_of_block_label = self.next_label();
+
+                // else block
+                if let Some(block) = else_block {
+                }
+
+                // elseif blocks
+                for (block, label) in elseif_blocks.iter().zip(&elseif_labels) {
+                }
+
+                // if block
+                {
+                    let next_label = elseif_labels.first()
+                        .map(|f| *f)
+                        .or(else_block_label)
+                        .unwrap_or(end_of_block_label);
+                    let condition = self.compile_comparison(&if_block.condition, next_label)?;
+                    let block = self.compile_action(&if_block.action)?;
+                    
+                }
+
+                //Ok(bc)
+                unimplemented!("action condtionblock")
+            }
+            Action::Return(_) => unimplemented!("IR compile Action::Return"),
+            Action::Break => unimplemented!("IR compile Action::Break"),
+            Action::Continue => unimplemented!("IR compile Action::Continue"),
+        };
+        Ok(thunk)
     }
 
     /// Compiles an IR function into a VM function.
@@ -184,7 +232,7 @@ impl Compile {
                 match sym.as_inner() {
                     Symbol::Function(s) => {
                         let function = self.lookup_vm_function(s)
-                            .expect(&format!("Attempted to look up unregistered function symbol (name: {})", s))
+                            .ok_or(format!("unknown function `{}`", s))?
                             .clone();
                         context.with_value_to_bytecode(vm::Value::FunctionRef(function.symbol.clone()))
                     }
@@ -215,7 +263,7 @@ impl Compile {
                 };
                 if let Some(function_name) = function_name {
                     let function = self.lookup_vm_function(function_name)
-                        .expect(&format!("Attempted to look up unregistered function symbol (name: {})", function_name))
+                        .ok_or(format!("unknown function `{}`", function_name))?
                         .clone();
                     funcall_body.push(Bc::Call(function.symbol.clone()));
                 } else {
@@ -225,6 +273,52 @@ impl Compile {
                 }
                 Ok(funcall_body)
             }
+        }
+    }
+
+    fn compile_comparison(&mut self, value: &Value, next_label: Label) -> Result<Vec<Bc>> {
+        match value {
+            Value::BinaryExpr(lhs, op, rhs) => {
+                let lhs_sym = self.insert_anonymous_symbol();
+                let rhs_sym = self.insert_anonymous_symbol();
+                let lhs = self.compile_value(lhs, ValueContext::StoreInto(lhs_sym.clone()))?;
+                let mut rhs = self.compile_value(rhs, ValueContext::StoreInto(rhs_sym.clone()))?;
+                let mut compare_body: Vec<Bc> = lhs;
+                match op {
+                    Op::Or => {
+                        compare_body.push(Bc::FuzzyCmp(vm::Value::Ref(lhs_sym.clone()), vm::Value::Bool(false)));
+                        compare_body.push(Bc::JmpEq(next_label));
+                        compare_body.append(&mut rhs);
+                        compare_body.push(Bc::FuzzyCmp(vm::Value::Ref(rhs_sym.clone()), vm::Value::Bool(false)));
+                        Ok(compare_body)
+                    },
+                    Op::And => {
+                        compare_body.push(Bc::FuzzyCmp(vm::Value::Ref(lhs_sym.clone()), vm::Value::Bool(true)));
+                        compare_body.push(Bc::JmpEq(next_label));
+                        compare_body.append(&mut rhs);
+                        compare_body.push(Bc::FuzzyCmp(vm::Value::Ref(rhs_sym.clone()), vm::Value::Bool(true)));
+                        Ok(compare_body)
+                    },
+                    Op::DoubleEquals => {
+                        compare_body.push(Bc::Cmp(vm::Value::Ref(lhs_sym.clone()), vm::Value::Ref(rhs_sym.clone())));
+                        Ok(compare_body)
+                    },
+                    Op::DoublePercent => {
+                        unimplemented!("compile IR to BC: %% operator");
+                    }
+                    Op::DoubleTilde => {
+                        compare_body.push(Bc::FuzzyCmp(vm::Value::Ref(lhs_sym.clone()), vm::Value::Ref(rhs_sym.clone())));
+                        Ok(compare_body)
+                    }
+                    Op::NotEquals => unimplemented!("compile IR to BC: != operator"), // TODO : cmpneq, or maybe push or return a comparison value to be added by the caller
+                    Op::LessEquals => unimplemented!("compile IR to BC: <= operator"),
+                    Op::GreaterEquals => unimplemented!("compile IR to BC: >= operator"),
+                    Op::Less => unimplemented!("compile IR to BC: < operator"),
+                    Op::Greater => unimplemented!("compile IR to BC: >  operator"),
+                    _ => unimplemented!(),
+                }
+            }
+            _ => unimplemented!()
         }
     }
 
@@ -258,6 +352,15 @@ impl Compile {
         self.local_symbols
             .last().unwrap()
             .last().unwrap()
+    }
+
+    /// Creates an anonymous, compiler-generated symbol that cannot be referred to in code.
+    fn insert_anonymous_symbol(&mut self) -> vm::Symbol {
+        let symbol_name = {
+            let local_symbols = self.local_symbols.last().unwrap();
+            format!("anonymous symbol #{}", local_symbols.len())
+        };
+        self.insert_local_symbol(symbol_name).clone()
     }
 
     /// Looks up a symbol in the `local_symbols` table.
@@ -350,4 +453,12 @@ impl ValueContext {
             ValueContext::StoreInto(sym_store) => Ok(vec![Bc::Store(sym_store, vm::Value::Ref(sym))]),
         }
     }
+}
+
+#[derive(Debug)]
+pub struct CompileUnit {
+    pub name: String,
+    pub code: Vec<Bc>,
+    pub globals: Vec<vm::Symbol>,
+    pub functions: Vec<vm::Function>,
 }

@@ -88,7 +88,7 @@ impl<'n> Range<'n> {
 }
 
 #[derive(Clone, Debug)]
-pub struct Ranged<'n, T>(Range<'n>, pub (in syntax) T)
+pub struct Ranged<'n, T>(pub Range<'n>, pub T)
     where T: Sized + Clone + Debug;
 
 impl<'n, T> Ranged<'n, T>

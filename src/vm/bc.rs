@@ -32,7 +32,16 @@ pub enum Bc {
     PopFunctionRefAndCall,
 
     /// Compares two values, setting the comparison flag.
+    FuzzyCmp(Value, Value),
+
+    /// Compares two values, setting the comparison flag.
     Cmp(Value, Value),
+
+    /// Exit the current function, optionally pushing the returned value on the stack.
+    Ret(Option<Value>),
+
+    /// Unconditinally jumps to a label.
+    Jmp(Label),
 
     /// Jumps to a label, if the comparison flag is 0.
     JmpEq(Label),
