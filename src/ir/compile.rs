@@ -81,45 +81,55 @@ impl Compile {
             Action::Loop(block) => {
                 let mut loop_body = self.compile_action_list(block)?;
                 loop_body.push(Bc::Compare(Condition::Always));
-                loop_body.push(Bc::JumpBlockTop);
+                loop_body.push(Bc::JumpBlockTop(0));
                 loop_body
             },
             Action::Block(block) => self.compile_action_list(block)?,
             Action::ConditionBlock { if_block, elseif_blocks, else_block } => {
-                /*
-                //let mut bc = vec![];
-                let elseif_labels: Vec<_> = elseif_blocks.iter()
-                    .map(|_| self.next_label())
-                    .collect();
-                let else_block_label = else_block.as_ref().map(|_| self.next_label());
-                let end_of_block_label = self.next_label();
-
-                // else block
-                if let Some(_block) = else_block {
-                }
-
-                // elseif blocks
-                for (_block, _label) in elseif_blocks.iter().zip(&elseif_labels) {
-                }
+                let mut bc = vec![];
 
                 // if block
                 {
-                    let next_label = elseif_labels.first()
-                        .map(|f| *f)
-                        .or(else_block_label)
-                        .unwrap_or(end_of_block_label);
-                    let condition = self.compile_comparison(&if_block.condition, next_label)?;
-                    let block = self.compile_action(&if_block.action)?;
-                    
+                    bc.append(&mut self.compile_comparison(&if_block.condition)?);
+                    let block = if let Action::Block(ref block) = if_block.action {
+                        let mut bc_block = self.compile_action_list(block)?;
+                        bc_block.push(Bc::ExitBlock(1));
+                        Bc::ConditionBlock(bc_block)
+                    } else {
+                        panic!("action block was not Action::Block (is this possible?)");
+                    };
+                    bc.push(block);
                 }
-                */
 
-                //Ok(bc)
-                unimplemented!("action condtionblock")
+                // elseif blocks
+                for block in elseif_blocks {
+                    bc.append(&mut self.compile_comparison(&block.condition)?);
+                    let block = if let Action::Block(ref block) = block.action {
+                        let mut bc_block = self.compile_action_list(block)?;
+                        bc_block.push(Bc::ExitBlock(1));
+                        Bc::ConditionBlock(bc_block)
+                    } else {
+                        panic!("action block was not Action::Block (is this possible?)");
+                    };
+                    bc.push(block);
+                }
+
+                // else block
+                if let Some(block) = else_block {
+                    let block = if let Action::Block(ref block) = block.as_ref() {
+                        self.compile_action_list(block)?
+                    } else {
+                        panic!("action block was not Action::Block (is this possible?)");
+                    };
+                    bc.push(Bc::Block(block));
+                }
+
+                bc
             }
-            Action::Return(s) => unimplemented!("IR compile Action::Return"),
-            Action::Break => vec![Bc::Compare(Condition::Always), Bc::ExitBlock],
-            Action::Continue => vec![Bc::Compare(Condition::Always), Bc::JumpBlockTop],
+            Action::Return(None) => vec![Bc::Ret(None)],
+            Action::Return(Some(ref s)) => self.compile_value(s, ValueContext::Ret)?,
+            Action::Break => vec![Bc::Compare(Condition::Always), Bc::ExitBlock(0)],
+            Action::Continue => vec![Bc::Compare(Condition::Always), Bc::JumpBlockTop(0)],
         };
         Ok(thunk)
     }
@@ -215,19 +225,19 @@ impl Compile {
     /// Compiles the given value (with usage context) into a thunk.
     fn compile_value(&mut self, value: &Value, context: ValueContext) -> Result<Vec<Bc>> {
         match value {
-            Value::Const(value) => context.with_value_to_bytecode(value.as_inner().clone().into()),
+            Value::Const(value) => Ok(context.with_value_to_bytecode(value.as_inner().clone().into())),
             Value::Symbol(sym) => {
                 match sym.as_inner() {
                     Symbol::Function(s) => {
                         let function = self.lookup_vm_function(s)
                             .ok_or(format!("unknown function `{}`", s))?
                             .clone();
-                        context.with_value_to_bytecode(vm::Value::FunctionRef(function.symbol().clone()))
+                        Ok(context.with_value_to_bytecode(vm::Value::FunctionRef(function.symbol().clone())))
                     }
                     Symbol::Bareword(_) => unimplemented!("compiling IR to bytecode => constant value lookup"),
                     Symbol::Variable(s) => {
                         let symbol = self.lookup_or_insert_local_symbol(s).clone();
-                        context.with_symbol_to_bytecode(symbol)
+                        Ok(context.with_symbol_to_bytecode(symbol))
                     }
                 }
             }
@@ -415,21 +425,21 @@ enum ValueContext {
     /// a symbol.
     StoreInto(vm::Symbol),
 
+    /// This value is going to be returned.
+    Ret,
 }
 
 impl ValueContext {
-    fn with_value_to_bytecode(self, value: vm::Value) -> Result<Vec<Bc>> {
+    fn with_value_to_bytecode(self, value: vm::Value) -> Vec<Bc> {
         match self {
-            ValueContext::Push => Ok(vec![Bc::PushValue(value)]),
-            ValueContext::StoreInto(sym_store) => Ok(vec![Bc::Store(sym_store, value)]),
+            ValueContext::Push => vec![Bc::PushValue(value)],
+            ValueContext::StoreInto(sym_store) => vec![Bc::Store(sym_store, value)],
+            ValueContext::Ret => vec![Bc::Ret(Some(value))],
         }
     }
 
-    fn with_symbol_to_bytecode(self, sym: vm::Symbol) -> Result<Vec<Bc>> {
-        match self {
-            ValueContext::Push => Ok(vec![Bc::PushSymbolValue(sym)]),
-            ValueContext::StoreInto(sym_store) => Ok(vec![Bc::Store(sym_store, vm::Value::Ref(sym))]),
-        }
+    fn with_symbol_to_bytecode(self, sym: vm::Symbol) -> Vec<Bc> {
+        self.with_value_to_bytecode(vm::Value::Ref(sym))
     }
 }
 

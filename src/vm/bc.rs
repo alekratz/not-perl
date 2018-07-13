@@ -36,10 +36,17 @@ pub enum Bc {
     /// A block of bytecode to execute
     Block(Vec<Bc>),
 
-    /// Jumps to the top of the currently executing block.
-    JumpBlockTop,
+    /// A block of bytecode that is only executed when the comparison flag is set.
+    ConditionBlock(Vec<Bc>),
 
-    /// Prematurely exits the current block.
-    ExitBlock,
+    /// Jumps to the top of the Nth block above this one.
+    ///
+    /// If set to 0, this will jump to the top of the current block.
+    JumpBlockTop(usize),
+
+    /// Prematurely exits the Nth block above this one.
+    ///
+    /// If set to 0, this will exit the current block.
+    ExitBlock(usize),
 }
 

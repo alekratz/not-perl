@@ -40,8 +40,8 @@ pub struct Vm {
 
     /// Comparison flag.
     ///
-    /// This is the result of the most recent Bc::Cmp comparison.
-    cmp_flag: isize,
+    /// This is set to "true" when a `Bc::Condition` instruction evaluates to "true".
+    compare_flag: bool,
 
     /// A stack of program counter values, per call frame.
     program_counter: Vec<usize>,
