@@ -6,7 +6,7 @@ use ir::Const;
 /// Numerically indexed values are the primary method of storing and loading values.
 pub type ValueIndex = usize;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Value {
     Int(i64),
     //Bignum(

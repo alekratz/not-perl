@@ -1,8 +1,4 @@
-use vm::{Value, Symbol};
-
-/// A label in code for the VM.
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
-pub struct Label(pub usize);
+use vm::{Value, Symbol, Condition};
 
 #[derive(Debug, Clone)]
 pub enum Bc {
@@ -31,34 +27,19 @@ pub enum Bc {
     /// Pops off a function ref, and calls it.
     PopFunctionRefAndCall,
 
-    /// Compares two values, setting the comparison flag.
-    FuzzyCmp(Value, Value),
-
-    /// Compares two values, setting the comparison flag.
-    Cmp(Value, Value),
+    /// Performs a comparison.
+    Compare(Condition),
 
     /// Exit the current function, optionally pushing the returned value on the stack.
     Ret(Option<Value>),
 
-    /// Unconditinally jumps to a label.
-    Jmp(Label),
+    /// A block of bytecode to execute
+    Block(Vec<Bc>),
 
-    /// Jumps to a label, if the comparison flag is 0.
-    JmpEq(Label),
+    /// Jumps to the top of the currently executing block.
+    JumpBlockTop,
 
-    /// Jumps to a label, if the comparison flag is not 0.
-    JmpNeq(Label),
-    
-    /// Jumps to a label, if the comparison flag is <0.
-    JmpLt(Label),
-
-    /// Jumps to a label, if the comparison flag is <=0.
-    JmpLe(Label),
-
-    /// Jumps to a label, if the comparison flag is >0.
-    JmpGt(Label),
-
-    /// Jumps to a label, if the comparison flag is >=0.
-    JmpGe(Label),
+    /// Prematurely exits the current block.
+    ExitBlock,
 }
 

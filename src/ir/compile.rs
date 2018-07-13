@@ -2,7 +2,7 @@ use std::mem;
 use syntax::token::{Op, AssignOp};
 use ir::*;
 use vm::{
-    self, Bc, Label
+    self, Bc, Condition, CompareOp,
 };
 
 /// A compilation error.
@@ -16,11 +16,8 @@ pub struct Compile {
     vm_functions: Vec<Vec<vm::Function>>,
     //constants: Vec<
     local_symbols: Vec<Vec<vm::Symbol>>,
-    labels: Vec<Vec<Label>>,
     function_count: usize,
     local_symbol_count: usize,
-    label_count: usize,
-    block_label: Option<Label>,
 }
 
 impl Compile {
@@ -33,20 +30,17 @@ impl Compile {
                     .collect()
             ],
             local_symbols: vec![],
-            labels: vec![],
 
             function_count: vm::BUILTIN_FUNCTIONS.len(),
             local_symbol_count: 0,
-            label_count: 0,
-            block_label: None,
         }
     }
 
     pub fn compile_ir_tree<'n>(&mut self, ir_tree: &IrTree<'n>) -> Result<CompileUnit> {
         // TODO : can compiler state be re-used after compiling one ir tree?
+        // A: probably not
         self.vm_functions.push(vec![]);
         self.local_symbols.push(vec![]);
-        self.labels.push(vec![]);
 
         // compile functions
         for function in ir_tree.functions() {
@@ -85,15 +79,14 @@ impl Compile {
             Action::Eval(value) => self.compile_value(value, ValueContext::Push)?,
             Action::Assign(lhs, op, rhs) => self.compile_action_assign(lhs, *op, rhs)?,
             Action::Loop(block) => {
-                let start_label = self.next_label();
-                let old_block_label = mem::replace(&mut self.block_label, Some(start_label));
                 let mut loop_body = self.compile_action_list(block)?;
-                loop_body.push(Bc::Jmp(start_label));
-                self.block_label = old_block_label;
+                loop_body.push(Bc::Compare(Condition::Always));
+                loop_body.push(Bc::JumpBlockTop);
                 loop_body
             },
             Action::Block(block) => self.compile_action_list(block)?,
             Action::ConditionBlock { if_block, elseif_blocks, else_block } => {
+                /*
                 //let mut bc = vec![];
                 let elseif_labels: Vec<_> = elseif_blocks.iter()
                     .map(|_| self.next_label())
@@ -119,13 +112,14 @@ impl Compile {
                     let block = self.compile_action(&if_block.action)?;
                     
                 }
+                */
 
                 //Ok(bc)
                 unimplemented!("action condtionblock")
             }
             Action::Return(s) => unimplemented!("IR compile Action::Return"),
-            Action::Break => unimplemented!("IR compile Action::Break"),
-            Action::Continue => unimplemented!("IR compile Action::Continue"),
+            Action::Break => vec![Bc::Compare(Condition::Always), Bc::ExitBlock],
+            Action::Continue => vec![Bc::Compare(Condition::Always), Bc::JumpBlockTop],
         };
         Ok(thunk)
     }
@@ -163,17 +157,9 @@ impl Compile {
             Ty::Definite(name) => vm::Ty::Definite(name.to_string()),
         };
 
-        // create a new label context since we're inside of a function
-        let old_label_count = self.label_count;
-        self.label_count = 0;
-        self.labels.push(vec![]);
-
         let body = self.compile_action_list(&function.body)?;
-
-        self.label_count = old_label_count;
-        let labels = self.labels.pop().unwrap();
         let locals = self.local_symbols.pop().unwrap();
-        Ok(vm::UserFunction { symbol, params, return_ty, locals, body, labels })
+        Ok(vm::UserFunction { symbol, params, return_ty, locals, body })
     }
 
     fn compile_function_param<'n>(&mut self, FunctionParam { name, ty, default: _ }: &FunctionParam<'n>)
@@ -278,50 +264,47 @@ impl Compile {
         }
     }
 
-    fn compile_comparison(&mut self, value: &Value, next_label: Label) -> Result<Vec<Bc>> {
-        match value {
+    fn compile_comparison(&mut self, value: &Value) -> Result<Vec<Bc>> {
+        let comparison = match value {
             Value::BinaryExpr(lhs, op, rhs) => {
-                let lhs_sym = self.insert_anonymous_symbol();
-                let rhs_sym = self.insert_anonymous_symbol();
-                let lhs = self.compile_value(lhs, ValueContext::StoreInto(lhs_sym.clone()))?;
-                let mut rhs = self.compile_value(rhs, ValueContext::StoreInto(rhs_sym.clone()))?;
-                let mut compare_body: Vec<Bc> = lhs;
                 match op {
-                    Op::Or => {
-                        compare_body.push(Bc::FuzzyCmp(vm::Value::Ref(lhs_sym.clone()), vm::Value::Bool(false)));
-                        compare_body.push(Bc::JmpEq(next_label));
-                        compare_body.append(&mut rhs);
-                        compare_body.push(Bc::FuzzyCmp(vm::Value::Ref(rhs_sym.clone()), vm::Value::Bool(false)));
-                        Ok(compare_body)
-                    },
-                    Op::And => {
-                        compare_body.push(Bc::FuzzyCmp(vm::Value::Ref(lhs_sym.clone()), vm::Value::Bool(true)));
-                        compare_body.push(Bc::JmpEq(next_label));
-                        compare_body.append(&mut rhs);
-                        compare_body.push(Bc::FuzzyCmp(vm::Value::Ref(rhs_sym.clone()), vm::Value::Bool(true)));
-                        Ok(compare_body)
-                    },
-                    Op::DoubleEquals => {
-                        compare_body.push(Bc::Cmp(vm::Value::Ref(lhs_sym.clone()), vm::Value::Ref(rhs_sym.clone())));
-                        Ok(compare_body)
-                    },
-                    Op::DoublePercent => {
-                        unimplemented!("compile IR to BC: %% operator");
+                    | Op::Or
+                    | Op::And
+                    | Op::DoubleEquals
+                    | Op::DoublePercent
+                    | Op::DoubleTilde
+                    | Op::NotEquals
+                    | Op::LessEquals
+                    | Op::GreaterEquals
+                    | Op::Less
+                    | Op::Greater => {
+                        let lhs_sym = self.insert_anonymous_symbol();
+                        let rhs_sym = self.insert_anonymous_symbol();
+                        // TODO : short-circuiting?
+                        let mut body = self.compile_value(lhs, ValueContext::StoreInto(lhs_sym.clone()))?;
+                        body.append(&mut self.compile_value(rhs, ValueContext::StoreInto(rhs_sym.clone()))?);
+                        let lhs_sym = vm::Value::Ref(lhs_sym);
+                        let rhs_sym = vm::Value::Ref(rhs_sym);
+                        vec![Bc::Compare(Condition::Compare(lhs_sym, CompareOp::from_syntax(&op).unwrap(), rhs_sym))]
                     }
-                    Op::DoubleTilde => {
-                        compare_body.push(Bc::FuzzyCmp(vm::Value::Ref(lhs_sym.clone()), vm::Value::Ref(rhs_sym.clone())));
-                        Ok(compare_body)
+                    _ => {
+                        let result_sym = self.insert_anonymous_symbol();
+                        let mut value_body = self.compile_value(value, ValueContext::StoreInto(result_sym.clone()))?;
+                        let result_sym = vm::Value::Ref(result_sym);
+                        value_body.push(Bc::Compare(Condition::Truthy(result_sym)));
+                        value_body
                     }
-                    Op::NotEquals => unimplemented!("compile IR to BC: != operator"), // TODO : cmpneq, or maybe push or return a comparison value to be added by the caller
-                    Op::LessEquals => unimplemented!("compile IR to BC: <= operator"),
-                    Op::GreaterEquals => unimplemented!("compile IR to BC: >= operator"),
-                    Op::Less => unimplemented!("compile IR to BC: < operator"),
-                    Op::Greater => unimplemented!("compile IR to BC: >  operator"),
-                    _ => unimplemented!(),
                 }
             }
-            _ => unimplemented!()
-        }
+            _ => {
+                let result_sym = self.insert_anonymous_symbol();
+                let mut value_body = self.compile_value(value, ValueContext::StoreInto(result_sym.clone()))?;
+                let result_sym = vm::Value::Ref(result_sym);
+                value_body.push(Bc::Compare(Condition::Truthy(result_sym)));
+                value_body
+            }
+        };
+        Ok(comparison)
     }
 
     /// Looks up a local symbol, or inserts it if necessary.
@@ -415,13 +398,6 @@ impl Compile {
             .rev()
             .filter_map(|collection| collection.iter().find(|function| function.name() == symbol_name))
             .next()
-    }
-
-    /// Creates a new label, incrementing the label sequence in this context.
-    fn next_label(&mut self) -> Label {
-        let label = Label(self.label_count);
-        self.label_count += 1;
-        label
     }
 
     fn err(&self, message: String) -> Error {

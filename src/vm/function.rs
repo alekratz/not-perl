@@ -1,7 +1,6 @@
 use vm::{
     Symbol,
     Bc,
-    Label,
     Ty,
     ty,
 };
@@ -32,19 +31,16 @@ pub struct UserFunction {
     pub return_ty: Ty,
     pub locals: Vec<Symbol>,
     pub body: Vec<Bc>,
-    pub labels: Vec<Label>,
 }
 
 impl UserFunction {
-    pub fn new(symbol: Symbol, params: Vec<FunctionParam>, return_ty: Ty, locals: Vec<Symbol>, body: Vec<Bc>,
-               labels: Vec<Label>) -> Self {
+    pub fn new(symbol: Symbol, params: Vec<FunctionParam>, return_ty: Ty, locals: Vec<Symbol>, body: Vec<Bc>) -> Self {
         UserFunction {
             symbol,
             params,
             return_ty,
             locals,
             body,
-            labels,
         }
     }
     pub fn name(&self) -> &str {

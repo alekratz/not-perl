@@ -4,6 +4,7 @@ mod scope;
 mod function;
 mod ty;
 mod bc;
+mod condition;
 
 pub use self::value::*;
 pub use self::symbol::*;
@@ -11,6 +12,7 @@ pub use self::scope::*;
 pub use self::function::*;
 pub use self::ty::*;
 pub use self::bc::*;
+pub use self::condition::*;
 
 pub type Error = String;
 pub type Result<T> = ::std::result::Result<T, Error>;
@@ -87,9 +89,6 @@ impl Vm {
                     }
                     Bc::PopFunctionRefAndCall => {
                         unimplemented!("Bc::PopFunctionRefAndCall")
-                    }
-                    Bc::Cmp(_v1, _v2) => {
-                        unimplemented!("Bc::Cmp")
                     }
                     _ => unimplemented!(),
                 }
