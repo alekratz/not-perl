@@ -54,12 +54,10 @@ pub enum Bc {
     /// symbol.
     BinOpStore(Value, Op, Value, Symbol),
 
-    /// Performs a binary operation with the given op and lhs/rhs, and stores it into the top stack
-    /// item.
+    /// Performs a binary operation with the given op and lhs/rhs, and pushes the result.
     ///
     /// The top stack item follows the same pattern as all others: top must be a value ref,
     /// followed by a ref canary. If either are not present, a VM runtime error is thrown.
-    BinOpPop(Value, Op, Value),
-
+    BinOpPush(Value, Op, Value),
 }
 

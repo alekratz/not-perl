@@ -219,17 +219,9 @@ impl Compile {
         };
 
         if let Some(op) = vm_op {
-            let lhs_sym = self.insert_anonymous_symbol();
-            let rhs_sym = self.insert_anonymous_symbol();
-            assign_body.append(&mut self.compile_value(lhs, ValueContext::StoreInto(lhs_sym.clone()))?);
-            assign_body.append(&mut self.compile_value(rhs, ValueContext::StoreInto(rhs_sym.clone()))?);
-            let lhs_sym = vm::Value::Ref(lhs_sym);
-            let rhs_sym = vm::Value::Ref(rhs_sym);
-            if let ValueContext::StoreInto(target) = lhs_context {
-                assign_body.push(Bc::BinOpStore(lhs_sym, op, rhs_sym, target));
-            } else {
-                assign_body.push(Bc::BinOpPop(lhs_sym, op, rhs_sym));
-            }
+            let lhs = Box::new(lhs.clone());
+            let rhs = Box::new(rhs.clone());
+            assign_body.append(&mut self.compile_value(&Value::BinaryExpr(lhs, op, rhs), lhs_context)?)
         } else {
             if lhs_context == ValueContext::Push {
                 // evaluate LHS, evaluate RHS, pop RHS into LHS ref
@@ -244,6 +236,23 @@ impl Compile {
         }
 
         Ok(assign_body)
+    }
+
+    /// Converts a value known to be an immediate into a VM value.
+    fn convert_immediate_value(&mut self, value: &Value) -> vm::Value {
+        match value {
+            Value::Const(value) => {
+                let value = value.as_inner()
+                    .clone();
+                vm::Value::from(value)
+            },
+            Value::Symbol(value) => {
+                let sym = self.lookup_or_insert_local_symbol(value.as_inner().name())
+                    .clone();
+                vm::Value::Ref(sym)
+            },
+            _ => panic!("{:?} is not an immediate value", value),
+        }
     }
 
     /// Compiles the given value (with usage context) into a thunk.
@@ -266,7 +275,35 @@ impl Compile {
                 }
             }
             Value::ArrayAccess(_, _) => unimplemented!("compiling IR to bytecode => array access"),
-            Value::BinaryExpr(_, _, _) => unimplemented!("compiling IR to bytecode => binary operation"), 
+            Value::BinaryExpr(lhs, op, rhs) => {
+                let mut expr_body = vec![];
+                // TODO : compound this into a lambda or something
+
+                // LHS
+                let lhs_value = if lhs.is_immediate() {
+                    self.convert_immediate_value(lhs)
+                } else {
+                    let lhs_sym = self.insert_anonymous_symbol();
+                    expr_body.append(&mut self.compile_value(lhs, ValueContext::StoreInto(lhs_sym.clone()))?);
+                    vm::Value::Ref(lhs_sym)
+                };
+                // RHS
+                let rhs_value = if rhs.is_immediate() {
+                    self.convert_immediate_value(rhs)
+                } else {
+                    let rhs_sym = self.insert_anonymous_symbol();
+                    expr_body.append(&mut self.compile_value(rhs, ValueContext::StoreInto(rhs_sym.clone()))?);
+                    vm::Value::Ref(rhs_sym)
+                };
+                // make this mutable so we can update it in the event that it's a Ret context
+                let mut context = context;
+                if context == ValueContext::Ret {
+                    let result_sym = self.insert_anonymous_symbol();
+                    context = ValueContext::StoreInto(result_sym);
+                }
+                expr_body.append(&mut context.with_binop_to_bytecode(lhs_value, op.clone(), rhs_value));
+                Ok(expr_body)
+            }
             Value::UnaryExpr(_, _) => unimplemented!("compiling IR to bytecode => unary operation"), 
             Value::FunCall(expr, args) => {
                 let mut funcall_body = vec![];
@@ -375,6 +412,7 @@ impl Compile {
 
     /// Creates an anonymous, compiler-generated symbol that cannot be referred to in code.
     fn insert_anonymous_symbol(&mut self) -> vm::Symbol {
+        // TODO : Figure out how to re-use these when they're done (mite be difficult)
         let symbol_name = {
             let local_symbols = self.local_symbols.last().unwrap();
             format!("anonymous symbol #{}", local_symbols.len())
@@ -466,6 +504,14 @@ impl ValueContext {
 
     fn with_symbol_to_bytecode(self, sym: vm::Symbol) -> Vec<Bc> {
         self.with_value_to_bytecode(vm::Value::Ref(sym))
+    }
+
+    fn with_binop_to_bytecode(self, lhs: vm::Value, op: Op, rhs: vm::Value) -> Vec<Bc> {
+        match self {
+            ValueContext::Push => vec![Bc::BinOpPush(lhs, op, rhs)],
+            ValueContext::StoreInto(sym_store) => vec![Bc::BinOpStore(lhs, op, rhs, sym_store)],
+            ValueContext::Ret => panic!("can't compile ValueContext::Ret with binary operations, this should have been caught"),
+        }
     }
 }
 

@@ -46,6 +46,19 @@ pub enum Value<'n> {
     FunCall(Box<Value<'n>>, Vec<Value<'n>>),
 }
 
+impl<'n> Value<'n> {
+    /// Determines whether this value can be treated as an "immediate".
+    pub fn is_immediate(&self) -> bool {
+        match self {
+            // constants and symbols can immediately be accessed
+            | Value::Const(_)
+            | Value::Symbol(_) => true,
+            // arrays, binary exprs, unary exprs, and function calls must be evaluated
+            _ => false,
+        }
+    }
+}
+
 impl<'n> Ir<Expr<'n>> for Value<'n> {
     fn from_syntax(expr: &Expr<'n>) -> Self {
         match expr {
