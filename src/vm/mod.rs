@@ -1,3 +1,5 @@
+use ir::CompileUnit;
+
 mod value;
 mod symbol;
 mod scope;
@@ -26,8 +28,8 @@ pub struct Vm {
     /// This usually will have a height of 1.
     scope_stack: Vec<Scope>,
 
-    /// Stack of function call stacks.
-    stack_stack: Vec<Vec<Value>>,
+    /// Main program stack.
+    value_stack: Vec<Vec<Value>>,
 
     /// An array of functions, indexed by the function "number".
     code: Vec<Function>,
@@ -41,6 +43,8 @@ pub struct Vm {
     /// Comparison flag.
     ///
     /// This is set to "true" when a `Bc::Condition` instruction evaluates to "true".
+    ///
+    /// On VM startup, this is set to false.
     compare_flag: bool,
 
     /// A stack of program counter values, per call frame.
@@ -48,13 +52,24 @@ pub struct Vm {
 }
 
 impl Vm {
+    pub fn from_compile_unit( CompileUnit { name: _name, main_function, mut functions }: CompileUnit) -> Self {
+        functions.push(main_function);
+        Vm {
+            scope_stack: vec![],
+            value_stack: vec![],
+            code: functions,
+            call_stack: vec![],
+            constants: vec![], // TODO : constants
+            compare_flag: false,
+            program_counter: vec![],
+        }
+    }
 
     /// Starts this VM a-runnin'.
     pub fn launch(&mut self) -> Result<()> {
-        // first code index is the global scope
         assert!(self.code.len() >= 1);
-        self.call_stack.push(0);
-        Ok(())
+        self.call_stack.push(self.code.len() - 1);
+        self.run_function()
     }
 
     /// Runs the function on top of the call stack.

@@ -38,9 +38,7 @@ impl Compile {
         }
     }
 
-    pub fn compile_ir_tree<'n>(&mut self, ir_tree: &IrTree<'n>) -> Result<CompileUnit> {
-        // TODO : can compiler state be re-used after compiling one ir tree?
-        // A: probably not
+    pub fn compile_ir_tree<'n>(mut self, ir_tree: &IrTree<'n>) -> Result<CompileUnit> {
         self.vm_functions.push(vec![]);
         self.local_symbols.push(vec![]);
 
@@ -56,12 +54,22 @@ impl Compile {
         let code = self.compile_action_list(ir_tree.actions())?;
         let globals = self.local_symbols.pop()
             .unwrap();
-        let functions = self.all_functions.clone();
+        self.vm_functions.clear();
+        let functions = self.all_functions
+            .into_iter()
+            .map(|f| Rc::try_unwrap(f).unwrap())
+            .collect();
+        let main_function = vm::Function::User(vm::UserFunction {
+            symbol: vm::Symbol::Function(self.function_count, "__main__".to_string()),
+            params: vec![],
+            return_ty: vm::Ty::None,
+            locals: globals,
+            body: code,
+        });
 
         Ok(CompileUnit {
             name: String::new(),
-            code,
-            globals,
+            main_function,
             functions,
         })
     }
@@ -518,7 +526,6 @@ impl ValueContext {
 #[derive(Debug)]
 pub struct CompileUnit {
     pub name: String,
-    pub code: Vec<Bc>,
-    pub globals: Vec<vm::Symbol>,
-    pub functions: Vec<Rc<vm::Function>>,
+    pub main_function: vm::Function,
+    pub functions: Vec<vm::Function>,
 }

@@ -45,8 +45,19 @@ fn main() {
 
     let ir_tree = IrTree::from_syntax(&tree);
     //let bytecode = ir_tree.compile_to_bytecode();
-    let mut compiler = Compile::new();
-    println!("{:#?}", ir_tree);
-    let code = println!("{:#?}", compiler.compile_ir_tree(&ir_tree));
-    println!("{:#?}", code);
+    let compiler = Compile::new();
+    //println!("{:#?}", ir_tree);
+    //println!("{:#?}", code);
+    let compile_unit = match compiler.compile_ir_tree(&ir_tree) {
+        Ok(cu) => cu,
+        Err(e) => {
+            eprintln!("could not compile {}: {}", filename, e);
+            process::exit(1);
+        },
+    };
+    let mut vm = vm::Vm::from_compile_unit(compile_unit);
+    if let Err(e) = vm.launch() {
+        eprintln!("VM runtime error in {}: {}", filename, e);
+        process::exit(1);
+    }
 }

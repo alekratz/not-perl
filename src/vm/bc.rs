@@ -1,5 +1,5 @@
 use syntax::token::Op;
-use vm::{Value, Symbol, Condition, CompareOp};
+use vm::{Value, Symbol, Condition};
 
 #[derive(Debug, Clone)]
 pub enum Bc {
