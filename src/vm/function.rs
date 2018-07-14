@@ -109,8 +109,10 @@ macro_rules! builtin {
 lazy_static! {
     pub static ref BUILTIN_FUNCTIONS: Vec<BuiltinFunction> = {
         vec![
+            // BEGIN BUILTINS //////////////////////////////////////////////////
             builtin!(print (Ty::Any) -> Ty::None),
             builtin!(readln () -> Ty::Definite(ty::STR_DEFINITE.to_string())),
+            // END BUILTINS ////////////////////////////////////////////////////
         ].into_iter()
             .enumerate()
             .map(|(num, BuiltinFunction { symbol, params, return_ty })| {

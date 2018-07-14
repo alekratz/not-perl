@@ -1,4 +1,4 @@
-use std::mem;
+use std::rc::Rc;
 use syntax::token::{Op, AssignOp};
 use ir::*;
 use vm::{
@@ -13,7 +13,8 @@ pub type Result<T> = ::std::result::Result<T, Error>;
 
 /// IR to bytecode compiler, complete with state.
 pub struct Compile {
-    vm_functions: Vec<Vec<vm::Function>>,
+    vm_functions: Vec<Vec<Rc<vm::Function>>>,
+    all_functions: Vec<Rc<vm::Function>>,
     //constants: Vec<
     local_symbols: Vec<Vec<vm::Symbol>>,
     function_count: usize,
@@ -22,13 +23,14 @@ pub struct Compile {
 
 impl Compile {
     pub fn new() -> Self {
+        let all_functions: Vec<_> = vm::BUILTIN_FUNCTIONS.iter()
+            .cloned()
+            .map(vm::Function::Builtin)
+            .map(Rc::new)
+            .collect();
         Compile {
-            vm_functions: vec![
-                vm::BUILTIN_FUNCTIONS.iter()
-                    .cloned()
-                    .map(vm::Function::Builtin)
-                    .collect()
-            ],
+            vm_functions: vec![all_functions.clone()],
+            all_functions,
             local_symbols: vec![],
 
             function_count: vm::BUILTIN_FUNCTIONS.len(),
@@ -54,8 +56,7 @@ impl Compile {
         let code = self.compile_action_list(ir_tree.actions())?;
         let globals = self.local_symbols.pop()
             .unwrap();
-        let functions = self.vm_functions.pop()
-            .unwrap();
+        let functions = self.all_functions.clone();
 
         Ok(CompileUnit {
             name: String::new(),
@@ -74,6 +75,7 @@ impl Compile {
         Ok(body)
     }
 
+    /// Compiles an IR action into a sequence of bytecode.
     fn compile_action<'n>(&mut self, action: &Action<'n>) -> Result<Vec<Bc>> {
         let thunk = match action {
             Action::Eval(value) => self.compile_value(value, ValueContext::Push)?,
@@ -124,7 +126,7 @@ impl Compile {
                     bc.push(Bc::Block(block));
                 }
 
-                bc
+                vec![Bc::Block(bc)]
             }
             Action::Return(None) => vec![Bc::Ret(None)],
             Action::Return(Some(ref s)) => self.compile_value(s, ValueContext::Ret)?,
@@ -192,8 +194,10 @@ impl Compile {
             Value::Symbol(range_sym) => {
                 // get the known LHS symbol
                 let vm_symbol = match range_sym.as_inner() {
-                    Symbol::Function(_) => unimplemented!("IR function lookup (return an error because it's on the LHS)"),
-                    Symbol::Bareword(_) => unimplemented!("IR constant lookup (return an error because it's on the LHS)"),
+                    Symbol::Function(f) =>
+                        return Err(self.err(format!("found function `{}` on the lhs of an assignment, which is not valid", f))),
+                    Symbol::Bareword(b) =>
+                        return Err(self.err(format!("found bareword `{}` on the lhs of an assignment, which is not valid", b))),
                     Symbol::Variable(s) => self.lookup_or_insert_local_symbol(s).clone(),
                 };
                 ValueContext::StoreInto(vm_symbol)
@@ -203,20 +207,40 @@ impl Compile {
             _ => ValueContext::Push,
         };
         let mut assign_body = vec![];
+        
 
-        if op != AssignOp::Equals {
-            unimplemented!("IR compound assignment operators such as += or -=")
-        }
+        let vm_op = match op {
+            AssignOp::PlusEquals => Some(Op::Plus),
+            AssignOp::MinusEquals => Some(Op::Minus),
+            AssignOp::SplatEquals => Some(Op::Splat),
+            AssignOp::FSlashEquals => Some(Op::FSlash),
+            AssignOp::TildeEquals => Some(Op::Tilde),
+            AssignOp::Equals => None,
+        };
 
-        if lhs_context == ValueContext::Push {
-            // evaluate LHS, evaluate RHS, pop RHS into LHS ref
-            assign_body.push(Bc::PushValue(vm::Value::RefCanary));
-            assign_body.append(&mut self.compile_value(lhs, ValueContext::Push)?);
-            assign_body.append(&mut self.compile_value(rhs, ValueContext::Push)?);
-            assign_body.push(Bc::PopRefAndStore);
+        if let Some(op) = vm_op {
+            let lhs_sym = self.insert_anonymous_symbol();
+            let rhs_sym = self.insert_anonymous_symbol();
+            assign_body.append(&mut self.compile_value(lhs, ValueContext::StoreInto(lhs_sym.clone()))?);
+            assign_body.append(&mut self.compile_value(rhs, ValueContext::StoreInto(rhs_sym.clone()))?);
+            let lhs_sym = vm::Value::Ref(lhs_sym);
+            let rhs_sym = vm::Value::Ref(rhs_sym);
+            if let ValueContext::StoreInto(target) = lhs_context {
+                assign_body.push(Bc::BinOpStore(lhs_sym, op, rhs_sym, target));
+            } else {
+                assign_body.push(Bc::BinOpPop(lhs_sym, op, rhs_sym));
+            }
         } else {
-            // boring 'ol store
-            assign_body.append(&mut self.compile_value(rhs, lhs_context)?);
+            if lhs_context == ValueContext::Push {
+                // evaluate LHS, evaluate RHS, pop RHS into LHS ref
+                assign_body.push(Bc::PushValue(vm::Value::RefCanary));
+                assign_body.append(&mut self.compile_value(lhs, ValueContext::Push)?);
+                assign_body.append(&mut self.compile_value(rhs, ValueContext::Push)?);
+                assign_body.push(Bc::PopRefAndStore);
+            } else {
+                // boring 'ol store
+                assign_body.append(&mut self.compile_value(rhs, lhs_context)?);
+            }
         }
 
         Ok(assign_body)
@@ -382,15 +406,16 @@ impl Compile {
     ///
     /// If this symbol already exists in the table, the program will panic.
     fn insert_vm_function(&mut self, function: vm::Function) -> &vm::Function {
+        let function = Rc::new(function);
         assert!(self.lookup_vm_function(function.name()).is_none());
         {
             let functions = self.vm_functions
                 .last_mut()
                 .unwrap();
-            functions.push(function);
+            functions.push(Rc::clone(&function));
+            self.all_functions.push(Rc::clone(&function));
         }
-        self.vm_functions
-            .last().unwrap()
+        self.all_functions
             .last().unwrap()
     }
 
@@ -407,6 +432,7 @@ impl Compile {
             .iter()
             .rev()
             .filter_map(|collection| collection.iter().find(|function| function.name() == symbol_name))
+            .map(Rc::as_ref)
             .next()
     }
 
@@ -448,5 +474,5 @@ pub struct CompileUnit {
     pub name: String,
     pub code: Vec<Bc>,
     pub globals: Vec<vm::Symbol>,
-    pub functions: Vec<vm::Function>,
+    pub functions: Vec<Rc<vm::Function>>,
 }

@@ -1,4 +1,5 @@
-use vm::{Value, Symbol, Condition};
+use syntax::token::Op;
+use vm::{Value, Symbol, Condition, CompareOp};
 
 #[derive(Debug, Clone)]
 pub enum Bc {
@@ -48,5 +49,17 @@ pub enum Bc {
     ///
     /// If set to 0, this will exit the current block.
     ExitBlock(usize),
+
+    /// Performs a binary operation with the given op and lhs/rhs, and stores it into the given
+    /// symbol.
+    BinOpStore(Value, Op, Value, Symbol),
+
+    /// Performs a binary operation with the given op and lhs/rhs, and stores it into the top stack
+    /// item.
+    ///
+    /// The top stack item follows the same pattern as all others: top must be a value ref,
+    /// followed by a ref canary. If either are not present, a VM runtime error is thrown.
+    BinOpPop(Value, Op, Value),
+
 }
 
