@@ -1,10 +1,8 @@
-not-perl
-=
+# not-perl
 
-A dumb language that isn't Perl. Trust me.
+A dumb language that isn't Perl.
 
-Build and use
-=
+# Build and use
 
 1. Install [rust](rustup.rs)
 2. Run `cargo check` to make sure it builds correctly
@@ -16,13 +14,19 @@ If you build and get lifetime errors, switch to nightly with
 `rustup override set nightly` and enable non-lexical lifetimes in main.rs by
 uncommenting `#![feature(nll)]` at the top, and try to build it again.
 
-Disclaimer
-=
+## Shame statistics
+To generate shame statistics, you can run these commands:
 
-If you're reading this, the compiler doesn't work.
+`grep -R src/ -e 'unimplemented\|TODO' | wc -l`
 
-License
-=
+This is roughly the square root of the number of hours of technical debt payoff
+I have created for myself.
+
+# Disclaimer
+
+If you're reading this, the ~~compiler~~ VM doesn't work.
+
+# License
 
 (C) 2018 Alek Ratzloff. All rights reserved.
 
