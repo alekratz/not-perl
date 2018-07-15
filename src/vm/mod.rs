@@ -103,7 +103,20 @@ impl Vm {
                     self.store(symbol, value)?;
                 }
                 Bc::Store(sym, val) => self.store(&sym, val)?,
-                Bc::Call(ref sym) => self.call(sym)?,
+                Bc::Call(ref sym) => {
+                    let index = sym.index();
+                    let start_depth = self.call_stack.len();
+                    self.call_stack.push(index);
+                    self.run_function()?;
+                    let popped = self.call_stack.pop().expect("empty call stack at end of function call");
+                    let end_depth = self.call_stack.len();
+                    debug_assert_eq!(index, popped,
+                               "mismatched call stack: pushed {}, popped {}. start depth: {}, end depth: {}.",
+                               index, popped, start_depth, end_depth);
+                    debug_assert_eq!(start_depth, end_depth,
+                               "mismatched call stack: pushed {}, popped {}. start depth: {}, end depth: {}.",
+                               index, popped, start_depth, end_depth);
+                },
                 Bc::PopFunctionRefAndCall => {
                     let function_ref = self.pop_stack();
                     let sym = if let Value::FunctionRef(sym) = function_ref {
@@ -115,8 +128,25 @@ impl Vm {
                 }
                 Bc::Compare(Condition::Always) => { self.compare_flag = true; },
                 Bc::Compare(Condition::Never) => { self.compare_flag = false; },
-                Bc::Compare(Condition::Truthy(_value)) => { }
-                Bc::Compare(Condition::Compare(_lhs, _op, _rhs)) => { }
+                Bc::Compare(Condition::Truthy(_value)) => { unimplemented!("truthy compare bc op") }
+                Bc::Compare(Condition::Compare(_lhs, _op, _rhs)) => { unimplemented!("comparison bc op") }
+                Bc::Ret(r) => {
+                    if let Some(v) = r {
+                        self.push_stack(v);
+                    }
+                    self.call_stack.pop();
+                    return Ok(());
+                },
+                Bc::Block(b) => {
+                    let start_depth = self.call_stack.len();
+                    self.run_block(b)?;
+                    let end_depth = self.call_stack.len();
+                    // if the start and end call stack depth are not equal, then the inner block
+                    // jumped out and returned
+                    if start_depth != end_depth {
+                        return Ok(());
+                    }
+                }
                 _ => unimplemented!(),
             }
         }
