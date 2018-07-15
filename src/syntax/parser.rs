@@ -74,7 +74,7 @@ impl<'n, S> Parser<'n, S>
 
     fn next_stmt(&mut self) -> Result<'n, Stmt<'n>> {
         assert_eq!(self.stmt_level, 0);
-        while self.is_token_match(&Token::LineEnd) || self.is_token_match(&Token::NewLine) {
+        while self.is_token_match(&Token::LineEnd) || self.is_token_match(&Token::NewLine) || self.is_token_match(&Token::Comment) {
             self.next_token()?;
         }
 
@@ -192,7 +192,7 @@ impl<'n, S> Parser<'n, S>
     }
 
     fn next_eol_or_eof(&mut self) -> Result<'n, ()> {
-        if self.is_token_match(&Token::LineEnd) || self.is_token_match(&Token::NewLine) {
+        if self.is_token_match(&Token::LineEnd) || self.is_token_match(&Token::NewLine) || self.is_token_match(&Token::Comment) {
             self.next_token().map(|_| ())
         } else if self.curr.is_none() {
             Ok(())
@@ -429,17 +429,7 @@ impl<'n, S> Parser<'n, S>
     /// This method will not skip over newlines, and will instead return them as part of the normal
     /// token stream.
     fn next_token_or_newline(&mut self) -> Result<'n, Option<RangeToken<'n>>> {
-        let mut next = self.lexer.next();
-        while let Some(token) = next {
-            let range_token = token?;
-            if range_token.token() != &Token::Comment {
-                next = Some(Ok(range_token));
-                break;
-            }
-            next = self.lexer.next();
-        }
-
-        let next = if let Some(result) = next {
+        let next = if let Some(result) = self.lexer.next() {
             Some(result?)
         } else {
             None
@@ -453,7 +443,7 @@ impl<'n, S> Parser<'n, S>
     /// Only statements are required to be ended with either newlines *or* line-end characters.
     fn next_token(&mut self) -> Result<'n, Option<RangeToken<'n>>> {
         let mut token = self.next_token_or_newline()?;
-        while self.is_token_match(&Token::NewLine) {
+        while self.is_token_match(&Token::NewLine) || self.is_token_match(&Token::Comment) {
             token = self.next_token_or_newline()?;
         }
         Ok(token)
