@@ -101,37 +101,18 @@ impl Compile {
                 // if block
                 {
                     bc.append(&mut self.compile_comparison(&if_block.condition)?);
-                    let block = if let Action::Block(ref block) = if_block.action {
-                        let mut bc_block = self.compile_action_list(block)?;
-                        bc_block.push(Bc::ExitBlock(1));
-                        Bc::ConditionBlock(bc_block)
-                    } else {
-                        panic!("action block was not Action::Block (is this possible?)");
-                    };
-                    bc.push(block);
+                    bc.append(&mut self.compile_action(&if_block.action)?);
                 }
 
                 // elseif blocks
                 for block in elseif_blocks {
                     bc.append(&mut self.compile_comparison(&block.condition)?);
-                    let block = if let Action::Block(ref block) = block.action {
-                        let mut bc_block = self.compile_action_list(block)?;
-                        bc_block.push(Bc::ExitBlock(1));
-                        Bc::ConditionBlock(bc_block)
-                    } else {
-                        panic!("action block was not Action::Block (is this possible?)");
-                    };
-                    bc.push(block);
+                    bc.append(&mut self.compile_action(&block.action)?);
                 }
 
                 // else block
                 if let Some(block) = else_block {
-                    let block = if let Action::Block(ref block) = block.as_ref() {
-                        self.compile_action_list(block)?
-                    } else {
-                        panic!("action block was not Action::Block (is this possible?)");
-                    };
-                    bc.push(Bc::Block(block));
+                    bc.append(&mut self.compile_action(block)?);
                 }
 
                 vec![Bc::Block(bc)]
@@ -172,11 +153,7 @@ impl Compile {
             }
         }
 
-        let return_ty = match &function.return_ty {
-            Ty::Any => vm::Ty::Any,
-            Ty::Definite(name) => vm::Ty::Definite(name.to_string()),
-        };
-
+        let return_ty = function.return_ty.clone().into();
         let body = self.compile_action_list(&function.body)?;
         let locals = self.local_symbols.pop().unwrap();
         Ok(vm::UserFunction { symbol, params, return_ty, locals, body })
@@ -187,10 +164,7 @@ impl Compile {
     {
         let symbol = self.insert_local_symbol(name.name().to_string())
             .clone();
-        let ty = match ty {
-            Ty::Any => vm::Ty::Any,
-            Ty::Definite(name) => vm::Ty::Definite(name.to_string()),
-        };
+        let ty = ty.clone().into();
         Ok(vm::FunctionParam { symbol, ty })
     }
 

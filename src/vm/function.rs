@@ -3,7 +3,7 @@ use vm::{
     Symbol,
     Storage,
     Bc,
-    ty::{Ty, self},
+    Ty,
 };
 
 #[derive(Debug, Clone)]
@@ -130,7 +130,7 @@ lazy_static! {
         vec![
             // BEGIN BUILTINS //////////////////////////////////////////////////
             builtin!(functions::println, println (Ty::Any) -> Ty::None),
-            builtin!(functions::readln, readln () -> Ty::Definite(ty::STR_DEFINITE.to_string())),
+            builtin!(functions::readln, readln () -> Ty::Str),
             // END BUILTINS ////////////////////////////////////////////////////
         ].into_iter()
             .enumerate()

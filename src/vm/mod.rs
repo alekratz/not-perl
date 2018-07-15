@@ -37,6 +37,12 @@ pub struct Vm {
     ///
     /// On VM startup, this is set to false.
     compare_flag: bool,
+
+    /// How many blocks we need to jump to the end of.
+    block_jump_depth: usize,
+
+    /// The direction to jump when jumping in a block.
+    block_jump_top: bool,
 }
 
 impl Vm {
@@ -46,6 +52,8 @@ impl Vm {
             storage: Storage::new(functions, vec![/* TODO: constants */]),
             call_stack: vec![],
             compare_flag: false,
+            block_jump_depth: 0,
+            block_jump_top: false,
         }
     }
 
@@ -65,7 +73,7 @@ impl Vm {
                 self.storage
                     .scope_stack
                     .push(Scope::new(function.locals.clone()));
-                self.run_block(function.body)?;
+                self.run_block(&function.body)?;
                 self.storage.scope_stack.pop()
                     .expect("uneven scope stack");
                 Ok(())
@@ -79,14 +87,30 @@ impl Vm {
     /// Runs a block of bytecode.
     ///
     /// This is the primary execution loop.
-    fn run_block(&mut self, block: Vec<Bc>) -> Result<()> {
-        for bc in block {
+    fn run_block(&mut self, block: &[Bc]) -> Result<()> {
+        let mut pc = 0;
+        while pc < block.len() {
+            let ref bc = block[pc];
+            pc += 1;
+            // jump out of the current block if requested
+            if self.block_jump_depth > 0 {
+                self.block_jump_depth -= 1;
+                break;
+            } else if self.block_jump_top {
+                self.block_jump_top = false;
+                pc = 0;
+            }
+            // TODO : investigate optimization:
+            // * Have a "is_conditional()" check at the very start, and jump if condition is not
+            //   matched?
+            // * this skips a lot of code, not sure if it would be more efficient in assembly
+            // * something to test
             match bc {
-                Bc::PushSymbolValue(ref symbol) => {
+                Bc::PushSymbolValue(symbol) => {
                     let value = self.load(symbol)?;
                     self.push_stack(value);
                 }
-                Bc::PushValue(value) => self.push_stack(value),
+                Bc::PushValue(value) => self.push_stack(value.clone()),
                 Bc::PopRefAndStore => {
                     let value = self.pop_stack();
                     let sym_value = self.pop_stack();
@@ -102,13 +126,21 @@ impl Vm {
                     let value = self.pop_stack();
                     self.store(symbol, value)?;
                 }
-                Bc::Store(sym, val) => self.store(&sym, val)?,
-                Bc::Call(ref sym) => {
+                Bc::Store(sym, val) => self.store(sym, val.clone())?,
+                Bc::Call(sym) => {
+                    // store current state
                     let index = sym.index();
                     let start_depth = self.call_stack.len();
+                    let block_depth = self.block_jump_depth;
+                    let jump_top = self.block_jump_top;
+
                     self.call_stack.push(index);
                     self.run_function()?;
                     let popped = self.call_stack.pop().expect("empty call stack at end of function call");
+
+                    assert!(self.block_jump_depth == 0, "block jump depth from called function was > 0");
+                    self.block_jump_depth = block_depth;
+                    self.block_jump_top = jump_top;
                     let end_depth = self.call_stack.len();
                     debug_assert_eq!(index, popped,
                                "mismatched call stack: pushed {}, popped {}. start depth: {}, end depth: {}.",
@@ -132,11 +164,23 @@ impl Vm {
                 Bc::Compare(Condition::Compare(_lhs, _op, _rhs)) => { unimplemented!("comparison bc op") }
                 Bc::Ret(r) => {
                     if let Some(v) = r {
-                        self.push_stack(v);
+                        self.push_stack(v.clone());
                     }
                     self.call_stack.pop();
                     return Ok(());
                 },
+                Bc::ConditionBlock(b) => {
+                    if !self.compare_flag {
+                        continue;
+                    }
+                    // FIXME: reduce repetition without multiple if-statements
+                    let start_depth = self.call_stack.len();
+                    self.run_block(b)?;
+                    let end_depth = self.call_stack.len();
+                    if start_depth != end_depth {
+                        return Ok(());
+                    }
+                }
                 Bc::Block(b) => {
                     let start_depth = self.call_stack.len();
                     self.run_block(b)?;
@@ -147,7 +191,18 @@ impl Vm {
                         return Ok(());
                     }
                 }
-                _ => unimplemented!(),
+                Bc::JumpBlockTop(n) => {
+                    self.block_jump_top = true;
+                    self.block_jump_depth += n;
+                }
+                Bc::ExitBlock(n) => {
+                    self.block_jump_top = false;
+                    self.block_jump_depth += n;
+                }
+                Bc::BinOpStore(_lhs, _op, _rhs, _sym) => {
+                }
+                Bc::BinOpPush(_lhs, _op, _rhs) => {
+                }
             }
         }
         Ok(())

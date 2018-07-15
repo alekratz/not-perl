@@ -1,6 +1,6 @@
 fun prompt-line($prompt = "> ", $empty-ok = false): Str {
     loop {
-        print($prompt)
+        println($prompt) # TODO: rename to print, once that's implemented
         $user-line = readln();
         if $user-line || $empty-ok {
             return $user-line

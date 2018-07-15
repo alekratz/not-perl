@@ -30,7 +30,7 @@ impl<'n> Ir<tree::Stmt<'n>> for Function<'n> {
             let return_ty = if let Some(return_ty) = return_ty {
                 Ty::Definite(return_ty.to_string())
             } else {
-                Ty::Any
+                Ty::None
             };
             let body = body.iter()
                 .map(Action::from_syntax)
