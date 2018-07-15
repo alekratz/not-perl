@@ -1,6 +1,6 @@
 $some-string = "Hell world"
 
-print($some-string)
+println($some-string)
 
 #$yo-mama = [
 #    "when she goes camping, the bears hide *their* food!",
@@ -8,5 +8,5 @@ print($some-string)
 #    "she can eat 10 pizzas!",
 #]
 
-#print("Yo mama so fat, " ~ choose($yo-mama))
+#println("Yo mama so fat, " ~ choose($yo-mama))
 

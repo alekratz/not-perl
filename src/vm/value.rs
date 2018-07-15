@@ -44,6 +44,38 @@ pub enum Value {
     Unset,
 }
 
+impl Value {
+    pub fn display_string(&self) -> String {
+        match self {
+            Value::Int(i) => format!("{}", i),
+            Value::Float(f) => format!("{}", f),
+            Value::Str(s) => s.clone(),
+            Value::Bool(b) => format!("{}", b),
+            Value::Array(_) => unimplemented!("vm::Value array display string"),
+            Value::RefCanary => "<Ref Canary, enjoy your crash>".to_string(),
+            Value::Ref(s) => format!("<Reference to {}>", s.name()),
+            Value::FunctionRefCanary => "<Function Ref Canary, enjoy your crash>".to_string(),
+            Value::FunctionRef(c) => format!("<Reference to Function {}>", c.name()),
+            Value::Unset => "<Unset Value>".to_string(),
+        }
+    }
+
+    pub fn is_immediate(&self) -> bool {
+        match self {
+            | Value::Int(_) 
+            | Value::Float(_) 
+            | Value::Str(_) 
+            | Value::Bool(_) 
+            | Value::Array(_) 
+            | Value::RefCanary 
+            | Value::FunctionRefCanary 
+            | Value::Unset => true,
+            | Value::Ref(_)
+            | Value::FunctionRef(_) => false,
+        }
+    }
+}
+
 impl<'n> From<Const> for Value {
     fn from(other: Const) -> Self {
         match other {
