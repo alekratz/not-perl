@@ -62,57 +62,10 @@ impl Vm {
             .clone();
         match function {
             Function::User(function) => {
-                let function_body = function.body.clone();
-                let mut local_stack = vec![];
                 self.storage
                     .scope_stack
                     .push(Scope::new(function.locals.clone()));
-                let mut current_block = function_body;
-
-                for bc in current_block {
-                    match bc {
-                        Bc::PushSymbolValue(ref symbol) => {
-                            let value = self.load(symbol)?;
-                            local_stack.push(value);
-                        }
-                        Bc::PushValue(value) => self.push_stack(value),
-                        Bc::PopRefAndStore => {
-                            let value = self.pop_stack();
-                            let sym_value = self.pop_stack();
-                            let sym = if let Value::Ref(sym) = sym_value {
-                                sym
-                            } else { panic!("non-ref sym on top of the stack: {:?}", sym_value) };
-                            assert_matches!(sym, Symbol::Variable(_, _));
-                            let canary = self.pop_stack();
-                            assert_eq!(canary, Value::RefCanary, "ref canary error; got {:?} instead", canary);
-                            self.store(&sym, value)?;
-                        }
-                        Bc::Pop(ref symbol) => {
-                            let value = local_stack.pop()
-                                .expect("attempted to pop from empty stack in Bc::Pop");
-                            self.store(symbol, value)?;
-                        }
-                        Bc::Store(sym, val) => self.store(&sym, val)?,
-                        Bc::Call(ref sym) => self.call(sym)?,
-                        Bc::PopFunctionRefAndCall => {
-                            let function_ref = self.pop_stack();
-                            let sym = if let Value::FunctionRef(sym) = function_ref {
-                                sym
-                            } else { panic!("non-function ref on top of the stack: {:?}", function_ref) };
-                            let canary = self.pop_stack();
-                            assert_eq!(canary, Value::FunctionRefCanary, "function ref canary errror; got {:?} instead", canary);
-                            self.call(&sym)?;
-                        }
-                        Bc::Compare(Condition::Always) => { self.compare_flag = true; },
-                        Bc::Compare(Condition::Never) => { self.compare_flag = false; },
-                        Bc::Compare(Condition::Truthy(_value)) => {
-                        }
-                        Bc::Compare(Condition::Compare(_lhs, _op, _rhs)) => {
-                        }
-                        _ => unimplemented!(),
-                    }
-                }
-                // pop scope stack
+                self.run_block(function.body)?;
                 self.storage.scope_stack.pop()
                     .expect("uneven scope stack");
                 Ok(())
@@ -121,6 +74,53 @@ impl Vm {
                 (function.function)(&mut self.storage)
             }
         }
+    }
+
+    /// Runs a block of bytecode.
+    ///
+    /// This is the primary execution loop.
+    fn run_block(&mut self, block: Vec<Bc>) -> Result<()> {
+        for bc in block {
+            match bc {
+                Bc::PushSymbolValue(ref symbol) => {
+                    let value = self.load(symbol)?;
+                    self.push_stack(value);
+                }
+                Bc::PushValue(value) => self.push_stack(value),
+                Bc::PopRefAndStore => {
+                    let value = self.pop_stack();
+                    let sym_value = self.pop_stack();
+                    let sym = if let Value::Ref(sym) = sym_value {
+                        sym
+                    } else { panic!("non-ref sym on top of the stack: {:?}", sym_value) };
+                    assert_matches!(sym, Symbol::Variable(_, _));
+                    let canary = self.pop_stack();
+                    assert_eq!(canary, Value::RefCanary, "ref canary error; got {:?} instead", canary);
+                    self.store(&sym, value)?;
+                }
+                Bc::Pop(ref symbol) => {
+                    let value = self.pop_stack();
+                    self.store(symbol, value)?;
+                }
+                Bc::Store(sym, val) => self.store(&sym, val)?,
+                Bc::Call(ref sym) => self.call(sym)?,
+                Bc::PopFunctionRefAndCall => {
+                    let function_ref = self.pop_stack();
+                    let sym = if let Value::FunctionRef(sym) = function_ref {
+                        sym
+                    } else { panic!("non-function ref on top of the stack: {:?}", function_ref) };
+                    let canary = self.pop_stack();
+                    assert_eq!(canary, Value::FunctionRefCanary, "function ref canary errror; got {:?} instead", canary);
+                    self.call(&sym)?;
+                }
+                Bc::Compare(Condition::Always) => { self.compare_flag = true; },
+                Bc::Compare(Condition::Never) => { self.compare_flag = false; },
+                Bc::Compare(Condition::Truthy(_value)) => { }
+                Bc::Compare(Condition::Compare(_lhs, _op, _rhs)) => { }
+                _ => unimplemented!(),
+            }
+        }
+        Ok(())
     }
 
     /// Pops a value off of the value stack.
