@@ -43,8 +43,8 @@ impl<'n> Ir<SyntaxTree<'n>> for IrTree<'n> {
         let mut functions = vec![];
 
         for stmt in ast.stmts.iter() {
-            if matches!(stmt, Stmt::Function { name: _, params: _, return_ty: _, body: _ }) {
-                functions.push(Function::from_syntax(stmt));
+            if let Stmt::Function(function) = stmt {
+                functions.push(Function::from_syntax(function));
             } else {
                 actions.push(Action::from_syntax(stmt));
             }

@@ -20,25 +20,21 @@ impl<'n> Function<'n> {
     pub fn name(&self) -> &str { &self.symbol.name() }
 }
 
-impl<'n> Ir<tree::Stmt<'n>> for Function<'n> {
-    fn from_syntax(stmt: &tree::Stmt<'n>) -> Self {
-        if let tree::Stmt::Function { name, params, return_ty, body } = stmt {
-            let symbol = Symbol::Function(name.clone());
-            let params = params.iter()
-                .map(FunctionParam::from_syntax)
-                .collect();
-            let return_ty = if let Some(return_ty) = return_ty {
-                Ty::Definite(return_ty.to_string())
-            } else {
-                Ty::None
-            };
-            let body = body.iter()
-                .map(Action::from_syntax)
-                .collect();
-            Function { symbol, params, return_ty, body }
+impl<'n> Ir<tree::Function<'n>> for Function<'n> {
+    fn from_syntax(tree::Function { name, params, return_ty, body }: &tree::Function<'n>) -> Self {
+        let symbol = Symbol::Function(name.clone());
+        let params = params.iter()
+            .map(FunctionParam::from_syntax)
+            .collect();
+        let return_ty = if let Some(return_ty) = return_ty {
+            Ty::Definite(return_ty.to_string())
         } else {
-            panic!("Attempted to convert non-Function Stmt to IR Function")
-        }
+            Ty::None
+        };
+        let body = body.iter()
+            .map(Action::from_syntax)
+            .collect();
+        Function { symbol, params, return_ty, body }
     }
 }
 

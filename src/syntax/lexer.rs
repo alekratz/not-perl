@@ -210,6 +210,12 @@ impl<'n, S> Lexer<'n, S>
             }
         }
 
+        // allow barewords to end with a question mark
+        if let Some('?') = self.next {
+            bareword.push('?');
+            self.next_char();
+        }
+
         match bareword.as_str() {
             "if" => Ok(Token::IfKw),
             "else" => Ok(Token::ElseKw),
@@ -221,6 +227,7 @@ impl<'n, S> Lexer<'n, S>
             "false" => Ok(Token::FalseKw),
             "fun" => Ok(Token::FunKw),
             "return" => Ok(Token::ReturnKw),
+            "type" => Ok(Token::TypeKw),
             _ => Ok(Token::Bareword(bareword))
         }
     }

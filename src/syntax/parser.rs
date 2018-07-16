@@ -83,7 +83,6 @@ impl<'n, S> Parser<'n, S>
         } else {
             return Err(self.err_expected_got_eof(Stmt::name()));
         };
-        // TODO : expect EOL or EOF after every expression
         let stmt = match curr {
             Token::ReturnKw => {
                 self.next_token_or_newline()?;
@@ -134,46 +133,8 @@ impl<'n, S> Parser<'n, S>
                     else_block,
                 }
             }
-            Token::FunKw => {
-                self.next_token()?;
-                let name = self.next_bareword()?;
-                let mut params = vec![];
-                let mut return_ty = None;
-                let mut defaults = false;
-                self.match_token(Token::LParen)?;
-                while !self.is_token_match(&Token::RParen) {
-                    let param_name = self.next_variable()?;
-                    let mut ty = None;
-                    let mut default = None;
-                    if self.is_token_match(&Token::Colon) {
-                        self.match_token(Token::Colon)?;
-                        ty = Some(self.next_bareword()?);
-                    }
-
-                    if defaults || self.is_token_match(&Token::AssignOp(AssignOp::Equals)) {
-                        defaults = true;
-                        self.match_token(Token::AssignOp(AssignOp::Equals))?;
-                        default = Some(self.next_expr()?);
-                    }
-                    params.push(FunctionParam::new(param_name, ty, default));
-
-                    if !self.is_token_match(&Token::RParen) {
-                        self.match_token(Token::Comma)?;
-                    }
-                }
-                self.match_token(Token::RParen)?;
-                if self.is_token_match(&Token::Colon) {
-                    self.next_token()?;
-                    return_ty = Some(self.next_bareword()?);
-                }
-                let body = self.next_block()?;
-                Stmt::Function {
-                    name,
-                    params,
-                    return_ty,
-                    body,
-                }
-            }
+            Token::FunKw => Stmt::Function(self.next_function()?),
+            Token::TypeKw => Stmt::UserTy(self.next_user_type()?),
             ref t if t.is_lookahead::<Expr>() => {
                 // expr, assignment
                 let lhs = self.next_expr()?;
@@ -315,6 +276,79 @@ impl<'n, S> Parser<'n, S>
         } else {
             Ok(expr)
         }
+    }
+
+    fn next_function(&mut self) -> Result<'n, Function<'n>> {
+        self.match_token(Token::FunKw)?;
+        let name = self.next_bareword()?;
+        let mut params = vec![];
+        let mut return_ty = None;
+        let mut defaults = false;
+        self.match_token(Token::LParen)?;
+        while !self.is_token_match(&Token::RParen) {
+            let param_name = self.next_variable()?;
+            let mut ty = None;
+            let mut default = None;
+            if self.is_token_match(&Token::Colon) {
+                self.match_token(Token::Colon)?;
+                ty = Some(self.next_bareword()?);
+            }
+
+            if defaults || self.is_token_match(&Token::AssignOp(AssignOp::Equals)) {
+                defaults = true;
+                self.match_token(Token::AssignOp(AssignOp::Equals))?;
+                default = Some(self.next_expr()?);
+            }
+            params.push(FunctionParam::new(param_name, ty, default));
+
+            if !self.is_token_match(&Token::RParen) {
+                self.match_token(Token::Comma)?;
+            }
+        }
+        self.match_token(Token::RParen)?;
+        if self.is_token_match(&Token::Colon) {
+            self.next_token()?;
+            return_ty = Some(self.next_bareword()?);
+        }
+        let body = self.next_block()?;
+        Ok(Function {
+            name,
+            params,
+            return_ty,
+            body,
+        })
+    }
+
+    fn next_user_type(&mut self) -> Result<'n, UserTy<'n>> {
+        self.match_token(Token::TypeKw)?;
+        let name = self.next_bareword()?;
+
+        let mut parents = Vec::new();
+        if self.is_token_match(&Token::Colon) {
+            self.next_token()?;
+            // get comma separated list of "parent" types
+            let parent = self.next_bareword()?;
+            parents.push(parent);
+            while self.is_token_match(&Token::Comma) {
+                self.next_token()?;
+                let parent = self.next_bareword()?;
+                parents.push(parent);
+            }
+        }
+
+        self.match_token(Token::LBrace)?;
+        let mut functions = Vec::new();
+        while self.is_lookahead::<Function>() {
+            let function = self.next_function()?;
+            functions.push(function);
+        }
+        // skip newlines; next_function preserves them
+        while self.is_token_match(&Token::NewLine) || self.is_token_match(&Token::Comment) {
+            self.next_token()?;
+        }
+        self.match_token_preserve_newline(Token::RBrace)?;
+
+        Ok(UserTy { name, parents, functions })
     }
 
     fn next_funcall_args(&mut self) -> Result<'n, Vec<Expr<'n>>> {

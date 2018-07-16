@@ -157,6 +157,7 @@ pub enum Token {
     TrueKw,
     FalseKw,
     FunKw,
+    TypeKw,
 
     //
     // Symbols
@@ -244,6 +245,7 @@ impl Token {
             TrueKw => "true".to_string(),
             FalseKw => "false".to_string(),
             FunKw => "fun".to_string(),
+            TypeKw => "type".to_string(),
             Op(s) => s.to_string(),
             AssignOp(s) => s.to_string(),
             Comma => ",".to_string(),
@@ -280,6 +282,7 @@ impl Display for Token {
             TrueKw => write!(fmt, "true keyword"),
             FalseKw => write!(fmt, "false keyword"),
             FunKw => write!(fmt, "fun keyword"),
+            TypeKw => write!(fmt, "type keyword"),
             Op(s) =>  write!(fmt, "operator {}", s),
             AssignOp(s) =>  write!(fmt, "assignment operator {}", s),
             Comma => write!(fmt, "comma"),

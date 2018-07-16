@@ -35,8 +35,8 @@ impl<'n> Action<'n> {
 impl<'n> Ir<Stmt<'n>> for Action<'n> {
     fn from_syntax(stmt: &Stmt<'n>) -> Self {
         match stmt {
-            Stmt::Function { name: n, params: _, return_ty: _, body: _, } =>
-                panic!("Action::from_syntax is not applicable to functions (function {})", n),
+            Stmt::UserTy(_) => unimplemented!("syntax -> action for user-defined type"),
+            Stmt::Function(_) => unreachable!(), // functions are covered as non-action types
             Stmt::Expr(expr) => Action::Eval(Value::from_syntax(expr)),
             Stmt::Assign(lhs, op, rhs) => {
                 let lhs = Value::from_syntax(lhs);

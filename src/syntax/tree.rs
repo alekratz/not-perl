@@ -1,11 +1,12 @@
 use syntax::token::*;
 
 macro_rules! token_is_lookahead {
-    ($token:expr, $($pat:pat),+) => {{
+    ($token:expr, $head:pat $(, $tail:pat)*) => {{
         match $token {
+            | $head
             $(
-                $pat => true,
-            )+
+                | $tail
+            )* => true,
             _ => false,
         }
     }};
@@ -37,12 +38,8 @@ impl<'n> Default for SyntaxTree<'n> {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Stmt<'n> {
-    Function {
-        name: String,
-        params: Vec<FunctionParam<'n>>,
-        return_ty: Option<String>,
-        body: Block<'n>,
-    },
+    Function(Function<'n>),
+    UserTy(UserTy<'n>),
     Expr(Expr<'n>),
     Assign(Expr<'n>, AssignOp, Expr<'n>),
     While(ConditionBlock<'n>),
@@ -66,6 +63,29 @@ impl<'n> Ast for Stmt<'n> {
 }
 
 pub type Block<'n> = Vec<Stmt<'n>>;
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct UserTy<'n> {
+    pub name: String,
+    pub parents: Vec<String>,
+    pub functions: Vec<Function<'n>>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Function<'n> {
+    pub name: String,
+    pub params: Vec<FunctionParam<'n>>,
+    pub return_ty: Option<String>,
+    pub body: Block<'n>,
+}
+
+impl<'n> Ast for Function<'n> {
+    fn token_is_lookahead(token: &Token) -> bool {
+        token_is_lookahead!(token, Token::FunKw)
+    }
+
+    fn name() -> &'static str { "function definition" }
+}
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct FunctionParam<'n> {

@@ -1,5 +1,4 @@
-use vm::{Symbol, Storage, Result};
-use syntax::token::Op;
+use vm::Symbol;
 use ir::Const;
 
 /// The index type for a value.
@@ -74,11 +73,6 @@ impl Value {
             | Value::Ref(_)
             | Value::FunctionRef(_) => false,
         }
-    }
-
-    pub fn operate(&self, op: Op, rhs: &Value, storage: &mut Storage) -> Result<Self> {
-        // TODO : heap
-        unimplemented!("value operation");
     }
 }
 
