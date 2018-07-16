@@ -1,19 +1,19 @@
 use syntax::tree;
 use ir::{
     Ir,
-    Action, Symbol, Ty, Value, Block,
+    Action, Symbol, TyExpr, Value, Block,
 };
 
 #[derive(Debug)]
 pub struct Function<'n> {
     pub symbol: Symbol,
     pub params: Vec<FunctionParam<'n>>,
-    pub return_ty: Ty,
+    pub return_ty: TyExpr,
     pub body: Block<'n>,
 }
 
 impl<'n> Function<'n> {
-    pub fn new(symbol: Symbol, params: Vec<FunctionParam<'n>>, return_ty: Ty, body: Block<'n>) -> Self {
+    pub fn new(symbol: Symbol, params: Vec<FunctionParam<'n>>, return_ty: TyExpr, body: Block<'n>) -> Self {
         Function { symbol, params, return_ty, body }
     }
 
@@ -27,9 +27,9 @@ impl<'n> Ir<tree::Function<'n>> for Function<'n> {
             .map(FunctionParam::from_syntax)
             .collect();
         let return_ty = if let Some(return_ty) = return_ty {
-            Ty::Definite(return_ty.to_string())
+            TyExpr::Definite(return_ty.to_string())
         } else {
-            Ty::None
+            TyExpr::None
         };
         let body = body.iter()
             .map(Action::from_syntax)
@@ -41,12 +41,12 @@ impl<'n> Ir<tree::Function<'n>> for Function<'n> {
 #[derive(Debug)]
 pub struct FunctionParam<'n> {
     pub name: Symbol,
-    pub ty: Ty,
+    pub ty: TyExpr,
     pub default: Option<Value<'n>>,
 }
 
 impl<'n> FunctionParam<'n> {
-    pub fn new(name: Symbol, ty: Ty, default: Option<Value<'n>>) -> Self {
+    pub fn new(name: Symbol, ty: TyExpr, default: Option<Value<'n>>) -> Self {
         FunctionParam { name, ty, default, }
     }
 }
@@ -55,10 +55,10 @@ impl<'n> Ir<tree::FunctionParam<'n>> for FunctionParam<'n> {
     fn from_syntax(tree::FunctionParam { name, ty, default }: &tree::FunctionParam<'n>) -> Self {
         let name = Symbol::Variable(name.to_string());
         let ty = if let Some(ty) = ty {
-            Ty::Definite(ty.to_string())
+            TyExpr::Definite(ty.to_string())
         } else {
             // variables, by default, have a type of "any"
-            Ty::Any
+            TyExpr::Any
         };
         let default = default.as_ref().map(Value::from_syntax);
         FunctionParam::new(name, ty, default)

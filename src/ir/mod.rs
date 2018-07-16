@@ -1,4 +1,4 @@
-use syntax::tree::{Ast, SyntaxTree, Stmt};
+use syntax::tree::{Ast, SyntaxTree, Stmt, UserTy};
 
 mod ty;
 mod function;
@@ -25,6 +25,7 @@ pub trait Ir<A>
 pub struct IrTree<'n> {
     actions: Vec<Action<'n>>,
     functions: Vec<Function<'n>>,
+    user_types: Vec<UserTy<'n>>,
 }
 
 impl<'n> IrTree<'n> {
@@ -41,18 +42,20 @@ impl<'n> Ir<SyntaxTree<'n>> for IrTree<'n> {
     fn from_syntax(ast: &SyntaxTree<'n>) -> Self {
         let mut actions = vec![];
         let mut functions = vec![];
+        let mut user_types = vec![];
 
         for stmt in ast.stmts.iter() {
-            if let Stmt::Function(function) = stmt {
-                functions.push(Function::from_syntax(function));
-            } else {
-                actions.push(Action::from_syntax(stmt));
+            match stmt {
+                Stmt::Function(function) => functions.push(Function::from_syntax(function)),
+                Stmt::UserTy(user_ty) => user_types.push(user_ty.clone()),
+                _ => actions.push(Action::from_syntax(stmt)),
             }
         }
 
         IrTree {
             actions,
             functions,
+            user_types,
         }
     }
 }

@@ -13,10 +13,10 @@ pub enum Ty {
     None,
 }
 
-impl From<ir::Ty> for Ty {
-    fn from(other: ir::Ty) -> Self {
+impl From<ir::TyExpr> for Ty {
+    fn from(other: ir::TyExpr) -> Self {
         match other {
-            ir::Ty::Definite(def) => match def.as_str() {
+            ir::TyExpr::Definite(def) => match def.as_str() {
                 "Int" => Ty::Int,
                 "Float" => Ty::Float,
                 "Bool" => Ty::Bool,
@@ -25,8 +25,8 @@ impl From<ir::Ty> for Ty {
                 "Any" => Ty::Any,
                 u => Ty::User(u.to_string()),
             }
-            ir::Ty::Any => Ty::Any,
-            ir::Ty::None => Ty::None,
+            ir::TyExpr::Any => Ty::Any,
+            ir::TyExpr::None => Ty::None,
         }
     }
 }
