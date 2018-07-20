@@ -20,21 +20,21 @@ impl Scope {
         }
     }
 
-    pub fn try_get(&self, sym: &Symbol) -> Option<Value> {
+    pub fn try_get(&self, sym: Symbol) -> Option<&Value> {
         match sym {
             Symbol::Function(sym) => panic!("attempted to load scope value from function symbol {}", sym),
             Symbol::Constant(sym) => panic!("attempted to load scope value from constant symbol {}", sym),
-            Symbol::Variable(idx) => {
-                if self.values.len() <= *idx || &self.symbols[*idx] != sym {
+            Symbol::Variable(_, idx) => {
+                if self.values.len() <= idx || self.symbols[idx] != sym {
                     None
                 } else {
-                    Some(self.values[*idx].clone())
+                    Some(&self.values[idx])
                 }
             }
         }
     }
 
-    pub fn get(&self, sym: &Symbol) -> Value {
+    pub fn get(&self, sym: Symbol) -> &Value {
         if let Some(value) = self.try_get(sym) {
             value
         } else {
@@ -42,22 +42,22 @@ impl Scope {
         }
     }
 
-    pub fn try_set(&mut self, sym: &Symbol, val: Value) -> bool {
+    pub fn try_set(&mut self, sym: Symbol, val: Value) -> bool {
         match sym {
             Symbol::Function(sym) => panic!("attempted to set function symbol to a value {}", sym),
             Symbol::Constant(sym) => panic!("attempted to set constant symbol to a value {}", sym),
-            Symbol::Variable(idx) => {
-                if self.symbols.len() <= *idx || &self.symbols[*idx] != sym {
+            Symbol::Variable(_, idx) => {
+                if self.symbols.len() <= idx || self.symbols[idx] != sym {
                     false
                 } else {
-                    self.values[*idx] = val;
+                    self.values[idx] = val;
                     true
                 }
             }
         }
     }
 
-    pub fn set(&mut self, sym: &Symbol, val: Value) {
+    pub fn set(&mut self, sym: Symbol, val: Value) {
         if !self.try_set(sym, val) {
             panic!("invalid symbol store: {:?}", sym);
         }

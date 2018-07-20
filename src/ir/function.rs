@@ -30,6 +30,9 @@ impl<'n> Ir<tree::Function<'n>> for Function<'n> {
             .collect();
         let return_ty = if let Some(return_ty) = return_ty {
             TyExpr::Definite(return_ty.to_string())
+        } else if body.iter().any(|stmt| matches!(stmt, Stmt::Return(Some(_)))) {
+            // search for at least one return statement that has a value
+            TyExpr::Any
         } else {
             TyExpr::None
         };

@@ -83,8 +83,8 @@ mod functions {
             .pop()
             .expect("no println stack item");
         let value_string = match value {
-            | Value::FunctionRef(ref s) 
-            | Value::Ref(ref s) => storage.load(s)?
+            | Value::FunctionRef(s) 
+            | Value::Ref(s) => storage.load(s)?
                 .display_string(),
             | value => value.display_string(),
         };

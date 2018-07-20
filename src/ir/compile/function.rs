@@ -1,3 +1,4 @@
+use ir::TyExpr;
 use vm;
 
 /// An intermediate function stub collected during compile-time.
@@ -10,4 +11,6 @@ pub struct FunctionStub {
 
     /// Number of parameters for this function. Types are not yet enforced at this point.
     pub param_count: usize,
+
+    pub return_ty: TyExpr,
 }

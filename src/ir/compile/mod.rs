@@ -21,12 +21,7 @@ pub type Result<T> = ::std::result::Result<T, Error>;
 pub struct Compile {
     compiled_functions: Vec<vm::Function>,
     function_scope: FunctionScope,
-
-    all_variables: Vec<vm::Symbol>,
-    local_variables: Vec<Vec<vm::Symbol>>,
-    variable_names: Vec<String>,
-
-    local_variable_count: usize,
+    variable_scope: VariableScope,
 }
 
 impl Compile {
@@ -36,36 +31,38 @@ impl Compile {
         let compiled_functions: Vec<_> = vm::BUILTIN_FUNCTIONS.clone()
             .into_iter()
             .map(|mut function| {
-                function.symbol = function_scope.next_function_symbol(function.name.clone());
+                function.symbol = function_scope.next_symbol(function.name.clone());
+                let stub = FunctionStub {
+                    symbol: function.symbol,
+                    param_count: function.params.len(),
+                    return_ty: function.return_ty.clone().into(),
+                };
+                function_scope.insert_stub(stub);
                 vm::Function::Builtin(function)
             })
             .collect();
         Compile {
             compiled_functions,
             function_scope,
-
-            all_variables: vec![],
-            local_variables: vec![],
-            variable_names: vec![],
-
-            local_variable_count: 0,
+            variable_scope: VariableScope::new(),
         }
     }
 
     pub fn compile_ir_tree<'n>(mut self, ir_tree: &IrTree<'n>) -> Result<CompileUnit> {
         self.function_scope.add_scope();
-        self.local_variables.push(vec![]);
+        self.variable_scope.add_scope();
 
         // gather all function stubs
         for function in ir_tree.functions() {
-            if self.function_scope.lookup_local_function_stub_name(function.name()).is_some() {
+            if self.function_scope.lookup_local_stub_by_name(function.name()).is_some() {
                 return Err(self.err(format!("function `{}` defined twice in the same scope", function.name())));
             }
             let stub = FunctionStub {
                 symbol: self.next_function_symbol(function.name().to_string()),
                 param_count: function.params.len(),
+                return_ty: function.return_ty.clone(),
             };
-            self.function_scope.insert_function_stub(stub);
+            self.function_scope.insert_stub(stub);
         }
 
         // compile user types and their functions
@@ -78,10 +75,10 @@ impl Compile {
         }
 
         let code = self.compile_action_list(ir_tree.actions())?;
-        let globals = self.local_variables.pop()
-            .unwrap();
+        let globals = self.variable_scope.shed_scope();
         let main_function_symbol = self.next_function_symbol("<main>".to_string());
-        let functions = self.compiled_functions;
+        let mut functions = self.compiled_functions;
+        functions.sort_unstable_by(|a, b| a.symbol().index().cmp(&b.symbol().index()));
         // TODO : make sure all stubs have their counterpart?
         let main_function = vm::Function::User(vm::UserFunction {
             symbol: main_function_symbol,
@@ -90,6 +87,8 @@ impl Compile {
             locals: globals,
             body: code,
         });
+
+        //println!("{:#?}", functions);
 
         Ok(CompileUnit {
             name: String::new(),
@@ -151,12 +150,14 @@ impl Compile {
 
     /// Compiles an IR function into a VM function.
     pub fn compile_function<'n>(&mut self, function: &Function<'n>) -> Result<vm::UserFunction> {
-        self.local_variables.push(vec![]);
         self.function_scope.add_scope();
+        self.variable_scope.add_scope();
 
         let symbol = match &function.symbol {
             Symbol::Function(name) => {
-                self.next_function_symbol(name.to_string())
+                self.function_scope.lookup_symbol(name, function.params.len())
+                    .expect(&format!("symbol for function {} (param count {}) was expected to exist, but does not",
+                                     name, function.params.len()))
             },
             sym => panic!("got non-function symbol name from IR::Function: {:?}", sym),
         };
@@ -164,19 +165,40 @@ impl Compile {
         let mut params: Vec<vm::FunctionParam> = vec![];
         for param in &function.params {
             {
-                let unique = params.iter()
-                    .find(|p| self.variable_names[p.symbol.index()] == param.name());
-                if let Some(dupe) = unique {
-                    let pname = &self.variable_names[dupe.symbol.index()];
-                    return Err(self.err(format!("duplicate parameter `{}` in function `{}`", pname, function.name())));
+                let uniq = params.iter()
+                    .find(|p| self.variable_scope.lookup_local_variable_name(p.symbol) == Some(param.name()));
+                if uniq.is_some() {
+                    return Err(self.err(format!("duplicate parameter `{}` in definition of function `{}`",
+                                                param.name(), function.name())));
                 }
             }
             params.push(self.compile_function_param(param)?);
         }
 
+        // gather all function stubs
+        for stub in &function.inner_functions {
+            if self.function_scope.lookup_local_stub_by_name(stub.name()).is_some() {
+                return Err(self.err(format!("stub `{}` defined twice in the same scope", stub.name())));
+            }
+            let stub = FunctionStub {
+                symbol: self.next_function_symbol(stub.name().to_string()),
+                param_count: stub.params.len(),
+                return_ty: stub.return_ty.clone(),
+            };
+            self.function_scope.insert_stub(stub);
+        }
+
+        // TODO: compile user types and their functions
+
+        // compile functions
+        for inner in &function.inner_functions {
+            let inner = self.compile_function(inner)?;
+            self.insert_vm_function(vm::Function::User(inner));
+        }
+
         let return_ty = function.return_ty.clone().into();
         let body = self.compile_action_list(&function.body)?;
-        let locals = self.local_variables.pop().unwrap();
+        let locals = self.variable_scope.shed_scope();
         self.function_scope.shed_scope();
         Ok(vm::UserFunction { symbol, params, return_ty, locals, body })
     }
@@ -184,7 +206,7 @@ impl Compile {
     fn compile_function_param<'n>(&mut self, FunctionParam { symbol, ty, default: _ }: &FunctionParam<'n>)
         -> Result<vm::FunctionParam>
     {
-        let symbol = self.insert_local_variable(symbol.name().to_string())
+        let symbol = self.variable_scope.insert_local_variable(symbol.name().to_string())
             .clone();
         let ty = ty.clone().into();
         Ok(vm::FunctionParam { symbol, ty })
@@ -266,12 +288,18 @@ impl Compile {
             Value::Symbol(sym) => {
                 match sym.as_inner() {
                     Symbol::Function(s) => {
-                        let function = self.function_scope.lookup_function_stub_name(s)
+                        let function = self.function_scope.lookup_stub_by_name(s)
                             .ok_or(format!("unknown function `{}`", s))?
                             .clone();
                         Ok(context.with_value_to_bytecode(vm::Value::FunctionRef(function.symbol)))
                     }
-                    Symbol::Bareword(_) => unimplemented!("compiling IR to bytecode => constant value lookup"),
+                    Symbol::Bareword(b) => {
+                        if let Some(stub) = self.function_scope.lookup_stub_by_name(b) {
+                            Ok(context.with_value_to_bytecode(vm::Value::FunctionRef(stub.symbol)))
+                        } else {
+                            unimplemented!("compiling IR to bytecode => bareword lookup (name: {})", b)
+                        }
+                    }
                     Symbol::Variable(s) => {
                         let symbol = self.lookup_or_insert_local_variable(s).clone();
                         Ok(context.with_symbol_to_bytecode(symbol))
@@ -326,8 +354,22 @@ impl Compile {
                 };
 
                 if let Some(function_name) = function_name {
-                    if let Some(symbol) = self.function_scope.lookup_function_symbol(function_name, args.len()) {
-                        funcall_body.push(Bc::Call(symbol));
+                    if let Some(stub) = self.function_scope.lookup_stub(function_name, args.len()) {
+                        funcall_body.push(Bc::Call(stub.symbol));
+                        if context != ValueContext::Push {
+                            if stub.return_ty == TyExpr::None {
+                                let fname = self.function_scope.lookup_name(stub.symbol);
+                                return Err(self.err(format!("function `{}` doesn't return a value", fname)));
+                            }
+                            match context {
+                                ValueContext::StoreInto(sym) => funcall_body.push(Bc::Pop(sym)),
+                                // ValueContext::Ret means that we're just returning the returned value
+                                ValueContext::Ret => funcall_body.push(Bc::Ret(None)),
+                                ValueContext::Push => unreachable!(),
+                            }
+                        }
+                    } else {
+                        return Err(self.err(format!("no such function `{}`", function_name)));
                     }
                 } else {
                     funcall_body.push(Bc::PushValue(vm::Value::FunctionRefCanary));
@@ -384,59 +426,14 @@ impl Compile {
 
     /// Looks up a local symbol, or inserts it if necessary.
     fn lookup_or_insert_local_variable(&mut self, symbol_name: &str) -> vm::Symbol {
-        if let Some(sym) = self.lookup_local_variable(symbol_name) {
-            sym
-        } else {
-            self.insert_local_variable(symbol_name.to_string())
-        }
-    }
-
-    /// Looks up a symbol in the `local_variables` table.
-    ///
-    /// # Arguments
-    ///
-    /// * `symbol_name` - the name of the symbol that is being looked up.
-    ///
-    /// # Returns
-    /// `Some(symbol)` if the local symbol was found - otherwise, `None`.
-    fn lookup_local_variable(&self, symbol_name: &str) -> Option<vm::Symbol> {
-        self.local_variables
-            .iter()
-            .filter_map(|symbols|
-                        symbols.iter().find(|local| {
-                            assert_matches!(local, vm::Symbol::Variable(_));
-                            self.variable_names[local.index()] == symbol_name
-                        })
-            )
-            .map(|s| *s)
-            .next()
-    }
-
-    /// Inserts a variable symbol into the local symbol table, returning a reference to it.
-    ///
-    /// If this symbol already exists in the table, the program will panic.
-    fn insert_local_variable(&mut self, symbol_name: String) -> vm::Symbol {
-        assert!(self.lookup_local_variable(&symbol_name).is_none());
-        {
-            let new_sym = self.next_variable_symbol(symbol_name.clone());
-            let local_variables = self.local_variables.last_mut()
-                .unwrap();
-            local_variables.push(new_sym);
-        }
-        self.local_variable_count += 1;
-        *self.local_variables
-            .last().unwrap()
-            .last().unwrap()
+        self.variable_scope
+            .lookup_or_insert_local_variable(symbol_name)
     }
 
     /// Creates an anonymous, compiler-generated symbol that cannot be referred to in code.
     fn insert_anonymous_symbol(&mut self) -> vm::Symbol {
         // TODO : Figure out how to re-use these when they're done (mite be difficult)
-        let symbol_name = {
-            let local_variables = self.local_variables.last().unwrap();
-            format!("anonymous symbol #{}", local_variables.len())
-        };
-        self.insert_local_variable(symbol_name).clone()
+        self.variable_scope.insert_anonymous_symbol()
     }
 
     /// Inserts a function symbol into the function symbol table, returning a reference to it.
@@ -448,16 +445,7 @@ impl Compile {
 
     /// Creates the next symbol used for a function with the given name.
     fn next_function_symbol(&mut self, name: String) -> vm::Symbol {
-        self.function_scope.next_function_symbol(name)
-    }
-
-    /// Creates the next symbol used for a variable with the given name.
-    fn next_variable_symbol(&mut self, name: String) -> vm::Symbol {
-        self.variable_names.push(name);
-        let num = self.all_variables.len();
-        let sym = vm::Symbol::Variable(num);
-        self.all_variables.push(sym);
-        sym
+        self.function_scope.next_symbol(name)
     }
 
     fn err(&self, message: String) -> Error {

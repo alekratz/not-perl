@@ -36,44 +36,39 @@ impl Storage {
         &self.code[idx]
     }
 
-    pub fn load(&self, symbol: &Symbol) -> Result<Value> {
+    pub fn load<'v>(&'v self, symbol: Symbol) -> Result<&'v Value> {
         match symbol {
-            Symbol::Variable(num) => {
-                let follow_ref = |value| {
-                    // weird construction due to &value borrow
-                    // NLL should fix this
-                    {
-                        if let Value::Ref(ref sym) = &value {
-                            // follow references
-                            return self.load(sym);
-                        }
-                    }
-                    Ok(value)
-                };
-
+            Symbol::Variable(global, _) => {
                 if let Some(value) = self.current_scope().try_get(symbol) {
-                    follow_ref(value)
+                    self.dereference(value)
                 } else {
                     for scope in &self.scope_stack {
                         if let Some(value) = scope.try_get(symbol) {
-                            return follow_ref(value);
+                            return self.dereference(value);
                         }
                     }
                     // TODO : String table
-                    Err(self.err(format!("could not resolve symbol: {}", num)))
+                    Err(self.err(format!("could not resolve symbol: {}", global)))
                 }
             }
             Symbol::Constant(idx) => {
-                Ok(self.constants[*idx].clone())
+                Ok(&self.constants[idx])
             }
-            Symbol::Function(idx) => {
-                let function = &self.code[*idx];
-                Ok(Value::FunctionRef(function.symbol().clone()))
-            }
+            Symbol::Function(idx) => panic!("tried to load the value of a function symbol (sym {})", idx),
         }
     }
 
-    pub fn store(&mut self, symbol: &Symbol, value: Value) -> Result<()> {
+    pub fn dereference<'v>(&'v self, value: &'v Value) -> Result<&'v Value> {
+        match value {
+            Value::Ref(sym) => {
+                let value = self.load(*sym)?;
+                self.dereference(&value)
+            }
+            _ => Ok(value),
+        }
+    }
+
+    pub fn store(&mut self, symbol: Symbol, value: Value) -> Result<()> {
         if self.current_scope_mut().try_set(symbol, value.clone()) {
             Ok(())
         } else {

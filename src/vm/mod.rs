@@ -106,10 +106,7 @@ impl Vm {
             // * this skips a lot of code, not sure if it would be more efficient in assembly
             // * something to test
             match bc {
-                Bc::PushSymbolValue(symbol) => {
-                    let value = self.load(symbol)?;
-                    self.push_stack(value);
-                }
+                Bc::PushSymbolValue(symbol) => self.push_stack(Value::Ref(*symbol)),
                 Bc::PushValue(value) => self.push_stack(value.clone()),
                 Bc::PopRefAndStore => {
                     let value = self.pop_stack();
@@ -117,46 +114,30 @@ impl Vm {
                     let sym = if let Value::Ref(sym) = sym_value {
                         sym
                     } else { panic!("non-ref sym on top of the stack: {:?}", sym_value) };
-                    assert_matches!(sym, Symbol::Variable(_));
+                    assert_matches!(sym, Symbol::Variable(_, _));
                     let canary = self.pop_stack();
                     assert_eq!(canary, Value::RefCanary, "ref canary error; got {:?} instead", canary);
-                    self.store(&sym, value)?;
+                    self.store(sym, value)?;
                 }
-                Bc::Pop(ref symbol) => {
+                Bc::Pop(symbol) => {
                     let value = self.pop_stack();
-                    self.store(symbol, value)?;
+                    self.store(*symbol, value)?;
                 }
-                Bc::Store(sym, val) => self.store(sym, val.clone())?,
-                Bc::Call(sym) => {
-                    // store current state
-                    let index = sym.index();
-                    let start_depth = self.call_stack.len();
-                    let block_depth = self.block_jump_depth;
-                    let jump_top = self.block_jump_top;
-
-                    self.call_stack.push(index);
-                    self.run_function()?;
-                    let popped = self.call_stack.pop().expect("empty call stack at end of function call");
-
-                    assert!(self.block_jump_depth == 0, "block jump depth from called function was > 0");
-                    self.block_jump_depth = block_depth;
-                    self.block_jump_top = jump_top;
-                    let end_depth = self.call_stack.len();
-                    debug_assert_eq!(index, popped,
-                               "mismatched call stack: pushed {}, popped {}. start depth: {}, end depth: {}.",
-                               index, popped, start_depth, end_depth);
-                    debug_assert_eq!(start_depth, end_depth,
-                               "mismatched call stack: pushed {}, popped {}. start depth: {}, end depth: {}.",
-                               index, popped, start_depth, end_depth);
-                },
+                Bc::Store(sym, val) => self.store(*sym, val.clone())?,
+                Bc::Call(sym) => self.call(*sym)?,
                 Bc::PopFunctionRefAndCall => {
-                    let function_ref = self.pop_stack();
-                    let sym = if let Value::FunctionRef(sym) = function_ref {
-                        sym
-                    } else { panic!("non-function ref on top of the stack: {:?}", function_ref) };
+                    let sym = {
+                        let value = self.pop_stack();
+                        let function_ref = self.dereference(&value)?;
+                        if let Value::FunctionRef(sym) = function_ref {
+                            *sym
+                        } else {
+                            panic!("non-function ref on top of the stack: {:?}\n{:#?}", function_ref, block)
+                        }
+                    };
                     let canary = self.pop_stack();
                     assert_eq!(canary, Value::FunctionRefCanary, "function ref canary errror; got {:?} instead", canary);
-                    self.call(&sym)?;
+                    self.call(sym)?;
                 }
                 Bc::Compare(Condition::Always) => { self.compare_flag = true; },
                 Bc::Compare(Condition::Never) => { self.compare_flag = false; },
@@ -166,7 +147,6 @@ impl Vm {
                     if let Some(v) = r {
                         self.push_stack(v.clone());
                     }
-                    self.call_stack.pop();
                     return Ok(());
                 },
                 Bc::ConditionBlock(b) => {
@@ -223,17 +203,17 @@ impl Vm {
             .push(value);
     }
 
-    fn call(&mut self, sym: &Symbol) -> Result<()> {
-        let idx = match sym {
-            Symbol::Function(idx) => *idx,
+    fn call(&mut self, sym: Symbol) -> Result<()> {
+        let index = match sym {
+            Symbol::Function(idx) => idx,
             // TODO : Clean this up
-            | Symbol::Variable(_) 
+            | Symbol::Variable(_, _) 
             | Symbol::Constant(_) => {
-                let function_sym = self.load(sym)?;
-                if let Value::FunctionRef(Symbol::Function(idx)) = &function_sym {
+                let function_value = self.load(sym)?;
+                if let Value::FunctionRef(Symbol::Function(idx)) = function_value {
                     *idx
                 } else {
-                    if matches!(sym, Symbol::Variable(_)) {
+                    if matches!(sym, Symbol::Variable(_, _)) {
                         // TODO string lookup table
                         return Err(self.err(format!("local variable ${:?} is not a function ref", sym)));
                     } else {
@@ -243,9 +223,26 @@ impl Vm {
                 }
             }
         };
-        self.call_stack.push(idx);
+
+        // store current state
+        let start_depth = self.call_stack.len();
+        let block_depth = self.block_jump_depth;
+        let jump_top = self.block_jump_top;
+
+        self.call_stack.push(index);
         self.run_function()?;
-        self.call_stack.pop();
+        let popped = self.call_stack.pop().expect("empty call stack at end of function call");
+
+        assert!(self.block_jump_depth == 0, "block jump depth from called function was > 0");
+        self.block_jump_depth = block_depth;
+        self.block_jump_top = jump_top;
+        let end_depth = self.call_stack.len();
+        debug_assert_eq!(index, popped,
+                         "mismatched call stack: pushed {}, popped {}. start depth: {}, end depth: {}.",
+                         index, popped, start_depth, end_depth);
+        debug_assert_eq!(start_depth, end_depth,
+                         "mismatched call stack: pushed {}, popped {}. start depth: {}, end depth: {}.",
+                         index, popped, start_depth, end_depth);
         Ok(())
     }
 
@@ -265,11 +262,15 @@ impl Vm {
         &self.storage.load_function(function_idx)
     }
 
-    fn store(&mut self, symbol: &Symbol, value: Value) -> Result<()> {
+    fn store(&mut self, symbol: Symbol, value: Value) -> Result<()> {
         self.storage.store(symbol, value)
     }
 
-    fn load(&self, symbol: &Symbol) -> Result<Value> {
+    fn dereference<'v>(&'v self, value: &'v Value) -> Result<&'v Value> {
+        self.storage.dereference(value)
+    }
+
+    fn load(&self, symbol: Symbol) -> Result<&Value> {
         self.storage.load(symbol)
     }
 
