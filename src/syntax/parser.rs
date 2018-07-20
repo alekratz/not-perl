@@ -341,10 +341,11 @@ impl<'n, S> Parser<'n, S>
         while self.is_lookahead::<Function>() {
             let function = self.next_function()?;
             functions.push(function);
-        }
-        // skip newlines; next_function preserves them
-        while self.is_token_match(&Token::NewLine) || self.is_token_match(&Token::Comment) {
-            self.next_token()?;
+
+            // skip newlines; next_function preserves them
+            while self.is_token_match(&Token::NewLine) || self.is_token_match(&Token::Comment) {
+                self.next_token()?;
+            }
         }
         self.match_token_preserve_newline(Token::RBrace)?;
 
