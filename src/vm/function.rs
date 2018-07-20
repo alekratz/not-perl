@@ -13,14 +13,17 @@ pub enum Function {
 }
 
 impl Function {
-    pub fn name(&self) -> &str {
-        self.symbol().name()
-    }
-
     pub fn symbol(&self) -> &Symbol {
         match self {
             Function::Builtin(b) => &b.symbol,
             Function::User(u) => &u.symbol
+        }
+    }
+
+    pub fn param_count(&self) -> usize {
+        match self {
+            Function::Builtin(b) => b.params.len(),
+            Function::User(u) => u.params.len(),
         }
     }
 }
@@ -44,9 +47,6 @@ impl UserFunction {
             body,
         }
     }
-    pub fn name(&self) -> &str {
-        &self.symbol.name()
-    }
 }
 
 #[derive(Debug, Clone)]
@@ -55,16 +55,10 @@ pub struct FunctionParam {
     pub ty: Ty,
 }
 
-impl FunctionParam {
-
-    pub fn name(&self) -> &str {
-        self.symbol.name()
-    }
-}
-
 #[derive(Clone)]
 pub struct BuiltinFunction {
     pub symbol: Symbol,
+    pub name: String,
     pub params: Vec<Ty>,
     pub return_ty: Ty,
     pub function: fn(&mut Storage) -> Result<(), String>,
@@ -108,7 +102,8 @@ mod functions {
 macro_rules! builtin {
     ($function_name:path, $name:ident ($head:expr $(, $tail:expr)*) -> $return_ty:expr) => {
         BuiltinFunction {
-            symbol: Symbol::Function(0, stringify!($name).to_string()),
+            symbol: Symbol::Function(0),
+            name: stringify!($name).to_string(),
             params: vec![$head $(,$tail)*],
             return_ty: $return_ty,
             function: $function_name,
@@ -117,7 +112,8 @@ macro_rules! builtin {
 
     ($function_name:path, $name:ident () -> $return_ty:expr) => {
         BuiltinFunction {
-            symbol: Symbol::Function(0, stringify!($name).to_string()),
+            symbol: Symbol::Function(0),
+            name: stringify!($name).to_string(),
             params: vec![],
             return_ty: $return_ty,
             function: $function_name,
@@ -132,14 +128,6 @@ lazy_static! {
             builtin!(functions::println, println (Ty::Any) -> Ty::None),
             builtin!(functions::readln, readln () -> Ty::Str),
             // END BUILTINS ////////////////////////////////////////////////////
-        ].into_iter()
-            .enumerate()
-            .map(|(num, BuiltinFunction { symbol, params, return_ty, function })| {
-                 let symbol = if let Symbol::Function(_, name) = symbol {
-                     Symbol::Function(num, name)
-                 } else { unreachable!() };
-                 BuiltinFunction { symbol, params, return_ty, function }
-            })
-            .collect()
+        ]
     };
 }

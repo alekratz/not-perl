@@ -53,9 +53,9 @@ impl Value {
             Value::Bool(b) => format!("{}", b),
             Value::Array(_) => unimplemented!("vm::Value array display string"),
             Value::RefCanary => "<Ref Canary, enjoy your crash>".to_string(),
-            Value::Ref(s) => format!("<Reference to {}>", s.name()),
+            Value::Ref(s) => format!("<Reference to symbol {:#x}>", s.index()),
             Value::FunctionRefCanary => "<Function Ref Canary, enjoy your crash>".to_string(),
-            Value::FunctionRef(c) => format!("<Reference to Function {}>", c.name()),
+            Value::FunctionRef(c) => format!("<Reference to Function {:#x}>", c.index()),
             Value::Unset => "<Unset Value>".to_string(),
         }
     }

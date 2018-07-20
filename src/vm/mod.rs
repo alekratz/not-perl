@@ -117,7 +117,7 @@ impl Vm {
                     let sym = if let Value::Ref(sym) = sym_value {
                         sym
                     } else { panic!("non-ref sym on top of the stack: {:?}", sym_value) };
-                    assert_matches!(sym, Symbol::Variable(_, _));
+                    assert_matches!(sym, Symbol::Variable(_));
                     let canary = self.pop_stack();
                     assert_eq!(canary, Value::RefCanary, "ref canary error; got {:?} instead", canary);
                     self.store(&sym, value)?;
@@ -225,18 +225,20 @@ impl Vm {
 
     fn call(&mut self, sym: &Symbol) -> Result<()> {
         let idx = match sym {
-            Symbol::Function(idx, _) => *idx,
+            Symbol::Function(idx) => *idx,
             // TODO : Clean this up
-            | Symbol::Variable(_, name) 
-            | Symbol::Constant(_, name) => {
+            | Symbol::Variable(_) 
+            | Symbol::Constant(_) => {
                 let function_sym = self.load(sym)?;
-                if let Value::FunctionRef(Symbol::Function(idx, _)) = &function_sym {
+                if let Value::FunctionRef(Symbol::Function(idx)) = &function_sym {
                     *idx
                 } else {
-                    if matches!(sym, Symbol::Variable(_, _)) {
-                        return Err(self.err(format!("local variable ${} is not a function ref", name)));
+                    if matches!(sym, Symbol::Variable(_)) {
+                        // TODO string lookup table
+                        return Err(self.err(format!("local variable ${:?} is not a function ref", sym)));
                     } else {
-                        return Err(self.err(format!("named constant {} is not a function ref", name)));
+                        // TODO string lookup table
+                        return Err(self.err(format!("named constant {:?} is not a function ref", sym)));
                     }
                 }
             }

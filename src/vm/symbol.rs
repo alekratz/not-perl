@@ -1,31 +1,23 @@
 use vm::ValueIndex;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Symbol {
     /// A function symbol.
-    Function(ValueIndex, String),
+    Function(ValueIndex),
 
     /// A constant-value symbol.
-    Constant(ValueIndex, String),
+    Constant(ValueIndex),
 
     /// A variable symbol.
-    Variable(ValueIndex, String),
+    Variable(ValueIndex),
 }
 
 impl Symbol {
-    pub fn name(&self) -> &str {
-        match self {
-            | Symbol::Function(_, s)
-            | Symbol::Constant(_, s)
-            | Symbol::Variable(_, s) => s
-        }
-    }
-
     pub fn index(&self) -> usize {
         match self {
-            | Symbol::Function(i, _)
-            | Symbol::Constant(i, _)
-            | Symbol::Variable(i, _) => *i
+            | Symbol::Function(i)
+            | Symbol::Constant(i)
+            | Symbol::Variable(i) => *i
         }
     }
 }

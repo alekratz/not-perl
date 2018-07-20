@@ -38,7 +38,7 @@ impl Storage {
 
     pub fn load(&self, symbol: &Symbol) -> Result<Value> {
         match symbol {
-            Symbol::Variable(_, ref name) => {
+            Symbol::Variable(num) => {
                 let follow_ref = |value| {
                     // weird construction due to &value borrow
                     // NLL should fix this
@@ -59,13 +59,14 @@ impl Storage {
                             return follow_ref(value);
                         }
                     }
-                    Err(self.err(format!("could not resolve symbol: {}", name)))
+                    // TODO : String table
+                    Err(self.err(format!("could not resolve symbol: {}", num)))
                 }
             }
-            Symbol::Constant(idx, _) => {
+            Symbol::Constant(idx) => {
                 Ok(self.constants[*idx].clone())
             }
-            Symbol::Function(idx, _) => {
+            Symbol::Function(idx) => {
                 let function = &self.code[*idx];
                 Ok(Value::FunctionRef(function.symbol().clone()))
             }

@@ -22,9 +22,9 @@ impl Scope {
 
     pub fn try_get(&self, sym: &Symbol) -> Option<Value> {
         match sym {
-            Symbol::Function(_, ref name) => panic!("attempted to load scope value from function symbol {}", name),
-            Symbol::Constant(_, ref name) => panic!("attempted to load scope value from constant symbol {}", name),
-            Symbol::Variable(idx, _) => {
+            Symbol::Function(sym) => panic!("attempted to load scope value from function symbol {}", sym),
+            Symbol::Constant(sym) => panic!("attempted to load scope value from constant symbol {}", sym),
+            Symbol::Variable(idx) => {
                 if self.values.len() <= *idx || &self.symbols[*idx] != sym {
                     None
                 } else {
@@ -44,9 +44,9 @@ impl Scope {
 
     pub fn try_set(&mut self, sym: &Symbol, val: Value) -> bool {
         match sym {
-            Symbol::Function(_, ref name) => panic!("attempted to set function symbol to a value {}", name),
-            Symbol::Constant(_, ref name) => panic!("attempted to set constant symbol to a value {}", name),
-            Symbol::Variable(idx, _) => {
+            Symbol::Function(sym) => panic!("attempted to set function symbol to a value {}", sym),
+            Symbol::Constant(sym) => panic!("attempted to set constant symbol to a value {}", sym),
+            Symbol::Variable(idx) => {
                 if self.symbols.len() <= *idx || &self.symbols[*idx] != sym {
                     false
                 } else {
