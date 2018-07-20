@@ -27,7 +27,6 @@ pub struct Vm {
     /// The storage of this VM.
     storage: Storage,
 
-
     /// A stack of function indices.
     call_stack: Vec<StackIndex>,
 
@@ -46,10 +45,12 @@ pub struct Vm {
 }
 
 impl Vm {
-    pub fn from_compile_unit( CompileUnit { name: _name, main_function, mut functions }: CompileUnit) -> Self {
+    pub fn from_compile_unit( CompileUnit { name: _name, main_function, mut functions, function_names,
+                                            variable_names, }: CompileUnit) -> Self
+    {
         functions.push(main_function);
         Vm {
-            storage: Storage::new(functions, vec![/* TODO: constants */]),
+            storage: Storage::new(functions, vec![/* TODO: constants */], function_names, variable_names),
             call_stack: vec![],
             compare_flag: false,
             block_jump_depth: 0,
@@ -132,7 +133,7 @@ impl Vm {
                         if let Value::FunctionRef(sym) = function_ref {
                             *sym
                         } else {
-                            panic!("non-function ref on top of the stack: {:?}\n{:#?}", function_ref, block)
+                            return Err(self.err(format!("{} is not a function reference", self.value_name(&value))));
                         }
                     };
                     let canary = self.pop_stack();
@@ -214,8 +215,8 @@ impl Vm {
                     *idx
                 } else {
                     if matches!(sym, Symbol::Variable(_, _)) {
-                        // TODO string lookup table
-                        return Err(self.err(format!("local variable ${:?} is not a function ref", sym)));
+                        let name = self.storage.variable_name(sym);
+                        return Err(self.err(format!("local variable ${} is not a function ref", name)));
                     } else {
                         // TODO string lookup table
                         return Err(self.err(format!("named constant {:?} is not a function ref", sym)));
@@ -272,6 +273,15 @@ impl Vm {
 
     fn load(&self, symbol: Symbol) -> Result<&Value> {
         self.storage.load(symbol)
+    }
+
+    /// Gets the best-guess name for this value.
+    fn value_name(&self, value: &Value) -> String {
+        match value {
+            Value::Ref(s) => format!("variable `${}`", self.storage.variable_name(*s)),
+            Value::FunctionRef(s) => format!("function `{}`", self.storage.function_name(*s)),
+            _ => value.display_string(),
+        }
     }
 
     fn err(&self, message: String) -> Error {

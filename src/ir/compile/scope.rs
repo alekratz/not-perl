@@ -17,6 +17,10 @@ impl FunctionScope {
         }
     }
 
+    pub fn into_names(self) -> Vec<String> {
+        self.function_names
+    }
+
     /// Creates the next symbol used for a function with the given name.
     pub fn next_symbol(&mut self, name: String) -> vm::Symbol {
         assert!(self.lookup_local_stub_by_name(&name).is_none());
@@ -129,6 +133,10 @@ impl VariableScope {
             variable_names: vec![],
             scope: vec![],
         }
+    }
+
+    pub fn into_names(self) -> Vec<String> {
+        self.variable_names
     }
 
     pub fn add_scope(&mut self) {

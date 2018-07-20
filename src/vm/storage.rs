@@ -16,15 +16,24 @@ pub struct Storage {
 
     /// A list of read-only constants.
     pub constants: Vec<Value>,
+
+    /// All function names in this program.
+    pub function_names: Vec<String>,
+
+    /// All variable names in this program.
+    pub variable_names: Vec<String>,
 }
 
 impl Storage {
-    pub fn new(code: Vec<Function>, constants: Vec<Value>) -> Self {
+    pub fn new(code: Vec<Function>, constants: Vec<Value>, function_names: Vec<String>,
+               variable_names: Vec<String>) -> Self {
         Storage {
             scope_stack: vec![],
             value_stack: vec![],
             code,
             constants,
+            function_names,
+            variable_names,
         }
     }
 
@@ -86,6 +95,22 @@ impl Storage {
         self.scope_stack
             .last()
             .expect("no current scope")
+    }
+
+    pub fn function_name(&self, symbol: Symbol) -> &str {
+        if let Symbol::Function(sym) = symbol {
+            &self.function_names[sym]
+        } else {
+            panic!("not a function symbol: {:?}", symbol)
+        }
+    }
+
+    pub fn variable_name(&self, symbol: Symbol) -> &str {
+        if let Symbol::Variable(sym, _) = symbol {
+            &self.variable_names[sym]
+        } else {
+            panic!("not a variable symbol: {:?}", symbol)
+        }
     }
 
     fn err(&self, message: String) -> Error {

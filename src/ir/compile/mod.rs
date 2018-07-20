@@ -77,7 +77,7 @@ impl Compile {
         let code = self.compile_action_list(ir_tree.actions())?;
         let globals = self.variable_scope.shed_scope();
         let main_function_symbol = self.next_function_symbol("<main>".to_string());
-        let mut functions = self.compiled_functions;
+        let Compile { compiled_functions: mut functions, function_scope, variable_scope } = self;
         functions.sort_unstable_by(|a, b| a.symbol().index().cmp(&b.symbol().index()));
         // TODO : make sure all stubs have their counterpart?
         let main_function = vm::Function::User(vm::UserFunction {
@@ -94,6 +94,8 @@ impl Compile {
             name: String::new(),
             main_function,
             functions,
+            function_names: function_scope.into_names(),
+            variable_names: variable_scope.into_names(),
         })
     }
 
@@ -494,4 +496,6 @@ pub struct CompileUnit {
     pub name: String,
     pub main_function: vm::Function,
     pub functions: Vec<vm::Function>,
+    pub function_names: Vec<String>,
+    pub variable_names: Vec<String>,
 }
