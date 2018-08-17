@@ -1,34 +1,40 @@
+use std::fmt::Debug;
+use std::ops::{Deref, DerefMut};
 use ir::compile::*;
 use vm;
 
+/// A generic scope that keeps track of multiple layers of some given type.
 #[derive(Debug, Clone)]
-pub struct FunctionScope {
-    function_symbols: Vec<vm::Symbol>,
-    function_names: Vec<String>,
-    scope: Vec<Vec<FunctionStub>>,
+pub struct Scope<T>
+    where T: Debug + Clone
+{
+    symbols: Vec<vm::Symbol>,
+    names: Vec<String>,
+    scope: Vec<Vec<T>>,
 }
 
-impl FunctionScope {
+impl<T> Scope<T>
+    where T: Debug + Clone
+{
     pub fn new() -> Self {
-        FunctionScope {
-            function_symbols: vec![],
-            function_names: vec![],
+        Scope {
+            symbols: vec![],
+            names: vec![],
             scope: vec![],
         }
     }
 
-    pub fn into_names(self) -> Vec<String> {
-        self.function_names
+    pub fn names(&self) -> &[String] {
+        self.names.as_ref()
     }
 
-    /// Creates the next symbol used for a function with the given name.
-    pub fn next_symbol(&mut self, name: String) -> vm::Symbol {
-        assert!(self.lookup_local_stub_by_name(&name).is_none());
-        let num = self.function_symbols.len();
-        self.function_names.push(name);
-        let sym = vm::Symbol::Function(num);
-        self.function_symbols.push(sym);
-        sym
+    pub fn symbols(&self) -> &[vm::Symbol] {
+        &self.symbols
+    }
+
+    pub fn insert_symbol(&mut self, symbol: vm::Symbol, name: String) {
+        self.names.push(name);
+        self.symbols.push(symbol);
     }
 
     /// Adds a new layer to this function scope.
@@ -37,18 +43,73 @@ impl FunctionScope {
     }
 
     /// Sheds a layer of this function scope.
-    pub fn shed_scope(&mut self) {
-        self.scope.pop().expect("tried to shed empty function scope");
+    pub fn shed_scope(&mut self) -> Vec<T> {
+        self.scope.pop().expect("tried to shed empty function scope")
     }
 
-    /// Inserts a function stub into the current stub scope and all function stubs array, as well
-    /// as creating an extra symbol.
-    pub fn insert_stub(&mut self, stub: FunctionStub) -> &FunctionStub {
-        let stub_scope = self.scope.last_mut()
+    /// Looks up a name of an item based on the given symbol.
+    pub fn lookup_name(&self, symbol: vm::Symbol) -> &str {
+        &self.names[symbol.index()]
+    }
+
+    /// Looks up an item based on the given predicate.
+    ///
+    /// This method will start at the end of the scope, and work its way towards the beginning. The
+    /// first item to match the predicate is returned.
+    pub fn lookup<P>(&self, mut predicate: P) -> Option<&T>
+        where for<'r> P: FnMut(&'r &T) -> bool
+    {
+        self.scope
+            .iter()
+            .rev()
+            .filter_map(|collection| collection.iter().find(|t| (predicate)(t)))
+            .next()
+    }
+
+    /// Looks up an item based on the given predicate.
+    ///
+    /// This method *only* checks the last scope.
+    pub fn lookup_one<P>(&self, predicate: P) -> Option<&T>
+        where for<'r> P: FnMut(&'r &T) -> bool
+    {
+        self.scope
+            .last()
+            .expect("attempt to search empty scope")
+            .iter()
+            .filter(predicate)
+            .next()
+    }
+
+    pub fn insert(&mut self, value: T) -> &T {
+        let current = self.scope.last_mut()
             .unwrap();
-        stub_scope.push(stub);
-        stub_scope.last()
-            .unwrap()
+        current.push(value);
+        current.last()
+               .unwrap()
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct FunctionScope { scope: Scope<FunctionStub>, }
+
+impl FunctionScope {
+    pub fn new() -> Self {
+        FunctionScope {
+            scope: Scope::new(),
+        }
+    }
+
+    pub fn into_names(self) -> Vec<String> {
+        self.scope.names
+    }
+
+    /// Creates the next symbol used for a function with the given name.
+    pub fn next_symbol(&mut self, name: String) -> vm::Symbol {
+        assert!(self.lookup_local_stub_by_name(&name).is_none());
+        let num = self.symbols.len();
+        let sym = vm::Symbol::Function(num);
+        self.insert_symbol(sym, name);
+        sym
     }
 
     /// Looks up a function stub based on its name and parameter count.
@@ -61,24 +122,13 @@ impl FunctionScope {
     /// # Returns
     /// `Some(symbol)` if the function stub was found - otherwise, `None`.
     pub fn lookup_stub(&self, symbol_name: &str, param_count: usize) -> Option<&FunctionStub> {
-        self.scope
-            .iter()
-            .rev()
-            .filter_map(|collection| collection.iter()
-                        .find(|function| self.function_names[function.symbol.index()] == symbol_name
-                              && function.param_count == param_count))
-            .next()
+        self.lookup(|function| self.lookup_name(function.symbol) == symbol_name && function.param_count == param_count)
     }
 
     /// Looks up a function's symbol based on its name and the current function scope.
     pub fn lookup_symbol(&self, name: &str, param_count: usize) -> Option<vm::Symbol> {
         self.lookup_stub(name, param_count)
             .map(|stub| stub.symbol)
-    }
-
-    pub fn lookup_name(&self, symbol: vm::Symbol) -> &str {
-        assert_matches!(symbol, vm::Symbol::Function(_));
-        &self.function_names[symbol.index()]
     }
 
     /// Looks up a function stub based exclusively on its name.
@@ -96,12 +146,7 @@ impl FunctionScope {
     /// # Returns
     /// `Some(symbol)` if the function stub was found - otherwise, `None`.
     pub fn lookup_stub_by_name(&self, symbol_name: &str) -> Option<&FunctionStub> {
-        self.scope
-            .iter()
-            .rev()
-            .filter_map(|collection| collection.iter()
-                        .find(|function| self.function_names[function.symbol.index()] == symbol_name))
-            .next()
+        self.lookup(|function| self.lookup_name(function.symbol) == symbol_name)
     }
 
     /// Looks for the current function in the local scope only (not hopping up the scope if the
@@ -110,55 +155,55 @@ impl FunctionScope {
     /// This function is used to determine if a function of the same name has already been defined
     /// in this scope.
     pub fn lookup_local_stub_by_name(&self, symbol_name: &str) -> Option<&FunctionStub> {
-        self.scope
-            .last()
-            .unwrap()
-            .iter()
-            .filter(|stub| self.function_names[stub.symbol.index()] == symbol_name)
-            .next()
+        self.lookup_one(|stub| self.lookup_name(stub.symbol) == symbol_name)
+    }
+}
+
+impl Deref for FunctionScope {
+    type Target = Scope<FunctionStub>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.scope
+    }
+}
+
+impl DerefMut for FunctionScope {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.scope
     }
 }
 
 #[derive(Debug, Clone)]
 pub struct VariableScope {
+    /*
     all_variables: Vec<vm::Symbol>,
     variable_names: Vec<String>,
     scope: Vec<Vec<vm::Symbol>>,
+    */
+    scope: Scope<vm::Symbol>,
 }
 
 impl VariableScope {
     pub fn new() -> Self {
         VariableScope {
-            all_variables: vec![],
-            variable_names: vec![],
-            scope: vec![],
+            scope: Scope::new(),
         }
     }
 
     pub fn into_names(self) -> Vec<String> {
-        self.variable_names
-    }
-
-    pub fn add_scope(&mut self) {
-        self.scope.push(vec![]);
-    }
-
-    pub fn shed_scope(&mut self) -> Vec<vm::Symbol> {
-        self.scope.pop()
-            .expect("tried to shed empty variable scope")
+        self.scope.names
     }
 
     fn next_symbol(&mut self, name: String) -> vm::Symbol {
-        self.variable_names.push(name);
-        let global_idx = self.all_variables.len();
-        let local_idx = self.scope.last()
+        let global_idx = self.symbols().len();
+        let local_idx = self.scope
+            .scope
+            .last()
             .unwrap()
             .len();
         let sym = vm::Symbol::Variable(global_idx, local_idx);
-        self.all_variables.push(sym);
-        let local_variables = self.scope.last_mut()
-            .unwrap();
-        local_variables.push(sym);
+        self.insert_symbol(sym, name);
+        self.insert(sym);
         sym
     }
 
@@ -166,7 +211,7 @@ impl VariableScope {
     ///
     /// If this symbol already exists in the table, the program will panic.
     pub fn insert_local_variable(&mut self, symbol_name: String) -> vm::Symbol {
-        assert!(self.lookup_local_variable(&symbol_name).is_none());
+        assert!(self.lookup_local(&symbol_name).is_none());
         self.next_symbol(symbol_name.clone())
     }
 
@@ -180,46 +225,50 @@ impl VariableScope {
     ///
     /// # Returns
     /// `Some(symbol)` if the local symbol was found - otherwise, `None`.
-    pub fn lookup_local_variable(&self, symbol_name: &str) -> Option<vm::Symbol> {
+    pub fn lookup_local(&self, symbol_name: &str) -> Option<vm::Symbol> {
         self.scope
-            .iter()
-            .filter_map(|symbols|
-                        symbols.iter().find(|local| {
-                            assert_matches!(local, vm::Symbol::Variable(_, _));
-                            self.variable_names[local.index()] == symbol_name
-                        })
-            )
+            .lookup_one(|local|{
+                assert_matches!(local, vm::Symbol::Variable(_, _));
+                self.lookup_name(**local) == symbol_name
+            })
             .map(|s| *s)
-            .next()
     }
 
     /// Looks up a local symbol, or inserts it if necessary.
-    pub fn lookup_or_insert_local_variable(&mut self, symbol_name: &str) -> vm::Symbol {
-        if let Some(sym) = self.lookup_local_variable(symbol_name) {
+    pub fn lookup_or_insert_local(&mut self, symbol_name: &str) -> vm::Symbol {
+        if let Some(sym) = self.lookup_local(symbol_name) {
             sym
         } else {
             self.insert_local_variable(symbol_name.to_string())
         }
     }
 
-    /// Looks up a variable name based on its VM symbol.
-    pub fn lookup_variable_name(&self, symbol: vm::Symbol) -> &str {
-        assert_matches!(symbol, vm::Symbol::Variable(_, _));
-        &self.variable_names[symbol.index()]
-    }
-
     /// Looks up a local variable name based on its VM symbol.
     ///
     /// This will not traverse the scope stack, only checking the local scope.
-    pub fn lookup_local_variable_name(&self, symbol: vm::Symbol) -> Option<&str> {
+    pub fn lookup_local_name(&self, symbol: vm::Symbol) -> Option<&str> {
         assert_matches!(symbol, vm::Symbol::Variable(_, _));
-        let name = self.lookup_variable_name(symbol);
-        self.lookup_local_variable(name)
-            .map(|v| self.lookup_variable_name(v))
+        let name = self.lookup_name(symbol);
+        self.lookup_local(name)
+            .map(|v| self.lookup_name(v))
     }
 
     pub fn insert_anonymous_symbol(&mut self) -> vm::Symbol {
-        let symbol_name = format!("anonymous symbol #{}", self.all_variables.len());
+        let symbol_name = format!("anonymous symbol #{}", self.symbols.len());
         self.insert_local_variable(symbol_name)
+    }
+}
+
+impl Deref for VariableScope {
+    type Target = Scope<vm::Symbol>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.scope
+    }
+}
+
+impl DerefMut for VariableScope {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.scope
     }
 }

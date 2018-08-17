@@ -10,6 +10,9 @@ pub enum Symbol {
 
     /// A variable symbol, with both a global and local index.
     Variable(ValueIndex, ValueIndex),
+
+    /// A type symbol, indicating a named type.
+    Ty(ValueIndex),
 }
 
 impl Symbol {
@@ -17,7 +20,8 @@ impl Symbol {
         match self {
             | Symbol::Function(i)
             | Symbol::Constant(i)
-            | Symbol::Variable(i, _) => *i
+            | Symbol::Variable(i, _)
+            | Symbol::Ty(i) => *i
         }
     }
 
@@ -25,7 +29,8 @@ impl Symbol {
         match self {
             | Symbol::Function(i)
             | Symbol::Constant(i)
-            | Symbol::Variable(_, i) => *i
+            | Symbol::Variable(_, i)
+            | Symbol::Ty(i) => *i
         }
     }
 }

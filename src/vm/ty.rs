@@ -1,6 +1,7 @@
+use vm::{Symbol, Function};
 use ir;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 #[repr(usize)]
 pub enum Ty {
     Float,
@@ -29,4 +30,12 @@ impl From<ir::TyExpr> for Ty {
             ir::TyExpr::None => Ty::None,
         }
     }
+}
+
+/// A user-defined type.
+#[derive(Debug, Clone, PartialEq)]
+pub struct UserTy {
+    pub symbol: Symbol,
+    pub predicate: Function,
+    pub functions: Vec<Function>,
 }

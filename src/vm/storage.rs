@@ -64,6 +64,7 @@ impl Storage {
                 Ok(&self.constants[idx])
             }
             Symbol::Function(idx) => panic!("tried to load the value of a function symbol (sym {})", idx),
+            Symbol::Ty(idx) => panic!("tried to load the value of a type symbol (sym {})", idx),
         }
     }
 

@@ -17,6 +17,7 @@ pub struct Parser<'n, S>
     curr: Option<RangeToken<'n>>,
     next: Option<RangeToken<'n>>,
     stmt_level: usize,
+    inside_type: bool,
 }
 
 impl<'n, S> Parser<'n, S>
@@ -33,6 +34,7 @@ impl<'n, S> Parser<'n, S>
             curr: None,
             next: None,
             stmt_level: 0,
+            inside_type: false,
         }
     }
 
@@ -256,10 +258,15 @@ impl<'n, S> Parser<'n, S>
                 }
                 inner
             }
-            _ => if self.stmt_level == 0 {
-                Expr::Atom(self.next_token_or_newline()?.unwrap())
-            } else {
-                Expr::Atom(self.next_token()?.unwrap())
+            _ => {
+                if self.is_token_match(&Token::SelfKw) && !self.inside_type {
+                    return Err(self.err("'self' keyword expression may only appear inside of a type declaration".to_string()));
+                }
+                if self.stmt_level == 0 {
+                    Expr::Atom(self.next_token_or_newline()?.unwrap())
+                } else {
+                    Expr::Atom(self.next_token()?.unwrap())
+                }
             }
         };
 
@@ -286,23 +293,33 @@ impl<'n, S> Parser<'n, S>
         let mut defaults = false;
         self.match_token(Token::LParen)?;
         while !self.is_token_match(&Token::RParen) {
-            let param_name = self.next_variable()?;
-            let mut ty = None;
-            let mut default = None;
-            if self.is_token_match(&Token::Colon) {
-                self.match_token(Token::Colon)?;
-                ty = Some(self.next_bareword()?);
-            }
+            if self.is_token_match(&Token::SelfKw) {
+                if !self.inside_type {
+                    return Err(self.err(format!("got 'self' keyword outside of type declaration")));
+                } else if params.len() > 0 {
+                    return Err(self.err(format!("'self' parameter is only allowed as the first argument to a function")));
+                }
+                self.next_token()?;
+                params.push(FunctionParam::SelfKw);
+            } else {
+                let param_name = self.next_variable()?;
+                let mut ty = None;
+                let mut default = None;
+                if self.is_token_match(&Token::Colon) {
+                    self.match_token(Token::Colon)?;
+                    ty = Some(self.next_bareword()?);
+                }
 
-            if defaults || self.is_token_match(&Token::AssignOp(AssignOp::Equals)) {
-                defaults = true;
-                self.match_token(Token::AssignOp(AssignOp::Equals))?;
-                default = Some(self.next_expr()?);
-            }
-            params.push(FunctionParam::new(param_name, ty, default));
+                if defaults || self.is_token_match(&Token::AssignOp(AssignOp::Equals)) {
+                    defaults = true;
+                    self.match_token(Token::AssignOp(AssignOp::Equals))?;
+                    default = Some(self.next_expr()?);
+                }
+                params.push(FunctionParam::Variable { name: param_name, ty, default } );
 
-            if !self.is_token_match(&Token::RParen) {
-                self.match_token(Token::Comma)?;
+                if !self.is_token_match(&Token::RParen) {
+                    self.match_token(Token::Comma)?;
+                }
             }
         }
         self.match_token(Token::RParen)?;
@@ -320,6 +337,9 @@ impl<'n, S> Parser<'n, S>
     }
 
     fn next_user_type(&mut self) -> Result<'n, UserTy<'n>> {
+        let old_inside_type = self.inside_type;
+        self.inside_type = true;
+
         self.match_token(Token::TypeKw)?;
         let name = self.next_bareword()?;
 
@@ -349,6 +369,7 @@ impl<'n, S> Parser<'n, S>
         }
         self.match_token_preserve_newline(Token::RBrace)?;
 
+        self.inside_type = old_inside_type;
         Ok(UserTy { name, parents, functions })
     }
 

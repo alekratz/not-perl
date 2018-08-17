@@ -223,6 +223,7 @@ impl Vm {
                     }
                 }
             }
+            | Symbol::Ty(idx) => panic!("attempted to call a value in a type symbol {}", idx),
         };
 
         // store current state

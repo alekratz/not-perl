@@ -1,4 +1,5 @@
 use vm;
+use syntax::tree;
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum TyExpr {
@@ -21,3 +22,9 @@ impl From<vm::Ty> for TyExpr {
         }
     }
 }
+
+/// Type alias for a user-defined type.
+///
+/// Since the syntax and IR would effectively be the same, it would be more work to keep two
+/// different structures in tandem with one another.
+pub type UserTy<'n> = tree::UserTy<'n>;

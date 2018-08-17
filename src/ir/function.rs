@@ -51,32 +51,39 @@ impl<'n> Ir<tree::Function<'n>> for Function<'n> {
 }
 
 #[derive(Debug)]
-pub struct FunctionParam<'n> {
-    pub symbol: Symbol,
-    pub ty: TyExpr,
-    pub default: Option<Value<'n>>,
+pub enum FunctionParam<'n> {
+    SelfKw,
+    Variable {
+        symbol: Symbol,
+        ty: TyExpr,
+        default: Option<Value<'n>>,
+    },
 }
 
 impl<'n> FunctionParam<'n> {
-    pub fn new(symbol: Symbol, ty: TyExpr, default: Option<Value<'n>>) -> Self {
-        FunctionParam { symbol, ty, default, }
-    }
-
     pub fn name(&self) -> &str {
-        self.symbol.name()
+        match self {
+            FunctionParam::SelfKw => "self",
+            FunctionParam::Variable { symbol, ty: _, default: _ } => symbol.name(),
+        }
     }
 }
 
 impl<'n> Ir<tree::FunctionParam<'n>> for FunctionParam<'n> {
-    fn from_syntax(tree::FunctionParam { name, ty, default }: &tree::FunctionParam<'n>) -> Self {
-        let symbol = Symbol::Variable(name.to_string());
-        let ty = if let Some(ty) = ty {
-            TyExpr::Definite(ty.to_string())
-        } else {
-            // variables, by default, have a type of "any"
-            TyExpr::Any
-        };
-        let default = default.as_ref().map(Value::from_syntax);
-        FunctionParam::new(symbol, ty, default)
+    fn from_syntax(param: &tree::FunctionParam<'n>) -> Self {
+        match param {
+            tree::FunctionParam::Variable { name, ty, default } => {
+                let symbol = Symbol::Variable(name.to_string());
+                let ty = if let Some(ty) = ty {
+                    TyExpr::Definite(ty.to_string())
+                } else {
+                    // variables, by default, have a type of "any"
+                    TyExpr::Any
+                };
+                let default = default.as_ref().map(Value::from_syntax);
+                FunctionParam::Variable { symbol, ty, default }
+            }
+            tree::FunctionParam::SelfKw => FunctionParam::SelfKw,
+        }
     }
 }

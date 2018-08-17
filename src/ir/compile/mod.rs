@@ -19,6 +19,7 @@ pub type Result<T> = ::std::result::Result<T, Error>;
 /// IR to bytecode compiler, complete with state.
 #[derive(Debug)]
 pub struct Compile {
+    defined_types: Vec<vm::Ty>,
     compiled_functions: Vec<vm::Function>,
     function_scope: FunctionScope,
     variable_scope: VariableScope,
@@ -37,11 +38,13 @@ impl Compile {
                     param_count: function.params.len(),
                     return_ty: function.return_ty.clone().into(),
                 };
-                function_scope.insert_stub(stub);
+                function_scope.insert(stub);
                 vm::Function::Builtin(function)
             })
             .collect();
+        // TODO(predicate) : builtin types
         Compile {
+            defined_types: vec![],
             compiled_functions,
             function_scope,
             variable_scope: VariableScope::new(),
@@ -62,11 +65,12 @@ impl Compile {
                 param_count: function.params.len(),
                 return_ty: function.return_ty.clone(),
             };
-            self.function_scope.insert_stub(stub);
+            self.function_scope.insert(stub);
         }
 
-        // compile user types and their functions
-        // TODO
+        for user_type in ir_tree.user_types() {
+            self.compile_user_type(user_type)?;
+        }
 
         // compile functions
         for function in ir_tree.functions() {
@@ -77,7 +81,7 @@ impl Compile {
         let code = self.compile_action_list(ir_tree.actions())?;
         let globals = self.variable_scope.shed_scope();
         let main_function_symbol = self.next_function_symbol("<main>".to_string());
-        let Compile { compiled_functions: mut functions, function_scope, variable_scope } = self;
+        let Compile { compiled_functions: mut functions, function_scope, variable_scope, defined_types, } = self;
         functions.sort_unstable_by(|a, b| a.symbol().index().cmp(&b.symbol().index()));
         // TODO : make sure all stubs have their counterpart?
         let main_function = vm::Function::User(vm::UserFunction {
@@ -88,8 +92,6 @@ impl Compile {
             body: code,
         });
 
-        //println!("{:#?}", functions);
-
         Ok(CompileUnit {
             name: String::new(),
             main_function,
@@ -97,6 +99,19 @@ impl Compile {
             function_names: function_scope.into_names(),
             variable_names: variable_scope.into_names(),
         })
+    }
+
+    fn compile_user_type<'n>(&mut self, udt: &UserTy<'n>) -> Result<vm::UserTy> {
+        // TODO(predicate) : order-agnostic user defined types
+        self.function_scope.add_scope();
+        if !udt.parents.is_empty() {
+            // TODO(predicate) : deal with udt parents
+            unimplemented!("compile IR user-defined type with parents");
+        }
+        // check if this type is already defined
+
+        self.function_scope.shed_scope();
+        unimplemented!("compile IR user-defined type");
     }
 
     /// Converts a sequence of IR actions to a sequence of bytecode.
@@ -166,9 +181,9 @@ impl Compile {
 
         let mut params: Vec<vm::FunctionParam> = vec![];
         for param in &function.params {
-            {
+            if let FunctionParam::Variable { symbol: _, ty: _, default: _ } = param {
                 let uniq = params.iter()
-                    .find(|p| self.variable_scope.lookup_local_variable_name(p.symbol) == Some(param.name()));
+                    .find(|p| self.variable_scope.lookup_local_name(p.symbol) == Some(param.name()));
                 if uniq.is_some() {
                     return Err(self.err(format!("duplicate parameter `{}` in definition of function `{}`",
                                                 param.name(), function.name())));
@@ -187,7 +202,7 @@ impl Compile {
                 param_count: stub.params.len(),
                 return_ty: stub.return_ty.clone(),
             };
-            self.function_scope.insert_stub(stub);
+            self.function_scope.insert(stub);
         }
 
         // TODO: compile user types and their functions
@@ -205,13 +220,20 @@ impl Compile {
         Ok(vm::UserFunction { symbol, params, return_ty, locals, body })
     }
 
-    fn compile_function_param<'n>(&mut self, FunctionParam { symbol, ty, default: _ }: &FunctionParam<'n>)
+    fn compile_function_param<'n>(&mut self, param: &FunctionParam<'n>)
         -> Result<vm::FunctionParam>
     {
-        let symbol = self.variable_scope.insert_local_variable(symbol.name().to_string())
-            .clone();
-        let ty = ty.clone().into();
-        Ok(vm::FunctionParam { symbol, ty })
+        match param {
+            FunctionParam::Variable { symbol, ty, default: _ } => {
+                let symbol = self.variable_scope.insert_local_variable(symbol.name().to_string())
+                    .clone();
+                let ty = ty.clone().into();
+                Ok(vm::FunctionParam { symbol, ty })
+            }
+            FunctionParam::SelfKw => {
+                unimplemented!("compile IR FunctionParam::SelfKw")
+            }
+        }
     }
 
     /// Compiles an assignment (lhs, operator, and rhs) into a thunk.
@@ -429,7 +451,7 @@ impl Compile {
     /// Looks up a local symbol, or inserts it if necessary.
     fn lookup_or_insert_local_variable(&mut self, symbol_name: &str) -> vm::Symbol {
         self.variable_scope
-            .lookup_or_insert_local_variable(symbol_name)
+            .lookup_or_insert_local(symbol_name)
     }
 
     /// Creates an anonymous, compiler-generated symbol that cannot be referred to in code.
@@ -449,6 +471,14 @@ impl Compile {
     fn next_function_symbol(&mut self, name: String) -> vm::Symbol {
         self.function_scope.next_symbol(name)
     }
+
+    /*
+    fn lookup_type_symbol(&mut self, symbol_name: &str) -> Option<vm::Ty> {
+    }
+    /// Creates the next symbol used for a type.
+    fn next_type_symbol(&mut self, name: String) -> vm::Symbol {
+    }
+    */
 
     fn err(&self, message: String) -> Error {
         message

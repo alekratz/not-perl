@@ -1,6 +1,4 @@
-use std::{
-    fmt::{self, Formatter, Display},
-};
+use std::fmt::{self, Formatter, Display};
 use syntax::{
     Ranged,
     tree::Ast,
@@ -158,6 +156,7 @@ pub enum Token {
     FalseKw,
     FunKw,
     TypeKw,
+    SelfKw,
 
     //
     // Symbols
@@ -246,6 +245,7 @@ impl Token {
             FalseKw => "false".to_string(),
             FunKw => "fun".to_string(),
             TypeKw => "type".to_string(),
+            SelfKw => "self".to_string(),
             Op(s) => s.to_string(),
             AssignOp(s) => s.to_string(),
             Comma => ",".to_string(),
@@ -283,6 +283,7 @@ impl Display for Token {
             FalseKw => write!(fmt, "false keyword"),
             FunKw => write!(fmt, "fun keyword"),
             TypeKw => write!(fmt, "type keyword"),
+            SelfKw => write!(fmt, "self keyword"),
             Op(s) =>  write!(fmt, "operator {}", s),
             AssignOp(s) =>  write!(fmt, "assignment operator {}", s),
             Comma => write!(fmt, "comma"),

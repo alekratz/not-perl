@@ -6,7 +6,7 @@ use vm::{
     Ty,
 };
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Function {
     Builtin(BuiltinFunction),
     User(UserFunction),
@@ -49,7 +49,20 @@ impl UserFunction {
     }
 }
 
-#[derive(Debug, Clone)]
+impl PartialEq for UserFunction {
+    /// Compares two user functions for equality.
+    ///
+    /// This does *not* check the function bodies, since comparing bytecode is a pain point right
+    /// now.
+    fn eq(&self, other: &Self) -> bool {
+        self.symbol.eq(&other.symbol)
+            && self.params.eq(&other.params)
+            && self.return_ty.eq(&other.return_ty)
+            && self.locals.eq(&other.locals)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct FunctionParam {
     pub symbol: Symbol,
     pub ty: Ty,
@@ -62,6 +75,18 @@ pub struct BuiltinFunction {
     pub params: Vec<Ty>,
     pub return_ty: Ty,
     pub function: fn(&mut Storage) -> Result<(), String>,
+}
+
+impl PartialEq for BuiltinFunction {
+    /// Checks equality of two builtin functions.
+    ///
+    /// This does *not* check function pointers.
+    fn eq(&self, other: &Self) -> bool {
+        self.symbol.eq(&other.symbol)
+            && self.name.eq(&other.name)
+            && self.params.eq(&other.params)
+            && self.return_ty.eq(&other.return_ty)
+    }
 }
 
 impl Debug for BuiltinFunction {

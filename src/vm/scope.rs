@@ -31,6 +31,7 @@ impl Scope {
                     Some(&self.values[idx])
                 }
             }
+            Symbol::Ty(sym) => panic!("attempted to load scope value from type symbol {}", sym),
         }
     }
 
@@ -54,6 +55,7 @@ impl Scope {
                     true
                 }
             }
+            Symbol::Ty(sym) => panic!("attempted to set type symbol to a value {}", sym),
         }
     }
 

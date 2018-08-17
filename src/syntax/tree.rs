@@ -88,21 +88,18 @@ impl<'n> Ast for Function<'n> {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct FunctionParam<'n> {
-    pub name: String,
-    pub ty: Option<String>,
-    pub default: Option<Expr<'n>>,
-}
-
-impl<'n> FunctionParam<'n> {
-    pub fn new(name: String, ty: Option<String>, default: Option<Expr<'n>>) -> Self {
-        FunctionParam { name, ty, default }
-    }
+pub enum FunctionParam<'n> {
+    SelfKw,
+    Variable {
+        name: String,
+        ty: Option<String>,
+        default: Option<Expr<'n>>,
+    },
 }
 
 impl<'n> Ast for FunctionParam<'n> {
     fn token_is_lookahead(token: &Token) -> bool {
-        matches!(token, Token::Variable(_))
+        matches!(token, Token::Variable(_)) || token == &Token::SelfKw
     }
 
     fn name() -> &'static str { "function parameter" }
@@ -150,7 +147,7 @@ impl<'n> Expr<'n> {
         token_is_lookahead!(
             token,
             Token::StrLit(_), Token::IntLit(_, _), Token::FloatLit(_),
-            Token::Variable(_), Token::Bareword(_)
+            Token::Variable(_), Token::Bareword(_), Token::SelfKw
         )
     }
 }
@@ -164,7 +161,7 @@ impl<'n> Ast for Expr<'n> {
             Token::Op(Op::Plus),
             Token::Op(Op::Minus),
             Token::Op(Op::Bang),
-            Token::LParen
+            Token::LParen, Token::SelfKw
         )
     }
 

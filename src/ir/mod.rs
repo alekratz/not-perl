@@ -1,4 +1,4 @@
-use syntax::tree::{Ast, SyntaxTree, Stmt, UserTy};
+use syntax::tree::{Ast, SyntaxTree, Stmt};
 
 mod ty;
 mod function;
@@ -35,6 +35,10 @@ impl<'n> IrTree<'n> {
 
     pub fn functions(&self) -> &[Function<'n>] {
         &self.functions
+    }
+
+    pub fn user_types(&self) -> &[UserTy<'n>] {
+        &self.user_types
     }
 }
 
