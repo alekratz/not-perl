@@ -20,32 +20,16 @@ pub type Result<T> = ::std::result::Result<T, Error>;
 #[derive(Debug)]
 pub struct Compile {
     defined_types: Vec<vm::Ty>,
-    compiled_functions: Vec<vm::Function>,
     function_scope: FunctionScope,
     variable_scope: VariableScope,
 }
 
 impl Compile {
     pub fn new() -> Self {
-        let mut function_scope = FunctionScope::new();
-        function_scope.add_scope();
-        let compiled_functions: Vec<_> = vm::BUILTIN_FUNCTIONS.clone()
-            .into_iter()
-            .map(|mut function| {
-                function.symbol = function_scope.next_symbol(function.name.clone());
-                let stub = FunctionStub {
-                    symbol: function.symbol,
-                    param_count: function.params.len(),
-                    return_ty: function.return_ty.clone().into(),
-                };
-                function_scope.insert(stub);
-                vm::Function::Builtin(function)
-            })
-            .collect();
+        let function_scope = FunctionScope::with_builtins(vm::BUILTIN_FUNCTIONS.clone());
         // TODO(predicate) : builtin types
         Compile {
             defined_types: vec![],
-            compiled_functions,
             function_scope,
             variable_scope: VariableScope::new(),
         }
@@ -65,7 +49,7 @@ impl Compile {
                 param_count: function.params.len(),
                 return_ty: function.return_ty.clone(),
             };
-            self.function_scope.insert(stub);
+            self.function_scope.insert_value(stub);
         }
 
         for user_type in ir_tree.user_types() {
@@ -79,11 +63,19 @@ impl Compile {
         }
 
         let code = self.compile_action_list(ir_tree.actions())?;
-        let globals = self.variable_scope.shed_scope();
         let main_function_symbol = self.next_function_symbol("<main>".to_string());
-        let Compile { compiled_functions: mut functions, function_scope, variable_scope, defined_types, } = self;
+        let globals = self.variable_scope.shed_scope();
+        let Compile {
+            function_scope: FunctionScope {
+                scope: function_scope,
+                compiled_functions: mut functions,
+            },
+            variable_scope,
+            defined_types: _defined_types,
+        } = self;
+        // TODO : assert that this is in fact the correct order that we are expecting functions to
+        //        be collected in
         functions.sort_unstable_by(|a, b| a.symbol().index().cmp(&b.symbol().index()));
-        // TODO : make sure all stubs have their counterpart?
         let main_function = vm::Function::User(vm::UserFunction {
             symbol: main_function_symbol,
             params: vec![],
@@ -202,7 +194,7 @@ impl Compile {
                 param_count: stub.params.len(),
                 return_ty: stub.return_ty.clone(),
             };
-            self.function_scope.insert(stub);
+            self.function_scope.insert_value(stub);
         }
 
         // TODO: compile user types and their functions
@@ -462,9 +454,7 @@ impl Compile {
 
     /// Inserts a function symbol into the function symbol table, returning a reference to it.
     fn insert_vm_function(&mut self, function: vm::Function) -> &vm::Function {
-        self.compiled_functions.push(function);
-        self.compiled_functions.last()
-            .unwrap()
+        self.function_scope.insert_vm_function(function)
     }
 
     /// Creates the next symbol used for a function with the given name.

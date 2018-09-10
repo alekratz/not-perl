@@ -1,3 +1,11 @@
+/*
+ * This I Hate About This Module:
+ *
+ * * into_names - used only for Scope<T> and VariableScope (of which VariableScope is
+ *                Deref<Target=Scope<String>>. Prevents unnecessary copies, but it's incredibly
+ *                inconsistent ._.
+ */
+
 use std::fmt::Debug;
 use std::ops::{Deref, DerefMut};
 use ir::compile::*;
@@ -28,13 +36,12 @@ impl<T> Scope<T>
         self.names.as_ref()
     }
 
-    pub fn symbols(&self) -> &[vm::Symbol] {
-        &self.symbols
+    pub fn into_names(self) -> Vec<String> {
+        self.names
     }
 
-    pub fn insert_symbol(&mut self, symbol: vm::Symbol, name: String) {
-        self.names.push(name);
-        self.symbols.push(symbol);
+    pub fn symbols(&self) -> &[vm::Symbol] {
+        &self.symbols
     }
 
     /// Adds a new layer to this function scope.
@@ -80,7 +87,12 @@ impl<T> Scope<T>
             .next()
     }
 
-    pub fn insert(&mut self, value: T) -> &T {
+    pub fn insert_symbol(&mut self, symbol: vm::Symbol, name: String) {
+        self.names.push(name);
+        self.symbols.push(symbol);
+    }
+
+    pub fn insert_value(&mut self, value: T) -> &T {
         let current = self.scope.last_mut()
             .unwrap();
         current.push(value);
@@ -90,17 +102,34 @@ impl<T> Scope<T>
 }
 
 #[derive(Debug, Clone)]
-pub struct FunctionScope { scope: Scope<FunctionStub>, }
+pub struct FunctionScope {
+    pub(in super) scope: Scope<FunctionStub>,
+    pub(in super) compiled_functions: Vec<vm::Function>,
+}
 
 impl FunctionScope {
     pub fn new() -> Self {
         FunctionScope {
             scope: Scope::new(),
+            compiled_functions: vec![],
         }
     }
 
-    pub fn into_names(self) -> Vec<String> {
-        self.scope.names
+    pub fn with_builtins(builtins: Vec<vm::BuiltinFunction>) -> Self {
+        let mut function_scope = FunctionScope::new();
+        function_scope.add_scope();
+        for mut function in builtins {
+            function.symbol = function_scope.next_symbol(function.name.clone());
+            let stub = FunctionStub {
+                symbol: function.symbol,
+                param_count: function.params.len(),
+                return_ty: function.return_ty.clone().into(),
+            };
+            function_scope.insert_value(stub);
+            function_scope.insert_vm_function(vm::Function::Builtin(function));
+        }
+
+        function_scope
     }
 
     /// Creates the next symbol used for a function with the given name.
@@ -110,6 +139,16 @@ impl FunctionScope {
         let sym = vm::Symbol::Function(num);
         self.insert_symbol(sym, name);
         sym
+    }
+
+    pub fn insert_vm_function(&mut self, function: vm::Function) -> &vm::Function {
+        assert!(function.symbol().index() < self.names.len(), "Function symbol number lies outside of name list");
+        assert_eq!(function.symbol().index(), self.compiled_functions.len(),
+            "Compiled functions not added in order (given function: {} ; expected function: {})",
+            self.names[function.symbol().index()], self.names[self.compiled_functions.len()]);
+        self.compiled_functions.push(function);
+        self.compiled_functions.last()
+            .unwrap()
     }
 
     /// Looks up a function stub based on its name and parameter count.
@@ -175,11 +214,6 @@ impl DerefMut for FunctionScope {
 
 #[derive(Debug, Clone)]
 pub struct VariableScope {
-    /*
-    all_variables: Vec<vm::Symbol>,
-    variable_names: Vec<String>,
-    scope: Vec<Vec<vm::Symbol>>,
-    */
     scope: Scope<vm::Symbol>,
 }
 
@@ -189,7 +223,7 @@ impl VariableScope {
             scope: Scope::new(),
         }
     }
-
+    
     pub fn into_names(self) -> Vec<String> {
         self.scope.names
     }
@@ -203,7 +237,7 @@ impl VariableScope {
             .len();
         let sym = vm::Symbol::Variable(global_idx, local_idx);
         self.insert_symbol(sym, name);
-        self.insert(sym);
+        self.insert_value(sym);
         sym
     }
 
