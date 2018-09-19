@@ -4,6 +4,7 @@ use vm::{
     Storage,
     Bc,
     Ty,
+    BuiltinTy,
 };
 
 #[derive(Debug, Clone, PartialEq)]
@@ -72,8 +73,8 @@ pub struct FunctionParam {
 pub struct BuiltinFunction {
     pub symbol: Symbol,
     pub name: String,
-    pub params: Vec<Ty>,
-    pub return_ty: Ty,
+    pub params: Vec<BuiltinTy>,
+    pub return_ty: BuiltinTy,
     pub function: fn(&mut Storage) -> Result<(), String>,
 }
 
@@ -150,8 +151,8 @@ lazy_static! {
     pub static ref BUILTIN_FUNCTIONS: Vec<BuiltinFunction> = {
         vec![
             // BEGIN BUILTINS //////////////////////////////////////////////////
-            builtin!(functions::println, println (Ty::Any) -> Ty::None),
-            builtin!(functions::readln, readln () -> Ty::Str),
+            builtin!(functions::println, println (BuiltinTy::Any) -> BuiltinTy::None),
+            builtin!(functions::readln, readln () -> BuiltinTy::Str),
             // END BUILTINS ////////////////////////////////////////////////////
         ]
     };

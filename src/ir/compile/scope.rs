@@ -1,6 +1,11 @@
 /*
  * This I Hate About This Module:
  *
+ * * insert_symbol - Symbol types can't be made by the Scope<T> type because it's variant over T.
+ *                   Thus, insert_symbol requires both a 'name' and 'symbol' argument, which makes
+ *                   things really weird when you consider that insert_value doesn't require a
+ *                   symbol at all. I can see things easily getting mis-matched because a symbol
+ *                   that should have been inserted actually wasn't inserted at all.
  * * into_names - used only for Scope<T> and VariableScope (of which VariableScope is
  *                Deref<Target=Scope<String>>. Prevents unnecessary copies, but it's incredibly
  *                inconsistent ._.
@@ -123,7 +128,7 @@ impl FunctionScope {
             let stub = FunctionStub {
                 symbol: function.symbol,
                 param_count: function.params.len(),
-                return_ty: function.return_ty.clone().into(),
+                return_ty: vm::Ty::Builtin(function.return_ty).into(),
             };
             function_scope.insert_value(stub);
             function_scope.insert_vm_function(vm::Function::Builtin(function));
@@ -302,6 +307,99 @@ impl Deref for VariableScope {
 }
 
 impl DerefMut for VariableScope {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.scope
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct TyScope {
+    scope: Scope<vm::Ty>,
+}
+
+impl TyScope {
+    /// Creates a new user-defined type scope.
+    pub fn new() -> Self {
+        TyScope {
+            scope: Scope::new(),
+        }
+    }
+
+    /// Creates a new user-defined type scope, pre-populated with all of the known builtin types.
+    pub fn with_builtins() -> Self {
+        const BUILTINS: &'static [(vm::BuiltinTy, &'static str)] = &[
+            (vm::BuiltinTy::Float, "Float"),
+            (vm::BuiltinTy::Bool, "Bool"),
+            (vm::BuiltinTy::Int, "Int"),
+            (vm::BuiltinTy::Array, "Array"),
+            (vm::BuiltinTy::Str, "Str"),
+            (vm::BuiltinTy::Any, "Any"),
+            (vm::BuiltinTy::None, "None"),
+        ];
+        let mut scope = TyScope::new();
+        scope.add_scope();
+        for (ty, name) in BUILTINS {
+            scope.next_symbol(name.to_string());
+            scope.insert_value(vm::Ty::Builtin(*ty));
+        }
+        scope
+    }
+
+    /// Looks for the given type in the local scope only (not hopping up the scope if the type is
+    /// not found).
+    ///
+    /// This function is used to determine if a type of the same name has already been defined in
+    /// this scope.
+    pub fn lookup_local_ty_by_name(&self, symbol_name: &str) -> Option<&vm::Ty> {
+        self.lookup_one(|ty| match ty {
+            vm::Ty::User(sym) => ty.symbol() == *sym,
+            vm::Ty::Builtin(b) => b.name() == symbol_name,
+        })
+    }
+
+    /// Looks for the given type in the entire scope, from bottom-to-top.
+    pub fn lookup_ty_by_name(&self, symbol_name: &str) -> Option<&vm::Ty> {
+        self.lookup(|ty| match ty {
+            vm::Ty::User(sym) => ty.symbol() == *sym,
+            vm::Ty::Builtin(b) => b.name() == symbol_name,
+        })
+    }
+
+    pub fn lookup_by_expr(&self, ty_expr: &TyExpr) -> Option<&vm::Ty> {
+        match ty_expr {
+            TyExpr::Any => Some(self.lookup_builtin(vm::BuiltinTy::Any)),
+            TyExpr::Definite(s) => self.lookup_ty_by_name(s),
+            TyExpr::Builtin(b) => Some(self.lookup_builtin(*b)),
+            TyExpr::None => Some(self.lookup_builtin(vm::BuiltinTy::None)),
+        }
+    }
+
+    pub fn lookup_builtin(&self, builtin: vm::BuiltinTy) -> &vm::Ty {
+        self.lookup(|ty| match ty {
+            vm::Ty::User(sym) => false,
+            vm::Ty::Builtin(b) => *b == builtin,
+        }).unwrap()
+    }
+
+    /// Creates the next symbol used for a type with the given name.
+    pub fn next_symbol(&mut self, name: String) -> vm::Symbol {
+        assert!(self.lookup_local_ty_by_name(&name).is_none());
+        let num = self.symbols.len();
+        let sym = vm::Symbol::Ty(num);
+        self.insert_symbol(sym, name);
+        sym
+    }
+}
+
+impl Deref for TyScope {
+    type Target = Scope<vm::Ty>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.scope
+    }
+}
+
+impl DerefMut for TyScope {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.scope
     }

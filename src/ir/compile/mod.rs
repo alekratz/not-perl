@@ -19,7 +19,7 @@ pub type Result<T> = ::std::result::Result<T, Error>;
 /// IR to bytecode compiler, complete with state.
 #[derive(Debug)]
 pub struct Compile {
-    defined_types: Vec<vm::Ty>,
+    ty_scope: TyScope,
     function_scope: FunctionScope,
     variable_scope: VariableScope,
 }
@@ -29,7 +29,7 @@ impl Compile {
         let function_scope = FunctionScope::with_builtins(vm::BUILTIN_FUNCTIONS.clone());
         // TODO(predicate) : builtin types
         Compile {
-            defined_types: vec![],
+            ty_scope: TyScope::with_builtins(),
             function_scope,
             variable_scope: VariableScope::new(),
         }
@@ -38,6 +38,7 @@ impl Compile {
     pub fn compile_ir_tree<'n>(mut self, ir_tree: &IrTree<'n>) -> Result<CompileUnit> {
         self.function_scope.add_scope();
         self.variable_scope.add_scope();
+        self.ty_scope.add_scope();
 
         // gather all function stubs
         for function in ir_tree.functions() {
@@ -66,12 +67,12 @@ impl Compile {
         let main_function_symbol = self.next_function_symbol("<main>".to_string());
         let globals = self.variable_scope.shed_scope();
         let Compile {
+            ty_scope,
             function_scope: FunctionScope {
                 scope: function_scope,
                 compiled_functions: mut functions,
             },
             variable_scope,
-            defined_types: _defined_types,
         } = self;
         // TODO : assert that this is in fact the correct order that we are expecting functions to
         //        be collected in
@@ -79,7 +80,7 @@ impl Compile {
         let main_function = vm::Function::User(vm::UserFunction {
             symbol: main_function_symbol,
             params: vec![],
-            return_ty: vm::Ty::None,
+            return_ty: vm::Ty::Builtin(vm::BuiltinTy::None),
             locals: globals,
             body: code,
         });
@@ -205,7 +206,8 @@ impl Compile {
             self.insert_vm_function(vm::Function::User(inner));
         }
 
-        let return_ty = function.return_ty.clone().into();
+        let return_ty = *self.ty_scope.lookup_by_expr(&function.return_ty)
+            .ok_or(format!("undefined type: {}", function.return_ty))?;
         let body = self.compile_action_list(&function.body)?;
         let locals = self.variable_scope.shed_scope();
         self.function_scope.shed_scope();
@@ -219,7 +221,8 @@ impl Compile {
             FunctionParam::Variable { symbol, ty, default: _ } => {
                 let symbol = self.variable_scope.insert_local_variable(symbol.name().to_string())
                     .clone();
-                let ty = ty.clone().into();
+                let ty = *self.ty_scope.lookup_by_expr(ty)
+                    .ok_or(format!("undefined type: {}", ty))?;
                 Ok(vm::FunctionParam { symbol, ty })
             }
             FunctionParam::SelfKw => {
@@ -366,7 +369,6 @@ impl Compile {
                     } else { None },
                     // otherwise, we have to evaluate into a function ref
                     _ => None,
-                    
                 };
 
                 if let Some(function_name) = function_name {
@@ -461,14 +463,6 @@ impl Compile {
     fn next_function_symbol(&mut self, name: String) -> vm::Symbol {
         self.function_scope.next_symbol(name)
     }
-
-    /*
-    fn lookup_type_symbol(&mut self, symbol_name: &str) -> Option<vm::Ty> {
-    }
-    /// Creates the next symbol used for a type.
-    fn next_type_symbol(&mut self, name: String) -> vm::Symbol {
-    }
-    */
 
     fn err(&self, message: String) -> Error {
         message

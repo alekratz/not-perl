@@ -1,3 +1,4 @@
+use std::fmt::{self, Display, Formatter};
 use vm;
 use syntax::tree;
 
@@ -5,20 +6,28 @@ use syntax::tree;
 pub enum TyExpr {
     Any,
     Definite(String),
+    Builtin(vm::BuiltinTy),
     None,
+}
+
+impl Display for TyExpr {
+    fn fmt(&self, fmt: &mut Formatter) -> fmt::Result {
+        match self {
+            TyExpr::Any => write!(fmt, "Any"),
+            TyExpr::Definite(t) => write!(fmt, "{}", t),
+            TyExpr::Builtin(b) => write!(fmt, "Builtin type {}", b),
+            TyExpr::None => write!(fmt, "None"),
+        }
+    }
 }
 
 impl From<vm::Ty> for TyExpr {
     fn from(other: vm::Ty) -> Self {
         match other {
-            vm::Ty::Float => TyExpr::Definite("Float".to_string()),
-            vm::Ty::Bool => TyExpr::Definite("Bool".to_string()),
-            vm::Ty::Int => TyExpr::Definite("Int".to_string()),
-            vm::Ty::Array => TyExpr::Definite("Array".to_string()),
-            vm::Ty::Str => TyExpr::Definite("Str".to_string()),
-            vm::Ty::User(s) => TyExpr::Definite(s),
-            vm::Ty::Any => TyExpr::Any,
-            vm::Ty::None => TyExpr::None,
+            vm::Ty::Builtin(vm::BuiltinTy::Any) => TyExpr::Any,
+            vm::Ty::Builtin(vm::BuiltinTy::None) => TyExpr::None,
+            vm::Ty::Builtin(b) => TyExpr::Builtin(b),
+            vm::Ty::User(_) => panic!("vm::Ty::User type cannot be converted to a type expression"),
         }
     }
 }

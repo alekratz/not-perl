@@ -47,7 +47,7 @@ impl Storage {
 
     pub fn load<'v>(&'v self, symbol: Symbol) -> Result<&'v Value> {
         match symbol {
-            Symbol::Variable(global, _) => {
+            Symbol::Variable(_, _) => {
                 if let Some(value) = self.current_scope().try_get(symbol) {
                     self.dereference(value)
                 } else {
@@ -56,15 +56,12 @@ impl Storage {
                             return self.dereference(value);
                         }
                     }
-                    // TODO : String table
-                    Err(self.err(format!("could not resolve symbol: {}", global)))
+                    Err(self.err(format!("could not resolve symbol: {}", self.variable_name(symbol))))
                 }
             }
-            Symbol::Constant(idx) => {
-                Ok(&self.constants[idx])
-            }
-            Symbol::Function(idx) => panic!("tried to load the value of a function symbol (sym {})", idx),
-            Symbol::Ty(idx) => panic!("tried to load the value of a type symbol (sym {})", idx),
+            Symbol::Constant(idx) => Ok(&self.constants[idx]),
+            Symbol::Function(_) => panic!("tried to load the value of a function symbol `{}`", self.variable_name(symbol)),
+            Symbol::Ty(_) => panic!("tried to load the value of a type symbol `{}`", self.variable_name(symbol)),
         }
     }
 
