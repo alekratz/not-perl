@@ -127,7 +127,7 @@ mod functions {
 }
 
 mod operators {
-    use vm::{Value, Storage, Result, BuiltinTy};
+    use vm::{Value, Storage, Result};
 
     fn apply_arithmetic_pair(lhs: &Value, rhs: &Value, storage: &Storage,
                   apply_ints: impl Fn(i64, i64) -> Value,

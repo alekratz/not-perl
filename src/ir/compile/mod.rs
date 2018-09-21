@@ -514,14 +514,6 @@ impl ValueContext {
     fn with_symbol_to_bytecode(self, sym: vm::Symbol) -> Vec<Bc> {
         self.with_value_to_bytecode(vm::Value::Ref(sym))
     }
-
-    fn with_binop_to_bytecode(self, lhs: vm::Value, op: Op, rhs: vm::Value) -> Vec<Bc> {
-        match self {
-            ValueContext::Push => vec![Bc::BinOpPush(lhs, op, rhs)],
-            ValueContext::StoreInto(sym_store) => vec![Bc::BinOpStore(lhs, op, rhs, sym_store)],
-            ValueContext::Ret => panic!("can't compile ValueContext::Ret with binary operations, this should have been caught"),
-        }
-    }
 }
 
 #[derive(Debug)]

@@ -180,8 +180,6 @@ impl Vm {
                     self.block_jump_top = false;
                     self.block_jump_depth += n;
                 }
-                Bc::BinOpStore(_lhs, _op, _rhs, _sym) => { unimplemented!("BinOpStore") }
-                Bc::BinOpPush(_lhs, _op, _rhs) => { unimplemented!("BinOpPush") }
                 Bc::CheckPredicate(Ty::Builtin(_builtin)) => { unimplemented!("CheckPredicate on builtins") }
                 Bc::CheckPredicate(Ty::User(_user)) => { unimplemented!("CheckPredicate on User-defined types") }
             }
