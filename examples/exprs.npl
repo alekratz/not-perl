@@ -10,3 +10,10 @@ println($some-string)
 
 #println("Yo mama so fat, " ~ choose($yo-mama))
 
+# This language is weakly and dynamically typed. These are all valid:
+
+$sum = 1 + 3.5
+$sum = 1 + "5.0"
+$sum = "1" + 3.5
+# Hold on to your butts - adding strings like they were ints is allowed, too.
+$sum = "3.5" + "1"

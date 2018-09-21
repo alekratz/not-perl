@@ -24,7 +24,7 @@ impl Ty {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(EnumIsA, Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(usize)]
 pub enum BuiltinTy {
     Float,

@@ -13,6 +13,7 @@
 
 use std::fmt::Debug;
 use std::ops::{Deref, DerefMut};
+use syntax::token::Op;
 use ir::compile::*;
 use vm;
 
@@ -120,21 +121,36 @@ impl FunctionScope {
         }
     }
 
-    pub fn with_builtins(builtins: Vec<vm::BuiltinFunction>) -> Self {
-        let mut function_scope = FunctionScope::new();
-        function_scope.add_scope();
-        for mut function in builtins {
-            function.symbol = function_scope.next_symbol(function.name.clone());
+    pub fn with_operators(mut self, operators: Vec<(Op, vm::BuiltinFunction)>) -> Self {
+        self.add_scope();
+        for (_op, mut function) in operators {
+            function.symbol = self.next_symbol(function.name.clone());
             let stub = FunctionStub {
                 symbol: function.symbol,
                 param_count: function.params.len(),
                 return_ty: vm::Ty::Builtin(function.return_ty).into(),
             };
-            function_scope.insert_value(stub);
-            function_scope.insert_vm_function(vm::Function::Builtin(function));
+            self.insert_value(stub);
+            self.insert_vm_function(vm::Function::Builtin(function));
         }
 
-        function_scope
+        self
+    }
+
+    pub fn with_builtins(mut self, builtins: Vec<vm::BuiltinFunction>) -> Self {
+        self.add_scope();
+        for mut function in builtins {
+            function.symbol = self.next_symbol(function.name.clone());
+            let stub = FunctionStub {
+                symbol: function.symbol,
+                param_count: function.params.len(),
+                return_ty: vm::Ty::Builtin(function.return_ty).into(),
+            };
+            self.insert_value(stub);
+            self.insert_vm_function(vm::Function::Builtin(function));
+        }
+
+        self 
     }
 
     /// Creates the next symbol used for a function with the given name.
@@ -148,9 +164,6 @@ impl FunctionScope {
 
     pub fn insert_vm_function(&mut self, function: vm::Function) -> &vm::Function {
         assert!(function.symbol().index() < self.names.len(), "Function symbol number lies outside of name list");
-        assert_eq!(function.symbol().index(), self.compiled_functions.len(),
-            "Compiled functions not added in order (given function: {} ; expected function: {})",
-            self.names[function.symbol().index()], self.names[self.compiled_functions.len()]);
         self.compiled_functions.push(function);
         self.compiled_functions.last()
             .unwrap()

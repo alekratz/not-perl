@@ -13,7 +13,7 @@ use syntax::{
 // 5. If it's a lookahead (e.g. for an expression), add it as a lookahead to the appropriate AST
 //    items. Also add it to the parser as a lookahead.
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Hash, Debug, Clone, PartialEq, Eq)]
 pub enum Op {
     Bang,
     Plus,

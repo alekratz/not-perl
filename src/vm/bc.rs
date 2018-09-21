@@ -1,5 +1,5 @@
 use syntax::token::Op;
-use vm::{Value, Symbol, Condition};
+use vm::{Value, Symbol, Condition, Ty};
 
 #[derive(Debug, Clone)]
 pub enum Bc {
@@ -59,5 +59,8 @@ pub enum Bc {
     /// The top stack item follows the same pattern as all others: top must be a value ref,
     /// followed by a ref canary. If either are not present, a VM runtime error is thrown.
     BinOpPush(Value, Op, Value),
+
+    /// Checks the type predicate of the top value of the stack against supplied type.
+    CheckPredicate(Ty),
 }
 

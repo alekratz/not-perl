@@ -1,6 +1,7 @@
 //#![feature(nll)]
 #[macro_use] extern crate matches;
 #[macro_use] extern crate lazy_static;
+#[macro_use] extern crate enum_methods;
 
 mod common;
 pub mod syntax;

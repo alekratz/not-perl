@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use syntax::token::{Op, AssignOp};
 use ir::*;
 use vm::{
@@ -19,6 +20,7 @@ pub type Result<T> = ::std::result::Result<T, Error>;
 /// IR to bytecode compiler, complete with state.
 #[derive(Debug)]
 pub struct Compile {
+    operators: HashMap<Op, vm::Symbol>,
     ty_scope: TyScope,
     function_scope: FunctionScope,
     variable_scope: VariableScope,
@@ -26,9 +28,16 @@ pub struct Compile {
 
 impl Compile {
     pub fn new() -> Self {
-        let function_scope = FunctionScope::with_builtins(vm::BUILTIN_FUNCTIONS.clone());
-        // TODO(predicate) : builtin types
+        let function_scope = FunctionScope::new()
+            .with_operators(vm::BUILTIN_OPERATORS.clone())
+            .with_builtins(vm::BUILTIN_FUNCTIONS.clone());
+        let mut operators = HashMap::new();
+        for (ref op, ref function) in vm::BUILTIN_OPERATORS.iter() {
+            let sym = function_scope.lookup_symbol(&function.name, function.params.len()).unwrap();
+            operators.insert(op.clone(), sym);
+        }
         Compile {
+            operators,
             ty_scope: TyScope::with_builtins(),
             function_scope,
             variable_scope: VariableScope::new(),
@@ -67,6 +76,8 @@ impl Compile {
         let main_function_symbol = self.next_function_symbol("<main>".to_string());
         let globals = self.variable_scope.shed_scope();
         let Compile {
+            // drop operators; they just keep track of the operators that the functions point at
+            operators: _,
             ty_scope,
             function_scope: FunctionScope {
                 scope: function_scope,
@@ -327,6 +338,12 @@ impl Compile {
             }
             Value::ArrayAccess(_, _) => unimplemented!("compiling IR to bytecode => array access"),
             Value::BinaryExpr(lhs, op, rhs) => {
+                let op_function_symbol = if let Some(sym) = self.operators.get(op) {
+                    assert_matches!(sym, vm::Symbol::Function(_));
+                    *sym
+                } else {
+                    return Err(self.err(format!("`{}` is not a legal binary operator", op)));
+                };
                 let mut expr_body = vec![];
                 // TODO : compound this into a lambda or something
 
@@ -346,13 +363,15 @@ impl Compile {
                     expr_body.append(&mut self.compile_value(rhs, ValueContext::StoreInto(rhs_sym.clone()))?);
                     vm::Value::Ref(rhs_sym)
                 };
-                // make this mutable so we can update it in the event that it's a Ret context
-                let mut context = context;
-                if context == ValueContext::Ret {
-                    let result_sym = self.insert_anonymous_symbol();
-                    context = ValueContext::StoreInto(result_sym);
+                // TODO : operators which don't return a value
+                expr_body.push(Bc::PushValue(rhs_value));
+                expr_body.push(Bc::PushValue(lhs_value));
+                expr_body.push(Bc::Call(op_function_symbol));
+                match context {
+                    ValueContext::Push => {}
+                    ValueContext::StoreInto(sym) => expr_body.push(Bc::Pop(sym)),
+                    ValueContext::Ret => expr_body.push(Bc::Ret(None)),
                 }
-                expr_body.append(&mut context.with_binop_to_bytecode(lhs_value, op.clone(), rhs_value));
                 Ok(expr_body)
             }
             Value::UnaryExpr(_, _) => unimplemented!("compiling IR to bytecode => unary operation"), 

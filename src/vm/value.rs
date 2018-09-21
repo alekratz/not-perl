@@ -1,4 +1,4 @@
-use vm::Symbol;
+use vm::{Symbol, Storage, Ty, BuiltinTy};
 use ir::Const;
 
 /// The index type for a value.
@@ -6,7 +6,7 @@ use ir::Const;
 /// Numerically indexed values are the primary method of storing and loading values.
 pub type ValueIndex = usize;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(EnumIsA, EnumAsGetters, Debug, Clone, PartialEq)]
 pub enum Value {
     Int(i64),
     //Bignum(
@@ -51,7 +51,7 @@ impl Value {
             Value::Float(f) => format!("{}", f),
             Value::Str(s) => s.clone(),
             Value::Bool(b) => format!("{}", b),
-            Value::Array(_) => unimplemented!("vm::Value array display string"),
+            Value::Array(_) => unimplemented!("TODO : vm::Value array display string"),
             Value::RefCanary => "<Ref Canary, enjoy your crash>".to_string(),
             Value::Ref(s) => format!("<Reference to symbol {:#x}>", s.index()),
             Value::FunctionRefCanary => "<Function Ref Canary, enjoy your crash>".to_string(),
@@ -74,6 +74,88 @@ impl Value {
             | Value::FunctionRef(_) => false,
         }
     }
+
+    /// Attempts to cast this value to a value of the supplied type.
+    ///
+    /// # Returns
+    /// If this value can be cast to the supplied type, 
+    pub fn cast(&self, ty: Ty, storage: &Storage) -> CastResult {
+        match ty {
+            Ty::Builtin(builtin) => self.cast_to_builtin(builtin, storage),
+            Ty::User(_udt) => unimplemented!("TODO(predicate) : UDT value casting"),
+        }
+    }
+
+    pub fn cast_to_builtin(&self, builtin: BuiltinTy, storage: &Storage) -> CastResult {
+        match storage.dereference(self).unwrap() {
+            Value::Int(i) => match builtin {
+                BuiltinTy::Int => CastResult::SelfValid,
+                BuiltinTy::Float => CastResult::Value(Value::Float((*i) as f64)),
+                BuiltinTy::Str => CastResult::Value(Value::Str(i.to_string())),
+                BuiltinTy::Bool => CastResult::Value(Value::Bool(*i != 0)),
+                BuiltinTy::Array => unimplemented!("TODO : cast int to array value"),
+                BuiltinTy::Any => unimplemented!("TODO : cast int to Any value"),
+                BuiltinTy::None => CastResult::Invalid,
+            },
+            Value::Float(f) => match builtin {
+                BuiltinTy::Int => CastResult::Value(Value::Int(f.trunc() as i64)),
+                BuiltinTy::Float => CastResult::SelfValid,
+                BuiltinTy::Str => CastResult::Value(Value::Str(f.to_string())),
+                BuiltinTy::Bool => CastResult::Value(Value::Bool(*f != 0.0)),
+                BuiltinTy::Array => unimplemented!("TODO : cast float to array value"),
+                BuiltinTy::Any => unimplemented!("TODO : cast float to Any value"),
+                BuiltinTy::None => CastResult::Invalid,
+            },
+            Value::Str(s) => match builtin {
+                BuiltinTy::Int => if let Ok(i) = s.parse::<i64>() {
+                    CastResult::Value(Value::Int(i))
+                } else {
+                    CastResult::Invalid
+                },
+                BuiltinTy::Float => if let Ok(f) = s.parse::<f64>() {
+                    CastResult::Value(Value::Float(f))
+                } else {
+                    CastResult::Invalid
+                },
+                BuiltinTy::Str => CastResult::SelfValid,
+                BuiltinTy::Bool => CastResult::Value(Value::Bool(!s.is_empty())),
+                BuiltinTy::Array => unimplemented!("TODO : cast str to array value"),
+                BuiltinTy::Any => unimplemented!("TODO : cast str to Any value"),
+                BuiltinTy::None => CastResult::Invalid,
+            },
+            Value::Unset => CastResult::Invalid,
+            Value::Ref(_) => panic!("Reference gotten even though self was dereferenced (self: {:?})", self),
+            Value::FunctionRef(_) => CastResult::Invalid,
+            r => panic!("Attempted to cast invalid value {:?} to {:?}", r, builtin),
+        }
+    }
+
+    pub fn cast_to_int_no_float(&self, storage: &Storage) -> Option<i64> {
+        let base_value = storage.dereference(self).ok()?;
+        if base_value.is_float() {
+            return None;
+        } else {
+            base_value.cast_to_int(storage)
+        }
+    }
+
+    pub fn cast_to_int(&self, storage: &Storage) -> Option<i64> {
+        match self.cast_to_builtin(BuiltinTy::Int, storage) {
+            CastResult::SelfValid => Some(*self.as_int()),
+            CastResult::Value(Value::Int(i)) => Some(i),
+            CastResult::Invalid => None,
+            _ => unreachable!(),
+        }
+    }
+    
+    pub fn cast_to_float(&self, storage: &Storage) -> Option<f64> {
+        match self.cast_to_builtin(BuiltinTy::Float, storage) {
+            CastResult::SelfValid => Some(*self.as_float()),
+            CastResult::Value(Value::Float(f)) => Some(f),
+            CastResult::Invalid => None,
+            _ => unreachable!(),
+        }
+    }
 }
 
 impl<'n> From<Const> for Value {
@@ -85,4 +167,10 @@ impl<'n> From<Const> for Value {
             Const::Bool(b) => Value::Bool(b),
         }
     }
+}
+
+pub enum CastResult {
+    SelfValid,
+    Value(Value),
+    Invalid,
 }

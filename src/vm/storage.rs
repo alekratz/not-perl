@@ -66,6 +66,7 @@ impl Storage {
     }
 
     pub fn dereference<'v>(&'v self, value: &'v Value) -> Result<&'v Value> {
+        // TODO : This doesn't need to return a Result
         match value {
             Value::Ref(sym) => {
                 let value = self.load(*sym)?;
