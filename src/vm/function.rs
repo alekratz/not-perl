@@ -139,7 +139,7 @@ mod operators {
             } else if let Some(rhs_float) = rhs.cast_to_float(storage) {
                 Ok(apply_floats(lhs_int as f64, rhs_float))
             } else {
-                return Err(format!("cannot cast RHS to an addable value: {}", lhs.display_string()));
+                return Err(format!("cannot cast RHS to an addable value: {}", rhs.display_string()));
             }
         } else if let Some(lhs_float) = lhs.cast_to_float(storage) {
             // we don't need to check if rhs is int because we're going to be doing float addition

@@ -51,10 +51,10 @@ impl Value {
             Value::Float(f) => format!("{}", f),
             Value::Str(s) => s.clone(),
             Value::Bool(b) => format!("{}", b),
-            Value::Array(_) => unimplemented!("TODO : vm::Value array display string"),
-            Value::RefCanary => "<Ref Canary, enjoy your crash>".to_string(),
+            Value::Array(_) => format!("TODO : vm::Value array display string"),
+            Value::RefCanary => "<Ref Canary>".to_string(),
             Value::Ref(s) => format!("<Reference to symbol {:#x}>", s.index()),
-            Value::FunctionRefCanary => "<Function Ref Canary, enjoy your crash>".to_string(),
+            Value::FunctionRefCanary => "<Function Ref Canary>".to_string(),
             Value::FunctionRef(c) => format!("<Reference to Function {:#x}>", c.index()),
             Value::Unset => "<Unset Value>".to_string(),
         }

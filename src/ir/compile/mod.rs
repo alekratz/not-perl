@@ -18,15 +18,17 @@ pub type Result<T> = ::std::result::Result<T, Error>;
 
 
 /// IR to bytecode compiler, complete with state.
-#[derive(Debug)]
-pub struct Compile {
+#[derive(Debug, Clone)]
+pub struct CompileState {
     operators: HashMap<Op, vm::Symbol>,
+    body: Vec<Bc>,
     ty_scope: TyScope,
     function_scope: FunctionScope,
     variable_scope: VariableScope,
+    repl: bool,
 }
 
-impl Compile {
+impl CompileState {
     pub fn new() -> Self {
         let function_scope = FunctionScope::new()
             .with_operators(vm::BUILTIN_OPERATORS.clone())
@@ -36,54 +38,44 @@ impl Compile {
             let sym = function_scope.lookup_symbol(&function.name, function.params.len()).unwrap();
             operators.insert(op.clone(), sym);
         }
-        Compile {
+        CompileState {
             operators,
             ty_scope: TyScope::with_builtins(),
             function_scope,
             variable_scope: VariableScope::new(),
+            body: vec![],
+            repl: false,
         }
     }
 
-    pub fn compile_ir_tree<'n>(mut self, ir_tree: &IrTree<'n>) -> Result<CompileUnit> {
+    pub fn repl() -> Self {
+        let mut compile_state = CompileState::new();
+        compile_state.repl = true;
+        compile_state.begin();
+        compile_state
+    }
+
+    pub fn begin(&mut self) {
         self.function_scope.add_scope();
         self.variable_scope.add_scope();
         self.ty_scope.add_scope();
+    }
 
-        // gather all function stubs
-        for function in ir_tree.functions() {
-            if self.function_scope.lookup_local_stub_by_name(function.name()).is_some() {
-                return Err(self.err(format!("function `{}` defined twice in the same scope", function.name())));
-            }
-            let stub = FunctionStub {
-                symbol: self.next_function_symbol(function.name().to_string()),
-                param_count: function.params.len(),
-                return_ty: function.return_ty.clone(),
-            };
-            self.function_scope.insert_value(stub);
-        }
-
-        for user_type in ir_tree.user_types() {
-            self.compile_user_type(user_type)?;
-        }
-
-        // compile functions
-        for function in ir_tree.functions() {
-            let function = self.compile_function(function)?;
-            self.insert_vm_function(vm::Function::User(function));
-        }
-
-        let code = self.compile_action_list(ir_tree.actions())?;
+    pub fn into_compile_unit(mut self) -> CompileUnit {
         let main_function_symbol = self.next_function_symbol("<main>".to_string());
         let globals = self.variable_scope.shed_scope();
-        let Compile {
+
+        let CompileState {
             // drop operators; they just keep track of the operators that the functions point at
             operators: _,
+            body,
             ty_scope,
             function_scope: FunctionScope {
                 scope: function_scope,
                 compiled_functions: mut functions,
             },
             variable_scope,
+            repl: _repl,
         } = self;
         // TODO : assert that this is in fact the correct order that we are expecting functions to
         //        be collected in
@@ -93,16 +85,83 @@ impl Compile {
             params: vec![],
             return_ty: vm::Ty::Builtin(vm::BuiltinTy::None),
             locals: globals,
-            body: code,
+            body,
         });
 
-        Ok(CompileUnit {
+        CompileUnit {
             name: String::new(),
             main_function,
             functions,
             function_names: function_scope.into_names(),
             variable_names: variable_scope.into_names(),
-        })
+        }
+    }
+
+    pub fn to_compile_unit(&self) -> CompileUnit {
+        self.clone().into_compile_unit()
+    }
+
+    pub fn feed_str(&mut self, filename: &str, contents: &str) -> Result<()> {
+        use syntax::{Lexer, Parser};
+        use ir::IrTree;
+
+        let lexer = Lexer::new(contents.chars(), &filename);
+        let parser = Parser::from_lexer(lexer);
+        let tree = match parser.into_parse_tree() {
+            Ok(t) => t,
+            Err(e) => {
+                return Err(format!("parse error: {}", e));
+            },
+        };
+
+        let ir_tree = IrTree::from_syntax(&tree);
+        
+        self.feed(&ir_tree)
+    }
+
+    pub fn feed<'n>(&mut self, ir_tree: &IrTree<'n>) -> Result<()> {
+        let known_good = self.clone();
+        let result = {
+            let mut feed = || {
+                if self.repl {
+                    // repls get a new body each time
+                    self.body.clear();
+                }
+                // gather all function stubs
+                for function in ir_tree.functions() {
+                    if self.function_scope.lookup_local_stub_by_name(function.name()).is_some() {
+                        return Err(self.err(format!("function `{}` defined twice in the same scope", function.name())));
+                    }
+                    let stub = FunctionStub {
+                        symbol: self.next_function_symbol(function.name().to_string()),
+                        param_count: function.params.len(),
+                        return_ty: function.return_ty.clone(),
+                    };
+                    self.function_scope.insert_value(stub);
+                }
+
+                for user_type in ir_tree.user_types() {
+                    self.compile_user_type(user_type)?;
+                }
+
+                // compile functions
+                for function in ir_tree.functions() {
+                    let function = self.compile_function(function)?;
+                    self.insert_vm_function(vm::Function::User(function));
+                }
+
+                let mut body = self.compile_action_list(ir_tree.actions())?;
+                self.body.append(&mut body);
+                Ok(())
+            };
+            feed()
+        };
+
+        // undo any changes if an error occurred
+        if result.is_err() {
+            *self = known_good;
+        }
+        result
     }
 
     fn compile_user_type<'n>(&mut self, udt: &UserTy<'n>) -> Result<vm::UserTy> {

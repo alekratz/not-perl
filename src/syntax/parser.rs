@@ -63,6 +63,7 @@ impl<'n, S> Parser<'n, S>
         } else {
             None
         };
+        self.skip_whitespace()?;
         Ok(())
     }
 
@@ -73,12 +74,17 @@ impl<'n, S> Parser<'n, S>
         }
         Ok(SyntaxTree { stmts })
     }
-
-    fn next_stmt(&mut self) -> Result<'n, Stmt<'n>> {
-        assert_eq!(self.stmt_level, 0);
+    
+    fn skip_whitespace(&mut self) -> Result<'n, ()> {
         while self.is_token_match(&Token::LineEnd) || self.is_token_match(&Token::NewLine) || self.is_token_match(&Token::Comment) {
             self.next_token()?;
         }
+        Ok(())
+    }
+
+    fn next_stmt(&mut self) -> Result<'n, Stmt<'n>> {
+        assert_eq!(self.stmt_level, 0);
+        self.skip_whitespace()?;
 
         let curr = if let Some(curr) = self.curr.clone() {
             Token::from(curr)

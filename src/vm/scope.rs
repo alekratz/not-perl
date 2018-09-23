@@ -1,6 +1,6 @@
 use vm::{Symbol, Value};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Scope {
     /// The list of `Symbol`s that this scope defines.
     symbols: Vec<Symbol>,
@@ -10,10 +10,8 @@ pub struct Scope {
 }
 
 impl Scope {
-    pub fn new(symbols: Vec<Symbol>) -> Self {
-        let values = symbols.iter()
-            .map(|_| Value::Unset)
-            .collect();
+    pub fn new(symbols: Vec<Symbol>, values: Vec<Value>) -> Self {
+        assert_eq!(symbols.len(), values.len());
         Scope {
             symbols,
             values,
@@ -62,6 +60,18 @@ impl Scope {
     pub fn set(&mut self, sym: Symbol, val: Value) {
         if !self.try_set(sym, val) {
             panic!("invalid symbol store: {:?}", sym);
+        }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.symbols.is_empty()
+    }
+
+    /// Updates this scope's values with values from another, possibly overwriting values.
+    pub fn update(&mut self, other: Self) {
+        let items = other.symbols.into_iter().zip(other.values.into_iter());
+        for (sym, value) in items {
+            self.set(sym, value);
         }
     }
 }

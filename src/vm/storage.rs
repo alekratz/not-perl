@@ -1,7 +1,7 @@
-use vm::{Scope, Value, Symbol, Function, Result, Error};
+use vm::{Scope, Value, Symbol, Function, Result, Error, CompileUnit};
 
 /// The storage state of the VM, which can be passed around if necessary.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Storage {
     /// A stack of local variables for each scope we are inside.
     ///
@@ -12,7 +12,10 @@ pub struct Storage {
     pub value_stack: Vec<Value>,
 
     /// An array of functions, indexed by the function "number".
-    pub code: Vec<Function>,
+    pub functions: Vec<Function>,
+
+    /// The main function, if any, that should get executed.
+    pub main_function: Option<Function>,
 
     /// A list of read-only constants.
     pub constants: Vec<Value>,
@@ -24,25 +27,39 @@ pub struct Storage {
     pub variable_names: Vec<String>,
 }
 
-impl Storage {
-    pub fn new(code: Vec<Function>, constants: Vec<Value>, function_names: Vec<String>,
-               variable_names: Vec<String>) -> Self {
+impl From<CompileUnit> for Storage {
+    fn from(CompileUnit { name: _name, main_function, functions, function_names, variable_names, }: CompileUnit) -> Self {
         Storage {
             scope_stack: vec![],
             value_stack: vec![],
-            code,
-            constants,
+            functions: functions,
+            main_function: Some(main_function),
+            constants: vec![/* TODO: constants */],
             function_names,
             variable_names,
+        }
+    }
+}
+
+impl Storage {
+    pub fn new() -> Self {
+        Storage {
+            scope_stack: vec![],
+            value_stack: vec![],
+            functions: vec![],
+            main_function: None,
+            constants: vec![],
+            function_names: vec![],
+            variable_names: vec![],
         }
     }
 
     /// Gets the function at the given index.
     ///
-    /// You can alternatively use `storage.code[idx]`, but this is more symbolic.
+    /// You can alternatively use `storage.functions[idx]`, but this is more symbolic.
     #[inline]
     pub fn load_function(&self, idx: usize) -> &Function {
-        &self.code[idx]
+        &self.functions[idx]
     }
 
     pub fn load<'v>(&'v self, symbol: Symbol) -> Result<&'v Value> {

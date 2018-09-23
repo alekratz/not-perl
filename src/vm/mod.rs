@@ -1,3 +1,4 @@
+use std::mem;
 use ir::CompileUnit;
 
 mod value;
@@ -45,12 +46,9 @@ pub struct Vm {
 }
 
 impl Vm {
-    pub fn from_compile_unit( CompileUnit { name: _name, main_function, mut functions, function_names,
-                                            variable_names, }: CompileUnit) -> Self
-    {
-        functions.push(main_function);
+    pub fn new() -> Self {
         Vm {
-            storage: Storage::new(functions, vec![/* TODO: constants */], function_names, variable_names),
+            storage: Storage::new(),
             call_stack: vec![],
             compare_flag: false,
             block_jump_depth: 0,
@@ -58,22 +56,68 @@ impl Vm {
         }
     }
 
+    pub fn reset(&mut self) {
+        self.call_stack.clear();
+        self.compare_flag = false;
+        self.block_jump_depth = 0;
+        self.block_jump_top = false;
+    }
+
     /// Starts this VM a-runnin'.
-    pub fn launch(&mut self) -> Result<()> {
-        assert!(self.storage.code.len() >= 1);
-        self.call_stack.push(self.storage.code.len() - 1);
-        self.run_function()
+    pub fn launch(&mut self, compile_unit: CompileUnit) -> Result<()> {
+        self.reset();
+        self.storage = compile_unit.into();
+        if let Some(main_function) = self.storage.main_function.clone() {
+            self.run_function(main_function)
+        } else {
+            Ok(())
+        }
+    }
+
+    /// Feeds a new compile unit into this VM, merging it with the current state.
+    pub fn repl_launch(&mut self, compile_unit: CompileUnit) -> Result<Option<Value>> {
+        let mut prev_storage = mem::replace(&mut self.storage, compile_unit.into());
+        let prev_scope = if prev_storage.scope_stack.len() == 0 {
+            Scope::new(vec![], vec![])
+        } else {
+            prev_storage
+                .scope_stack
+                .remove(0)
+        };
+        assert!(prev_storage.scope_stack.is_empty());
+        let run_result = match self.storage.main_function.clone() {
+            Some(Function::User(function)) => {
+                assert!(self.storage.scope_stack.is_empty());
+                let mut updated_scope = Scope::new(function.locals.clone(), vec!(Value::Unset; function.locals.len()));
+                updated_scope.update(prev_scope);
+                self.storage
+                    .scope_stack
+                    .push(updated_scope);
+                self.run_block(&function.body)
+            }
+            _ => panic!("Builtin functions are not valid entry points"),
+        };
+        let stack_top = self.storage.value_stack.pop();
+        self.storage.value_stack.clear();
+        run_result.map(|_| stack_top)
     }
 
     /// Runs the function on top of the call stack.
-    fn run_function(&mut self) -> Result<()> {
-        let function = self.current_function()
-            .clone();
+    fn run_current_function(&mut self) -> Result<()> {
+        let current_function = self.current_function().clone();
+        self.run_function(current_function)
+    }
+
+    fn run_function(&mut self, function: Function) -> Result<()> {
         match function {
             Function::User(function) => {
+                let split_off_at = self.storage.value_stack.len() - function.locals.len();
+                let args = self.storage
+                    .value_stack
+                    .split_off(split_off_at);
                 self.storage
                     .scope_stack
-                    .push(Scope::new(function.locals.clone()));
+                    .push(Scope::new(function.locals.clone(), args));
                 self.run_block(&function.body)?;
                 self.storage.scope_stack.pop()
                     .expect("uneven scope stack");
@@ -187,6 +231,11 @@ impl Vm {
         Ok(())
     }
 
+    /// Gets the storage object of this VM.
+    pub fn storage(&self) -> &Storage {
+        &self.storage
+    }
+
     /// Pops a value off of the value stack.
     fn pop_stack(&mut self) -> Value {
         self.storage
@@ -230,7 +279,7 @@ impl Vm {
         let jump_top = self.block_jump_top;
 
         self.call_stack.push(index);
-        self.run_function()?;
+        self.run_current_function()?;
         let popped = self.call_stack.pop().expect("empty call stack at end of function call");
 
         assert!(self.block_jump_depth == 0, "block jump depth from called function was > 0");
