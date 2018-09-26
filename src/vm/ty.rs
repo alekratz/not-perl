@@ -69,6 +69,6 @@ impl Display for BuiltinTy {
 pub struct UserTy {
     pub name: String,
     pub symbol: Symbol,
-    pub predicate: Function,
-    pub functions: Vec<Function>,
+    pub predicate: Symbol,
+    pub functions: Vec<Symbol>,
 }

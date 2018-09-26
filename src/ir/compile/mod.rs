@@ -82,6 +82,7 @@ impl CompileState {
         functions.sort_unstable_by(|a, b| a.symbol().index().cmp(&b.symbol().index()));
         let main_function = vm::Function::User(vm::UserFunction {
             symbol: main_function_symbol,
+            name: String::from("#main#"),
             params: vec![],
             return_ty: vm::Ty::Builtin(vm::BuiltinTy::None),
             locals: globals,
@@ -128,17 +129,8 @@ impl CompileState {
                     self.body.clear();
                 }
                 // gather all function stubs
-                for function in ir_tree.functions() {
-                    if self.function_scope.lookup_local_stub_by_name(function.name()).is_some() {
-                        return Err(self.err(format!("function `{}` defined twice in the same scope", function.name())));
-                    }
-                    let stub = FunctionStub {
-                        symbol: self.next_function_symbol(function.name().to_string()),
-                        param_count: function.params.len(),
-                        return_ty: function.return_ty.clone(),
-                    };
-                    self.function_scope.insert_value(stub);
-                }
+                let stubs = self.compile_function_stubs(ir_tree.functions())?;
+                self.function_scope.insert_values(stubs);
 
                 for user_type in ir_tree.user_types() {
                     self.compile_user_type(user_type)?;
@@ -164,17 +156,74 @@ impl CompileState {
         result
     }
 
+    fn compile_function_stubs<'n>(&mut self, functions: &[Function<'n>]) -> Result<Vec<FunctionStub>> {
+        // gather all function stubs
+        let mut stubs = vec![];
+        for function in functions {
+            if self.function_scope.lookup_local_stub_by_name(function.name()).is_some() {
+                return Err(self.err(format!("function `{}` defined twice in the same scope", function.name())));
+            }
+            let stub = FunctionStub {
+                name: function.name().to_string(),
+                symbol: self.next_function_symbol(function.name().to_string()),
+                param_count: function.params.len(),
+                return_ty: function.return_ty.clone(),
+            };
+            stubs.push(stub);
+        }
+        Ok(stubs)
+    }
+
     fn compile_user_type<'n>(&mut self, udt: &UserTy<'n>) -> Result<vm::UserTy> {
         // TODO(predicate) : order-agnostic user defined types
         self.function_scope.add_scope();
         if !udt.parents.is_empty() {
             // TODO(predicate) : deal with udt parents
-            unimplemented!("compile IR user-defined type with parents");
+            unimplemented!("TODO : compile IR user-defined type with parents");
         }
-        // check if this type is already defined
 
-        self.function_scope.shed_scope();
-        unimplemented!("compile IR user-defined type");
+        // check if this type is already defined
+        if self.ty_scope.lookup_local_ty_by_name(&udt.name).is_some() {
+            return Err(self.err(format!("type `{}` has already been defined in this scope", udt.name)));
+        }
+        
+        // collect function stubs
+        let stubs = self.compile_function_stubs(&udt.functions)?;
+        self.function_scope.insert_values(stubs);
+
+        // TODO(predicate) order agnostic user types
+
+        // compile functions
+        let mut udt_functions = vec![];
+        for ir_function in &udt.functions {
+            let function = self.compile_function(ir_function)?;
+            // XXX(predicate) : reference functions instead of cloning them
+            udt_functions.push(function.symbol);
+            self.insert_vm_function(vm::Function::User(function));
+        }
+
+        let udt_scope = self.function_scope.shed_scope();
+
+        // get predicate function
+        let user_predicate = udt_scope.iter()
+            .filter(|f| f.name == "is?")
+            .next();
+
+        let predicate = if let Some(p) = user_predicate {
+            p.symbol
+        } else {
+            // everything's a string!!!!!
+            self.function_scope.lookup_builtin("is-string").unwrap()
+        };
+        let user_ty_symbol = self.next_ty_symbol(udt.name.clone());
+
+        // TODO(predicate) construct the user type
+        Ok(vm::UserTy{
+            name: udt.name.clone(),
+            symbol: user_ty_symbol,
+            predicate,
+            functions: udt_functions,
+        })
     }
 
     /// Converts a sequence of IR actions to a sequence of bytecode.
@@ -256,17 +305,8 @@ impl CompileState {
         }
 
         // gather all function stubs
-        for stub in &function.inner_functions {
-            if self.function_scope.lookup_local_stub_by_name(stub.name()).is_some() {
-                return Err(self.err(format!("stub `{}` defined twice in the same scope", stub.name())));
-            }
-            let stub = FunctionStub {
-                symbol: self.next_function_symbol(stub.name().to_string()),
-                param_count: stub.params.len(),
-                return_ty: stub.return_ty.clone(),
-            };
-            self.function_scope.insert_value(stub);
-        }
+        let stubs = self.compile_function_stubs(&function.inner_functions)?;
+        self.function_scope.insert_values(stubs);
 
         // TODO: compile user types and their functions
 
@@ -281,7 +321,7 @@ impl CompileState {
         let body = self.compile_action_list(&function.body)?;
         let locals = self.variable_scope.shed_scope();
         self.function_scope.shed_scope();
-        Ok(vm::UserFunction { symbol, params, return_ty, locals, body })
+        Ok(vm::UserFunction { symbol, name: function.name().to_string(), params, return_ty, locals, body })
     }
 
     fn compile_function_param<'n>(&mut self, param: &FunctionParam<'n>)
@@ -323,7 +363,7 @@ impl CompileState {
         };
         let mut assign_body = vec![];
         
-
+        // TODO : move AssignOp stuff into the IR
         let vm_op = match op {
             AssignOp::PlusEquals => Some(Op::Plus),
             AssignOp::MinusEquals => Some(Op::Minus),
@@ -540,6 +580,11 @@ impl CompileState {
     /// Creates the next symbol used for a function with the given name.
     fn next_function_symbol(&mut self, name: String) -> vm::Symbol {
         self.function_scope.next_symbol(name)
+    }
+    
+    /// Creates the next symbol used for a function with the given name.
+    fn next_ty_symbol(&mut self, name: String) -> vm::Symbol {
+        self.ty_scope.next_symbol(name)
     }
 
     fn err(&self, message: String) -> Error {

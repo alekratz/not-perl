@@ -111,10 +111,22 @@ impl Vm {
     fn run_function(&mut self, function: Function) -> Result<()> {
         match function {
             Function::User(function) => {
-                let split_off_at = self.storage.value_stack.len() - function.locals.len();
-                let args = self.storage
+                // TODO : Consider changing params to be just a number, and params are added to the
+                //        list of local vars. Params are clearly locals, but they're tough to keep
+                //        track of.
+                //        
+                //        Also, a count would be faster (not having to use multiple sources for
+                //        building the scope list)
+                //
+                //        If this doesn't make sense, just read through the code. I don't think
+                //        args make much sense beyond checking types. But an entire instruction can
+                //        be made for type checking.
+                let split_off_at = self.storage.value_stack.len() - function.params.len();
+                let mut args = self.storage
                     .value_stack
                     .split_off(split_off_at);
+                args.append(&mut vec!(Value::Unset; function.locals.len()));
+                // TODO(predicate) : This is probably where function params should be type-checked
                 self.storage
                     .scope_stack
                     .push(Scope::new(function.locals.clone(), args));

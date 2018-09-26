@@ -33,22 +33,11 @@ impl Function {
 #[derive(Debug, Clone)]
 pub struct UserFunction {
     pub symbol: Symbol,
+    pub name: String,
     pub params: Vec<FunctionParam>,
     pub return_ty: Ty,
     pub locals: Vec<Symbol>,
     pub body: Vec<Bc>,
-}
-
-impl UserFunction {
-    pub fn new(symbol: Symbol, params: Vec<FunctionParam>, return_ty: Ty, locals: Vec<Symbol>, body: Vec<Bc>) -> Self {
-        UserFunction {
-            symbol,
-            params,
-            return_ty,
-            locals,
-            body,
-        }
-    }
 }
 
 impl PartialEq for UserFunction {
@@ -122,6 +111,16 @@ mod functions {
 
     pub fn readln(_: &mut Storage) -> Result<()> {
         // TODO : builtin function readln
+        Ok(())
+    }
+
+    pub fn is_string(storage: &mut Storage) -> Result<()> {
+        // TODO : check against type
+        storage.value_stack
+            .pop()
+            .expect("no is-string stack item");
+        storage.value_stack
+            .push(Value::Bool(true));
         Ok(())
     }
 }
@@ -206,6 +205,7 @@ lazy_static! {
             // BEGIN BUILTINS //////////////////////////////////////////////////
             builtin!(functions::println, println (BuiltinTy::Any) -> BuiltinTy::None),
             builtin!(functions::readln, readln () -> BuiltinTy::Str),
+            builtin!(functions::is_string, "is-string", () -> BuiltinTy::Bool),
             // END BUILTINS ////////////////////////////////////////////////////
         ]
     };

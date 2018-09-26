@@ -105,6 +105,12 @@ impl<T> Scope<T>
         current.last()
                .unwrap()
     }
+    
+    pub fn insert_values(&mut self, mut values: Vec<T>) {
+        let current = self.scope.last_mut()
+            .unwrap();
+        current.append(&mut values);
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -126,6 +132,7 @@ impl FunctionScope {
         for (_op, mut function) in operators {
             function.symbol = self.next_symbol(function.name.clone());
             let stub = FunctionStub {
+                name: function.name.clone(),
                 symbol: function.symbol,
                 param_count: function.params.len(),
                 return_ty: vm::Ty::Builtin(function.return_ty).into(),
@@ -142,6 +149,7 @@ impl FunctionScope {
         for mut function in builtins {
             function.symbol = self.next_symbol(function.name.clone());
             let stub = FunctionStub {
+                name: function.name.clone(),
                 symbol: function.symbol,
                 param_count: function.params.len(),
                 return_ty: vm::Ty::Builtin(function.return_ty).into(),
@@ -213,6 +221,13 @@ impl FunctionScope {
     /// in this scope.
     pub fn lookup_local_stub_by_name(&self, symbol_name: &str) -> Option<&FunctionStub> {
         self.lookup_one(|stub| self.lookup_name(stub.symbol) == symbol_name)
+    }
+
+    pub fn lookup_builtin(&self, name: &str) -> Option<vm::Symbol> {
+        self.compiled_functions.iter()
+            .filter(|f| if let vm::Function::Builtin(f) = f { f.name == name } else { false })
+            .map(|f| *f.symbol())
+            .next()
     }
 }
 
@@ -328,6 +343,7 @@ impl DerefMut for VariableScope {
 #[derive(Debug, Clone)]
 pub struct TyScope {
     scope: Scope<vm::Ty>,
+    function_scope: FunctionScope,
 }
 
 impl TyScope {
@@ -335,7 +351,16 @@ impl TyScope {
     pub fn new() -> Self {
         TyScope {
             scope: Scope::new(),
+            function_scope: FunctionScope::new(),
         }
+    }
+
+    pub fn function_scope(&self) -> &FunctionScope {
+        &self.function_scope
+    }
+
+    pub fn function_scope_mut(&mut self) -> &mut FunctionScope {
+        &mut self.function_scope
     }
 
     /// Creates a new user-defined type scope, pre-populated with all of the known builtin types.

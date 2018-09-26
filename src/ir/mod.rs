@@ -51,7 +51,7 @@ impl<'n> Ir<SyntaxTree<'n>> for IrTree<'n> {
         for stmt in ast.stmts.iter() {
             match stmt {
                 Stmt::Function(function) => functions.push(Function::from_syntax(function)),
-                Stmt::UserTy(user_ty) => user_types.push(user_ty.clone()),
+                Stmt::UserTy(user_ty) => user_types.push(UserTy::from_syntax(user_ty)),
                 _ => actions.push(Action::from_syntax(stmt)),
             }
         }

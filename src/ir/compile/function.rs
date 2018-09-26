@@ -9,6 +9,8 @@ pub struct FunctionStub {
     /// Name of this function.
     pub symbol: vm::Symbol,
 
+    pub name: String,
+
     /// Number of parameters for this function. Types are not yet enforced at this point.
     pub param_count: usize,
 

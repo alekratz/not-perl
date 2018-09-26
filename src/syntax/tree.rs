@@ -71,6 +71,14 @@ pub struct UserTy<'n> {
     pub functions: Vec<Function<'n>>,
 }
 
+impl<'n> Ast for UserTy<'n> {
+    fn token_is_lookahead(token: &Token) -> bool {
+        token_is_lookahead!(token, Token::TypeKw)
+    }
+
+    fn name() -> &'static str { "type definition" }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct Function<'n> {
     pub name: String,

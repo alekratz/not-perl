@@ -1,6 +1,7 @@
 use std::fmt::{self, Display, Formatter};
 use vm;
 use syntax::tree;
+use ir::{Function, Ir};
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum TyExpr {
@@ -32,8 +33,29 @@ impl From<vm::Ty> for TyExpr {
     }
 }
 
-/// Type alias for a user-defined type.
-///
-/// Since the syntax and IR would effectively be the same, it would be more work to keep two
-/// different structures in tandem with one another.
-pub type UserTy<'n> = tree::UserTy<'n>;
+// Type alias for a user-defined type.
+//
+// Since the syntax and IR would effectively be the same, it would be more work to keep two
+// different structures in tandem with one another.
+//pub type UserTy<'n> = tree::UserTy<'n>;
+
+/// An intermediate representation of a user-defined type.
+#[derive(Debug)]
+pub struct UserTy<'n> {
+    pub name: String,
+    pub parents: Vec<String>,
+    pub functions: Vec<Function<'n>>,
+}
+
+impl<'n> Ir<tree::UserTy<'n>> for UserTy<'n> {
+    fn from_syntax(ty: &tree::UserTy<'n>) -> Self {
+        UserTy {
+            name: ty.name.clone(),
+            parents: ty.parents.clone(),
+            functions: ty.functions
+                .iter()
+                .map(Function::from_syntax)
+                .collect(),
+        }
+    }
+}
