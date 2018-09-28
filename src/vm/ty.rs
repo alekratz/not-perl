@@ -52,15 +52,7 @@ impl BuiltinTy {
 
 impl Display for BuiltinTy {
     fn fmt(&self, fmt: &mut Formatter) -> fmt::Result {
-        match self {
-            BuiltinTy::Float => write!(fmt, "Float"),
-            BuiltinTy::Bool => write!(fmt, "Bool"),
-            BuiltinTy::Int => write!(fmt, "Int"),
-            BuiltinTy::Array => write!(fmt, "Array"),
-            BuiltinTy::Str => write!(fmt, "Str"),
-            BuiltinTy::Any => write!(fmt, "Any"),
-            BuiltinTy::None => write!(fmt, "None"),
-        }
+        write!(fmt, "{}", self.name())
     }
 }
 

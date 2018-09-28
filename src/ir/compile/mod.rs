@@ -294,11 +294,26 @@ impl CompileState {
             .iter()
             .map(|p| p.name().to_string())
             .collect();
-        if param_names.len() != function.params.len() {
-            // TODO: parameter specific duplicated parameter names
-            return Err(self.err(format!("duplicate function parameter in {}", function.symbol.name())));
+        let mut param_names = HashSet::new();
+        for param in &function.params {
+            let param_name = param.name()
+                .to_string();
+            if param_names.contains(&param_name) {
+                return Err(self.err(format!("duplicate function parameter `{}` in function definition `{}`",
+                                            param_name,
+                                            function.symbol.name())));
+            }
+            param_names.insert(param_name);
+            if let FunctionParam::Variable { symbol: _, ty, default } = param {
+                if ty != &TyExpr::None {
+                    // TODO: insert predicate checks
+                }
+                if let Some(default) = default {
+                    // TODO: default param values
+                }
+            }
         }
-        // TODO: insert predicate checks
+
 
         // gather all function stubs
         let stubs = self.compile_function_stubs(&function.inner_functions)?;

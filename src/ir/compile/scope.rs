@@ -135,7 +135,7 @@ impl FunctionScope {
                 name: function.name.clone(),
                 symbol: function.symbol,
                 param_count: function.params.len(),
-                return_ty: vm::Ty::Builtin(function.return_ty).into(),
+                return_ty: TyExpr::from_builtin_ty(function.return_ty),
             };
             self.insert_value(stub);
             self.insert_vm_function(vm::Function::Builtin(function));
@@ -152,7 +152,7 @@ impl FunctionScope {
                 name: function.name.clone(),
                 symbol: function.symbol,
                 param_count: function.params.len(),
-                return_ty: vm::Ty::Builtin(function.return_ty).into(),
+                return_ty: TyExpr::from_builtin_ty(function.return_ty.into()),
             };
             self.insert_value(stub);
             self.insert_vm_function(vm::Function::Builtin(function));
@@ -407,7 +407,6 @@ impl TyScope {
         match ty_expr {
             TyExpr::Any => Some(self.lookup_builtin(vm::BuiltinTy::Any)),
             TyExpr::Definite(s) => self.lookup_ty_by_name(s),
-            TyExpr::Builtin(b) => Some(self.lookup_builtin(*b)),
             TyExpr::None => Some(self.lookup_builtin(vm::BuiltinTy::None)),
         }
     }

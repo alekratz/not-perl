@@ -7,8 +7,13 @@ use ir::{Function, Ir};
 pub enum TyExpr {
     Any,
     Definite(String),
-    Builtin(vm::BuiltinTy),
     None,
+}
+
+impl TyExpr {
+    pub fn from_builtin_ty(builtin: vm::BuiltinTy) -> Self {
+        TyExpr::Definite(builtin.to_string())
+    }
 }
 
 impl Display for TyExpr {
@@ -16,28 +21,10 @@ impl Display for TyExpr {
         match self {
             TyExpr::Any => write!(fmt, "Any"),
             TyExpr::Definite(t) => write!(fmt, "{}", t),
-            TyExpr::Builtin(b) => write!(fmt, "Builtin type {}", b),
             TyExpr::None => write!(fmt, "None"),
         }
     }
 }
-
-impl From<vm::Ty> for TyExpr {
-    fn from(other: vm::Ty) -> Self {
-        match other {
-            vm::Ty::Builtin(vm::BuiltinTy::Any) => TyExpr::Any,
-            vm::Ty::Builtin(vm::BuiltinTy::None) => TyExpr::None,
-            vm::Ty::Builtin(b) => TyExpr::Builtin(b),
-            vm::Ty::User(_) => panic!("vm::Ty::User type cannot be converted to a type expression"),
-        }
-    }
-}
-
-// Type alias for a user-defined type.
-//
-// Since the syntax and IR would effectively be the same, it would be more work to keep two
-// different structures in tandem with one another.
-//pub type UserTy<'n> = tree::UserTy<'n>;
 
 /// An intermediate representation of a user-defined type.
 #[derive(Debug)]
