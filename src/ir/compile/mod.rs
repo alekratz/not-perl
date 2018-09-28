@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use syntax::token::{Op, AssignOp};
 use ir::*;
 use vm::{
@@ -83,7 +83,7 @@ impl CompileState {
         let main_function = vm::Function::User(vm::UserFunction {
             symbol: main_function_symbol,
             name: String::from("#main#"),
-            params: vec![],
+            params: 0,
             return_ty: vm::Ty::Builtin(vm::BuiltinTy::None),
             locals: globals,
             body,
@@ -217,7 +217,6 @@ impl CompileState {
         };
         let user_ty_symbol = self.next_ty_symbol(udt.name.clone());
 
-        // TODO(predicate) construct the user type
         Ok(vm::UserTy{
             name: udt.name.clone(),
             symbol: user_ty_symbol,
@@ -291,18 +290,15 @@ impl CompileState {
             sym => panic!("got non-function symbol name from IR::Function: {:?}", sym),
         };
 
-        let mut params: Vec<vm::FunctionParam> = vec![];
-        for param in &function.params {
-            if let FunctionParam::Variable { symbol: _, ty: _, default: _ } = param {
-                let uniq = params.iter()
-                    .find(|p| self.variable_scope.lookup_local_name(p.symbol) == Some(param.name()));
-                if uniq.is_some() {
-                    return Err(self.err(format!("duplicate parameter `{}` in definition of function `{}`",
-                                                param.name(), function.name())));
-                }
-            }
-            params.push(self.compile_function_param(param)?);
+        let param_names: HashSet<_> = function.params
+            .iter()
+            .map(|p| p.name().to_string())
+            .collect();
+        if param_names.len() != function.params.len() {
+            // TODO: parameter specific duplicated parameter names
+            return Err(self.err(format!("duplicate function parameter in {}", function.symbol.name())));
         }
+        // TODO: insert predicate checks
 
         // gather all function stubs
         let stubs = self.compile_function_stubs(&function.inner_functions)?;
@@ -321,24 +317,14 @@ impl CompileState {
         let body = self.compile_action_list(&function.body)?;
         let locals = self.variable_scope.shed_scope();
         self.function_scope.shed_scope();
-        Ok(vm::UserFunction { symbol, name: function.name().to_string(), params, return_ty, locals, body })
-    }
-
-    fn compile_function_param<'n>(&mut self, param: &FunctionParam<'n>)
-        -> Result<vm::FunctionParam>
-    {
-        match param {
-            FunctionParam::Variable { symbol, ty, default: _ } => {
-                let symbol = self.variable_scope.insert_local_variable(symbol.name().to_string())
-                    .clone();
-                let ty = *self.ty_scope.lookup_by_expr(ty)
-                    .ok_or(format!("undefined type: {}", ty))?;
-                Ok(vm::FunctionParam { symbol, ty })
-            }
-            FunctionParam::SelfKw => {
-                unimplemented!("compile IR FunctionParam::SelfKw")
-            }
-        }
+        Ok(vm::UserFunction {
+            symbol,
+            name: function.name().to_string(),
+            params: function.params.len(),
+            return_ty,
+            locals,
+            body
+        })
     }
 
     /// Compiles an assignment (lhs, operator, and rhs) into a thunk.

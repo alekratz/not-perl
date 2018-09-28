@@ -25,7 +25,7 @@ impl Function {
     pub fn param_count(&self) -> usize {
         match self {
             Function::Builtin(b) => b.params.len(),
-            Function::User(u) => u.params.len(),
+            Function::User(u) => u.params,
         }
     }
 }
@@ -34,7 +34,7 @@ impl Function {
 pub struct UserFunction {
     pub symbol: Symbol,
     pub name: String,
-    pub params: Vec<FunctionParam>,
+    pub params: usize,
     pub return_ty: Ty,
     pub locals: Vec<Symbol>,
     pub body: Vec<Bc>,

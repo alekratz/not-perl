@@ -1,5 +1,5 @@
 use std::fmt::{self, Display, Formatter};
-use vm::{Symbol, Function};
+use vm::Symbol;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Ty {

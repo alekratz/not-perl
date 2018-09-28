@@ -121,7 +121,11 @@ impl Vm {
                 //        If this doesn't make sense, just read through the code. I don't think
                 //        args make much sense beyond checking types. But an entire instruction can
                 //        be made for type checking.
-                let split_off_at = self.storage.value_stack.len() - function.params.len();
+                // UPDATE:
+                //        Params is a number now. Minor changes involved. I remember there was a
+                //        deeper issue with this but I don't recall off the top of my head and I'm
+                //        too tired to read the code.
+                let split_off_at = self.storage.value_stack.len() - function.params;
                 let mut args = self.storage
                     .value_stack
                     .split_off(split_off_at);
