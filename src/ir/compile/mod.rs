@@ -22,6 +22,8 @@ pub type Result<T> = ::std::result::Result<T, Error>;
 pub struct CompileState {
     operators: HashMap<Op, vm::Symbol>,
     body: Vec<Bc>,
+    // TODO(scope) : remove all_tys when it gets put into the general Scope struct
+    all_tys: Vec<vm::Ty>,
     ty_scope: TyScope,
     function_scope: FunctionScope,
     variable_scope: VariableScope,
@@ -38,9 +40,11 @@ impl CompileState {
             let sym = function_scope.lookup_symbol(&function.name, function.params.len()).unwrap();
             operators.insert(op.clone(), sym);
         }
+        let ty_scope = TyScope::with_builtins();
         CompileState {
             operators,
-            ty_scope: TyScope::with_builtins(),
+            all_tys: ty_scope.top().into(),
+            ty_scope,
             function_scope,
             variable_scope: VariableScope::new(),
             body: vec![],
@@ -69,6 +73,7 @@ impl CompileState {
             // drop operators; they just keep track of the operators that the functions point at
             operators: _,
             body,
+            all_tys,
             ty_scope,
             function_scope: FunctionScope {
                 scope: function_scope,
@@ -77,24 +82,30 @@ impl CompileState {
             variable_scope,
             repl: _repl,
         } = self;
-        // TODO : assert that this is in fact the correct order that we are expecting functions to
-        //        be collected in
+
+        // unstable sort is OK because there (hypothetically) are not duplicates
         functions.sort_unstable_by(|a, b| a.symbol().index().cmp(&b.symbol().index()));
+
         let main_function = vm::Function::User(vm::UserFunction {
             symbol: main_function_symbol,
             name: String::from("#main#"),
             params: 0,
-            return_ty: vm::Ty::Builtin(vm::BuiltinTy::None),
+            return_ty: ty_scope.lookup_builtin(vm::BuiltinTy::None).symbol(),
             locals: globals,
             body,
         });
 
+        let ty_names = all_tys.iter()
+            .map(vm::Ty::to_string)
+            .collect();
         CompileUnit {
             name: String::new(),
             main_function,
             functions,
+            tys: all_tys,
             function_names: function_scope.into_names(),
             variable_names: variable_scope.into_names(),
+            ty_names,
         }
     }
 
@@ -133,7 +144,8 @@ impl CompileState {
                 self.function_scope.insert_values(stubs);
 
                 for user_type in ir_tree.user_types() {
-                    self.compile_user_type(user_type)?;
+                    let ty = self.compile_user_type(user_type)?;
+                    self.all_tys.push(vm::Ty::User(ty));
                 }
 
                 // compile functions
@@ -295,7 +307,7 @@ impl CompileState {
             .map(|p| p.name().to_string())
             .collect();
         let mut param_names = HashSet::new();
-        let mut body = vec![];
+        let mut body: Vec<Bc> = vec![];
         for param in &function.params {
             let param_name = param.name()
                 .to_string();
@@ -312,7 +324,7 @@ impl CompileState {
                     if let TyExpr::Definite(ty_name) = ty {
                         if let Some(ty) = self.ty_scope.lookup_ty_by_name(ty_name) {
                             // insert the predicate check here
-                            body.push(Bc::CheckSymbolPredicate { symbol: local_symbol, ty: ty.symbol(), });
+                            body.push(Bc::CheckSymbolTy { symbol: local_symbol, ty: ty.symbol(), });
                         } else {
                             return Err(self.err(format!("unknown type name for parameter `{}` in function definition `{}`: `{}`",
                                                         param_name, function.symbol.name(), ty_name)));
@@ -343,8 +355,9 @@ impl CompileState {
             self.insert_vm_function(vm::Function::User(inner));
         }
 
-        let return_ty = *self.ty_scope.lookup_by_expr(&function.return_ty)
-            .ok_or(format!("undefined type: {}", function.return_ty))?;
+        let return_ty = self.ty_scope.lookup_by_expr(&function.return_ty)
+            .ok_or(format!("undefined type: {}", function.return_ty))?
+            .symbol();
         body.append(&mut self.compile_action_list(&function.body)?);
         let locals = self.variable_scope.shed_scope();
         self.function_scope.shed_scope();
@@ -648,6 +661,8 @@ pub struct CompileUnit {
     pub name: String,
     pub main_function: vm::Function,
     pub functions: Vec<vm::Function>,
+    pub tys: Vec<vm::Ty>,
     pub function_names: Vec<String>,
     pub variable_names: Vec<String>,
+    pub ty_names: Vec<String>,
 }

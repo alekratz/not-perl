@@ -1,4 +1,4 @@
-use vm::{Scope, Value, Symbol, Function, Result, Error, CompileUnit};
+use vm::{Scope, Value, Symbol, Function, Result, Error, CompileUnit, Ty};
 
 /// The storage state of the VM, which can be passed around if necessary.
 #[derive(Debug, Clone)]
@@ -20,23 +20,31 @@ pub struct Storage {
     /// A list of read-only constants.
     pub constants: Vec<Value>,
 
+    /// All types in this VM.
+    pub tys: Vec<Ty>,
+
     /// All function names in this program.
     pub function_names: Vec<String>,
 
     /// All variable names in this program.
     pub variable_names: Vec<String>,
+
+    /// All type names in this program.
+    pub ty_names: Vec<String>,
 }
 
 impl From<CompileUnit> for Storage {
-    fn from(CompileUnit { name: _name, main_function, functions, function_names, variable_names, }: CompileUnit) -> Self {
+    fn from(CompileUnit { name: _name, main_function, functions, tys, function_names, variable_names, ty_names, }: CompileUnit) -> Self {
         Storage {
             scope_stack: vec![],
             value_stack: vec![],
             functions: functions,
             main_function: Some(main_function),
             constants: vec![/* TODO: constants */],
+            tys,
             function_names,
             variable_names,
+            ty_names,
         }
     }
 }
@@ -49,8 +57,10 @@ impl Storage {
             functions: vec![],
             main_function: None,
             constants: vec![],
+            tys: vec![],
             function_names: vec![],
             variable_names: vec![],
+            ty_names: vec![],
         }
     }
 

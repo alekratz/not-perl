@@ -81,7 +81,7 @@ impl Value {
     /// If this value can be cast to the supplied type, 
     pub fn cast(&self, ty: Ty, storage: &Storage) -> CastResult {
         match ty {
-            Ty::Builtin(builtin) => self.cast_to_builtin(builtin, storage),
+            Ty::Builtin(builtin, _) => self.cast_to_builtin(builtin, storage),
             Ty::User(_udt) => unimplemented!("TODO(predicate) : UDT value casting"),
         }
     }

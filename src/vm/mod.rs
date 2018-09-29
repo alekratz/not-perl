@@ -130,7 +130,6 @@ impl Vm {
                     .value_stack
                     .split_off(split_off_at);
                 args.append(&mut vec!(Value::Unset; function.locals.len() - function.params));
-                // TODO(predicate) : This is probably where function params should be type-checked
                 self.storage
                     .scope_stack
                     .push(Scope::new(function.locals.clone(), args));
@@ -240,10 +239,10 @@ impl Vm {
                     self.block_jump_top = false;
                     self.block_jump_depth += n;
                 }
-                Bc::CheckSymbolPredicate { symbol, ty: Symbol::Ty(ty_symbol) } if symbol.is_variable() => {
-                    unimplemented!("CheckSymbolPredicate")
+                Bc::CheckSymbolTy { symbol, ty: Symbol::Ty(ty_symbol) } if symbol.is_variable() => {
+                    unimplemented!("CheckSymbolTy")
                 }
-                Bc::CheckSymbolPredicate { symbol, ty } => panic!("invalid CheckSymbolPredicate: {:?}, {:?}", symbol, ty)
+                Bc::CheckSymbolTy { symbol, ty } => panic!("invalid CheckSymbolTy: {:?}, {:?}", symbol, ty)
             }
         }
         Ok(())

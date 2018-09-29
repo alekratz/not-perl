@@ -24,6 +24,9 @@ pub struct Scope<T>
 {
     symbols: Vec<vm::Symbol>,
     names: Vec<String>,
+    // TODO(scope) : add "all" group, like this:
+    // all: Vec<Rc<T>>
+    // and just refcount the scope members
     scope: Vec<Vec<T>>,
 }
 
@@ -44,6 +47,10 @@ impl<T> Scope<T>
 
     pub fn into_names(self) -> Vec<String> {
         self.names
+    }
+
+    pub fn top(&self) -> &[T] {
+        self.scope.last().unwrap()
     }
 
     pub fn symbols(&self) -> &[vm::Symbol] {
@@ -377,8 +384,8 @@ impl TyScope {
         let mut scope = TyScope::new();
         scope.add_scope();
         for (ty, name) in BUILTINS {
-            scope.next_symbol(name.to_string());
-            scope.insert_value(vm::Ty::Builtin(*ty));
+            let sym = scope.next_symbol(name.to_string());
+            scope.insert_value(vm::Ty::Builtin(*ty, sym));
         }
         scope
     }
@@ -390,16 +397,16 @@ impl TyScope {
     /// this scope.
     pub fn lookup_local_ty_by_name(&self, symbol_name: &str) -> Option<&vm::Ty> {
         self.lookup_one(|ty| match ty {
-            vm::Ty::User(sym) => ty.symbol() == *sym,
-            vm::Ty::Builtin(b) => b.name() == symbol_name,
+            vm::Ty::User(u) => ty.symbol() == u.symbol,
+            vm::Ty::Builtin(b, _) => b.name() == symbol_name,
         })
     }
 
     /// Looks for the given type in the entire scope, from bottom-to-top.
     pub fn lookup_ty_by_name(&self, symbol_name: &str) -> Option<&vm::Ty> {
         self.lookup(|ty| match ty {
-            vm::Ty::User(sym) => ty.symbol() == *sym,
-            vm::Ty::Builtin(b) => b.name() == symbol_name,
+            vm::Ty::User(u) => ty.symbol() == u.symbol,
+            vm::Ty::Builtin(b, _) => b.name() == symbol_name,
         })
     }
 
@@ -413,8 +420,8 @@ impl TyScope {
 
     pub fn lookup_builtin(&self, builtin: vm::BuiltinTy) -> &vm::Ty {
         self.lookup(|ty| match ty {
-            vm::Ty::User(sym) => false,
-            vm::Ty::Builtin(b) => *b == builtin,
+            vm::Ty::User(_) => false,
+            vm::Ty::Builtin(b, _) => *b == builtin,
         }).unwrap()
     }
 

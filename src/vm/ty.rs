@@ -1,26 +1,31 @@
 use std::fmt::{self, Display, Formatter};
 use vm::Symbol;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(EnumIsA, Debug, Clone, PartialEq)]
 pub enum Ty {
-    Builtin(BuiltinTy),
-    User(Symbol),
+    Builtin(BuiltinTy, Symbol),
+    User(UserTy),
 }
 
 impl Ty {
     pub fn symbol(&self) -> Symbol {
         match self {
-            | Ty::Builtin(_) => panic!("Builtin types do not have symbols"),
-            | Ty::User(sym) => *sym,
+            | Ty::Builtin(_, sym) => *sym,
+            | Ty::User(u) => u.symbol,
         }
     }
 
-    /// Gets whether this is a user-defined type.
-    pub fn is_user(&self) -> bool {
+    pub fn name(&self) -> &str {
         match self {
-            Ty::User(_) => true,
-            _ => false,
+            Ty::Builtin(b, _) => b.name(),
+            Ty::User(u) => &u.name,
         }
+    }
+}
+
+impl Display for Ty {
+    fn fmt(&self, fmt: &mut Formatter) -> fmt::Result {
+        write!(fmt, "{}", self.name())
     }
 }
 
@@ -63,4 +68,10 @@ pub struct UserTy {
     pub symbol: Symbol,
     pub predicate: Symbol,
     pub functions: Vec<Symbol>,
+}
+
+impl Display for UserTy {
+    fn fmt(&self, fmt: &mut Formatter) -> fmt::Result {
+        write!(fmt, "{}", self.name)
+    }
 }

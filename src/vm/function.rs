@@ -35,7 +35,7 @@ pub struct UserFunction {
     pub symbol: Symbol,
     pub name: String,
     pub params: usize,
-    pub return_ty: Ty,
+    pub return_ty: Symbol,
     pub locals: Vec<Symbol>,
     pub body: Vec<Bc>,
 }

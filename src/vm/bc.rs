@@ -50,7 +50,7 @@ pub enum Bc {
     ExitBlock(usize),
 
     /// Checks a given symbol against a given type's predicate.
-    CheckSymbolPredicate {
+    CheckSymbolTy {
         symbol: Symbol,
         ty: Symbol,
     },
