@@ -1,6 +1,6 @@
 use vm::ValueIndex;
 
-#[derive(EnumAsGetters, EnumIntoGetters, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(EnumIsA, EnumAsGetters, EnumIntoGetters, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Symbol {
     /// A function symbol.
     Function(ValueIndex),

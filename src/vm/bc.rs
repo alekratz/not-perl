@@ -49,7 +49,10 @@ pub enum Bc {
     /// If set to 0, this will exit the current block.
     ExitBlock(usize),
 
-    /// Checks the type predicate of the top value of the stack against supplied type.
-    CheckPredicate(Ty),
+    /// Checks a given symbol against a given type's predicate.
+    CheckSymbolPredicate {
+        symbol: Symbol,
+        ty: Symbol,
+    },
 }
 

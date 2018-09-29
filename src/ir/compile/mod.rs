@@ -295,6 +295,7 @@ impl CompileState {
             .map(|p| p.name().to_string())
             .collect();
         let mut param_names = HashSet::new();
+        let mut body = vec![];
         for param in &function.params {
             let param_name = param.name()
                 .to_string();
@@ -303,15 +304,30 @@ impl CompileState {
                                             param_name,
                                             function.symbol.name())));
             }
-            param_names.insert(param_name);
-            if let FunctionParam::Variable { symbol: _, ty, default } = param {
-                if ty != &TyExpr::None {
-                    // TODO: insert predicate checks
+
+            match param {
+                FunctionParam::Variable { symbol: _, ty, default } => {
+                    // TyExpr::None and TyExpr::All are simply not checked
+                    let local_symbol = self.insert_local_variable(param_name.clone());
+                    if let TyExpr::Definite(ty_name) = ty {
+                        if let Some(ty) = self.ty_scope.lookup_ty_by_name(ty_name) {
+                            // insert the predicate check here
+                            body.push(Bc::CheckSymbolPredicate { symbol: local_symbol, ty: ty.symbol(), });
+                        } else {
+                            return Err(self.err(format!("unknown type name for parameter `{}` in function definition `{}`: `{}`",
+                                                        param_name, function.symbol.name(), ty_name)));
+                        }
+                    }
+
+                    if let Some(default) = default {
+                        // TODO: default param values
+                    }
+
                 }
-                if let Some(default) = default {
-                    // TODO: default param values
-                }
+                FunctionParam::SelfKw => { unimplemented!("Self keyword param in ir::compile_function") }
             }
+
+            param_names.insert(param_name);
         }
 
 
@@ -329,7 +345,7 @@ impl CompileState {
 
         let return_ty = *self.ty_scope.lookup_by_expr(&function.return_ty)
             .ok_or(format!("undefined type: {}", function.return_ty))?;
-        let body = self.compile_action_list(&function.body)?;
+        body.append(&mut self.compile_action_list(&function.body)?);
         let locals = self.variable_scope.shed_scope();
         self.function_scope.shed_scope();
         Ok(vm::UserFunction {
@@ -565,6 +581,12 @@ impl CompileState {
     fn lookup_or_insert_local_variable(&mut self, symbol_name: &str) -> vm::Symbol {
         self.variable_scope
             .lookup_or_insert_local(symbol_name)
+    }
+
+    /// Looks up a local symbol, or inserts it if necessary.
+    fn insert_local_variable(&mut self, symbol_name: String) -> vm::Symbol {
+        self.variable_scope
+            .insert_local_variable(symbol_name)
     }
 
     /// Creates an anonymous, compiler-generated symbol that cannot be referred to in code.
