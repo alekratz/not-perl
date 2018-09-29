@@ -34,3 +34,15 @@ impl Symbol {
         }
     }
 }
+
+pub struct FunctionSymbol(pub usize);
+
+pub struct ConstantSymbol(pub usize);
+
+    // TODO : variables only need to be a usize; get rid of globals
+pub struct VariableSymbol {
+    pub global: usize,
+    pub local: usize,
+}
+
+pub struct TySymbol(pub usize);
