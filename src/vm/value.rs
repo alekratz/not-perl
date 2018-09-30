@@ -1,4 +1,4 @@
-use vm::{Symbol, Storage, Ty, BuiltinTy};
+use vm::{Result, Symbol, Storage, Ty, BuiltinTy};
 use ir::Const;
 
 /// The index type for a value.
@@ -130,6 +130,20 @@ impl Value {
         }
     }
 
+    pub fn is_truthy(&self, storage: &Storage) -> Result<bool> {
+        match self {
+            Value::Int(i) => Ok(*i != 0),
+            Value::Float(f) => Ok(*f != 0.0),
+            Value::Str(s) => Ok(!s.is_empty()),
+            Value::Bool(b) => Ok(*b),
+            Value::Array(_) => unimplemented!("TODO(array) : is_truthy"),
+            Value::Ref(sym) => storage.load(*sym)?.is_truthy(storage),
+            Value::FunctionRef(_) => Ok(true),
+            Value::RefCanary | Value::FunctionRefCanary | Value::Unset =>
+                panic!("invalid truthy value checked on value {:?}", self),
+        }
+    }
+
     pub fn cast_to_int_no_float(&self, storage: &Storage) -> Option<i64> {
         let base_value = storage.dereference(self).ok()?;
         if base_value.is_float() {
@@ -173,4 +187,14 @@ pub enum CastResult {
     SelfValid,
     Value(Value),
     Invalid,
+}
+
+impl CastResult {
+    pub fn is_valid(&self) -> bool {
+        match self {
+            | CastResult::SelfValid
+            | CastResult::Value(_) => true,
+            CastResult::Invalid => false,
+        }
+    }
 }

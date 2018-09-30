@@ -68,8 +68,12 @@ impl Storage {
     ///
     /// You can alternatively use `storage.functions[idx]`, but this is more symbolic.
     #[inline]
-    pub fn load_function(&self, idx: usize) -> &Function {
-        &self.functions[idx]
+    pub fn get_function(&self, symbol: Symbol) -> &Function {
+        if let Symbol::Function(idx) = symbol {
+            &self.functions[idx]
+        } else {
+            panic!("tried to load function with non-function symbol: {:?}", symbol)
+        }
     }
 
     pub fn load<'v>(&'v self, symbol: Symbol) -> Result<&'v Value> {
@@ -123,6 +127,14 @@ impl Storage {
             .expect("no current scope")
     }
 
+    pub fn get_ty(&self, symbol: Symbol) -> &Ty {
+        if let Symbol::Ty(sym) = symbol {
+            &self.tys[sym]
+        } else {
+            panic!("not a type symbol: {:?}", symbol)
+        }
+    }
+
     pub fn function_name(&self, symbol: Symbol) -> &str {
         if let Symbol::Function(sym) = symbol {
             &self.function_names[sym]
@@ -137,6 +149,10 @@ impl Storage {
         } else {
             panic!("not a variable symbol: {:?}", symbol)
         }
+    }
+
+    pub fn ty_name(&self, symbol: Symbol) -> &str {
+        self.get_ty(symbol).name()
     }
 
     fn err(&self, message: String) -> Error {

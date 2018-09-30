@@ -239,13 +239,43 @@ impl Vm {
                     self.block_jump_top = false;
                     self.block_jump_depth += n;
                 }
-                Bc::CheckSymbolTy { symbol, ty: Symbol::Ty(ty_symbol) } if symbol.is_variable() => {
-                    unimplemented!("CheckSymbolTy")
+                Bc::CheckSymbolTy { symbol, ty: ty_symbol } if symbol.is_variable() && ty_symbol.is_ty() => {
+                    let ty = self.storage.get_ty(*ty_symbol)
+                        .clone();
+                    let predicate_matches = self.run_ty_predicate(ty, *symbol)?;
+                    if !predicate_matches {
+                        return Err(self.err(format!("predicate error: `${}` (value: {}) is not a `{}`",
+                            self.storage.variable_name(*symbol),
+                            self.load(*symbol).unwrap().display_string(),
+                            self.storage.ty_name(*ty_symbol))))
+                    }
+                    // if everything's okay, continue
                 }
                 Bc::CheckSymbolTy { symbol, ty } => panic!("invalid CheckSymbolTy: {:?}, {:?}", symbol, ty)
             }
         }
         Ok(())
+    }
+
+    fn run_ty_predicate(&mut self, ty: Ty, symbol: Symbol) -> Result<bool> {
+        let val = match symbol {
+            Symbol::Function(_) => Value::FunctionRef(symbol),
+            Symbol::Ty(_) => panic!("invalid symbol {:?}", symbol),
+            _ => Value::Ref(symbol),
+        };
+        match ty {
+            Ty::Builtin(builtin, _) => {
+                let cast = val.cast_to_builtin(builtin, &self.storage);
+                Ok(cast.is_valid())
+            }
+            Ty::User(user_ty) => {
+                let pred = self.get_function(user_ty.predicate)
+                    .clone();
+                self.push_stack(val);
+                self.run_function(pred)?;
+                self.pop_stack().is_truthy(&self.storage)
+            }
+        }
     }
 
     /// Gets the storage object of this VM.
@@ -325,7 +355,7 @@ impl Vm {
     /// Gets the currently executing function; i.e., the function on top of the call stack.
     fn current_function(&self) -> &Function {
         let function_idx = *self.call_stack.last().unwrap();
-        &self.storage.load_function(function_idx)
+        &self.storage.get_function(Symbol::Function(function_idx))
     }
 
     fn store(&mut self, symbol: Symbol, value: Value) -> Result<()> {
@@ -338,6 +368,10 @@ impl Vm {
 
     fn load(&self, symbol: Symbol) -> Result<&Value> {
         self.storage.load(symbol)
+    }
+
+    fn get_function(&self, symbol: Symbol) -> &Function {
+        self.storage.get_function(symbol)
     }
 
     /// Gets the best-guess name for this value.

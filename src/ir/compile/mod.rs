@@ -73,7 +73,7 @@ impl CompileState {
             // drop operators; they just keep track of the operators that the functions point at
             operators: _,
             body,
-            all_tys,
+            mut all_tys,
             ty_scope,
             function_scope: FunctionScope {
                 scope: function_scope,
@@ -85,6 +85,7 @@ impl CompileState {
 
         // unstable sort is OK because there (hypothetically) are not duplicates
         functions.sort_unstable_by(|a, b| a.symbol().index().cmp(&b.symbol().index()));
+        all_tys.sort_unstable_by(|a, b| a.symbol().index().cmp(&b.symbol().index()));
 
         let main_function = vm::Function::User(vm::UserFunction {
             symbol: main_function_symbol,
@@ -144,8 +145,9 @@ impl CompileState {
                 self.function_scope.insert_values(stubs);
 
                 for user_type in ir_tree.user_types() {
-                    let ty = self.compile_user_type(user_type)?;
-                    self.all_tys.push(vm::Ty::User(ty));
+                    let ty = vm::Ty::User(self.compile_user_type(user_type)?);
+                    self.all_tys.push(ty.clone());
+                    self.ty_scope.insert_value(ty);
                 }
 
                 // compile functions
@@ -222,7 +224,11 @@ impl CompileState {
             .next();
 
         let predicate = if let Some(p) = user_predicate {
-            p.symbol
+            if p.param_count == 1 {
+                p.symbol
+            } else {
+                return Err(self.err(format!("predicate function in type `{}` must have exactly one param", udt.name)));
+            }
         } else {
             // everything's a string!!!!!
             self.function_scope.lookup_builtin("is-string").unwrap()

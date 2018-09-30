@@ -1,4 +1,4 @@
-use vm::{Value, Symbol, Condition, Ty};
+use vm::{Value, Symbol, Condition};
 
 #[derive(Debug, Clone)]
 pub enum Bc {
