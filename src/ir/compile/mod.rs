@@ -308,10 +308,6 @@ impl CompileState {
             sym => panic!("got non-function symbol name from IR::Function: {:?}", sym),
         };
 
-        let param_names: HashSet<_> = function.params
-            .iter()
-            .map(|p| p.name().to_string())
-            .collect();
         let mut param_names = HashSet::new();
         let mut body: Vec<Bc> = vec![];
         for param in &function.params {
@@ -337,7 +333,7 @@ impl CompileState {
                         }
                     }
 
-                    if let Some(default) = default {
+                    if let Some(_default) = default {
                         // TODO: default param values
                     }
 
