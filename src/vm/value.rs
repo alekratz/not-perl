@@ -1,4 +1,4 @@
-use vm::{Result, VariableSymbol, FunctionSymbol, Storage, Ty, BuiltinTy, SymbolIndex};
+use vm::{Result, VariableSymbol, FunctionSymbol, Storage, Ty, BuiltinTy};
 use ir::Const;
 
 /// The index type for a value.

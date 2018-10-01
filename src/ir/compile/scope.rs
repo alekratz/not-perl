@@ -21,7 +21,7 @@ use vm;
 #[derive(Debug, Clone)]
 pub struct Scope<T, SymbolT>
     where T: Debug + Clone,
-          SymbolT: Debug + Clone + vm::SymbolIndex
+          SymbolT: Debug + Clone + Deref<Target=vm::ValueIndex>
 {
     symbols: Vec<SymbolT>,
     names: Vec<String>,
@@ -33,7 +33,7 @@ pub struct Scope<T, SymbolT>
 
 impl<T, SymbolT> Scope<T, SymbolT>
     where T: Debug + Clone,
-          SymbolT: Debug + Clone + vm::SymbolIndex
+          SymbolT: Debug + Clone + Deref<Target=vm::ValueIndex>
 {
     pub fn new() -> Self {
         Scope {
@@ -71,7 +71,7 @@ impl<T, SymbolT> Scope<T, SymbolT>
 
     /// Looks up a name of an item based on the given symbol.
     pub fn lookup_name(&self, symbol: SymbolT) -> &str {
-        &self.names[symbol.index()]
+        &self.names[*symbol]
     }
 
     /// Looks up an item based on the given predicate.
@@ -180,7 +180,7 @@ impl FunctionScope {
     }
 
     pub fn insert_vm_function(&mut self, function: vm::Function) -> &vm::Function {
-        assert!(function.symbol().index() < self.names.len(), "Function symbol number lies outside of name list");
+        assert!(*function.symbol() < self.names.len(), "Function symbol number lies outside of name list");
         self.compiled_functions.push(function);
         self.compiled_functions.last()
             .unwrap()

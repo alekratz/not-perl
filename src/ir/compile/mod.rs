@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 use syntax::token::{Op, AssignOp};
 use ir::*;
 use vm::{
-    self, Bc, Condition, CompareOp, SymbolIndex,
+    self, Bc, Condition, CompareOp,
 };
 
 mod function;
@@ -84,8 +84,8 @@ impl CompileState {
         } = self;
 
         // unstable sort is OK because there (hypothetically) are not duplicates
-        functions.sort_unstable_by(|a, b| a.symbol().index().cmp(&b.symbol().index()));
-        all_tys.sort_unstable_by(|a, b| a.symbol().index().cmp(&b.symbol().index()));
+        functions.sort_unstable_by(|a, b| a.symbol().cmp(&b.symbol()));
+        all_tys.sort_unstable_by(|a, b| a.symbol().cmp(&b.symbol()));
 
         let main_function = vm::Function::User(vm::UserFunction {
             symbol: main_function_symbol,
