@@ -293,29 +293,6 @@ impl Vm {
     }
 
     fn call(&mut self, FunctionSymbol(index): FunctionSymbol) -> Result<()> {
-        /*
-        let index = match sym {
-            Symbol::Function(idx) => idx,
-            // TODO : Clean this up
-            | Symbol::Variable(_, _) 
-            | Symbol::Constant(_) => {
-                let function_value = self.load(sym)?;
-                if let Value::FunctionRef(Symbol::Function(idx)) = function_value {
-                    *idx
-                } else {
-                    if matches!(sym, Symbol::Variable(_, _)) {
-                        let name = self.storage.variable_name(sym);
-                        return Err(self.err(format!("local variable ${} is not a function ref", name)));
-                    } else {
-                        // TODO string lookup table
-                        return Err(self.err(format!("named constant {:?} is not a function ref", sym)));
-                    }
-                }
-            }
-        };
-        */
-        // TODO(scope) : look up function symbols inside of variables like above
-
         // store current state
         let start_depth = self.call_stack.len();
         let block_depth = self.block_jump_depth;
