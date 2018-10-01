@@ -1,48 +1,38 @@
 use vm::ValueIndex;
 
-#[derive(EnumIsA, EnumAsGetters, EnumIntoGetters, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub enum Symbol {
-    /// A function symbol.
-    Function(ValueIndex),
-
-    /// A constant-value symbol.
-    Constant(ValueIndex),
-
-    /// A variable symbol, with both a global and local index.
-    Variable(ValueIndex, ValueIndex),
-
-    /// A type symbol, indicating a named type.
-    Ty(ValueIndex),
+pub trait SymbolIndex {
+    #[deprecated]
+    fn index(&self) -> ValueIndex;
 }
 
-impl Symbol {
-    pub fn index(&self) -> ValueIndex {
-        match self {
-            | Symbol::Function(i)
-            | Symbol::Constant(i)
-            | Symbol::Variable(i, _)
-            | Symbol::Ty(i) => *i
-        }
-    }
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct FunctionSymbol(pub ValueIndex);
 
-    pub fn local_index(&self) -> ValueIndex {
-        match self {
-            | Symbol::Function(i)
-            | Symbol::Constant(i)
-            | Symbol::Variable(_, i)
-            | Symbol::Ty(i) => *i
-        }
+impl SymbolIndex for FunctionSymbol {
+    fn index(&self) -> ValueIndex {
+        self.0
     }
 }
 
-pub struct FunctionSymbol(pub usize);
+pub struct ConstantSymbol(pub ValueIndex);
 
-pub struct ConstantSymbol(pub usize);
-
-    // TODO : variables only need to be a usize; get rid of globals
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct VariableSymbol {
-    pub global: usize,
-    pub local: usize,
+    pub global: ValueIndex,
+    pub local: ValueIndex,
 }
 
-pub struct TySymbol(pub usize);
+impl SymbolIndex for VariableSymbol {
+    fn index(&self) -> ValueIndex {
+        self.global
+    }
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct TySymbol(pub ValueIndex);
+
+impl SymbolIndex for TySymbol {
+    fn index(&self) -> ValueIndex {
+        self.0
+    }
+}

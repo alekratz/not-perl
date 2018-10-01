@@ -1,9 +1,9 @@
-use vm::{Value, Symbol, Condition};
+use vm::{Value, TySymbol, FunctionSymbol, VariableSymbol, Condition};
 
 #[derive(Debug, Clone)]
 pub enum Bc {
     /// Pushes a value read from a symbol onto the stack.
-    PushSymbolValue(Symbol),
+    PushSymbolValue(VariableSymbol),
 
     /// Pushes a value onto the stack.
     PushValue(Value),
@@ -16,13 +16,13 @@ pub enum Bc {
     PopRefAndStore,
 
     /// Pops a value from the stack into this symbol.
-    Pop(Symbol),
+    Pop(VariableSymbol),
 
     /// Stores a value into a variable slot.
-    Store(Symbol, Value),
+    Store(VariableSymbol, Value),
 
     /// Calls a function in the given slot with the given arguments.
-    Call(Symbol),
+    Call(FunctionSymbol),
 
     /// Pops off a function ref, and calls it.
     PopFunctionRefAndCall,
@@ -51,8 +51,8 @@ pub enum Bc {
 
     /// Checks a given symbol against a given type's predicate.
     CheckSymbolTy {
-        symbol: Symbol,
-        ty: Symbol,
+        symbol: VariableSymbol,
+        ty: TySymbol,
     },
 }
 

@@ -1,4 +1,4 @@
-use vm::{Scope, Value, Symbol, Function, Result, Error, CompileUnit, Ty};
+use vm::{Scope, Value, TySymbol, FunctionSymbol, VariableSymbol, Function, Result, Error, CompileUnit, Ty};
 
 /// The storage state of the VM, which can be passed around if necessary.
 #[derive(Debug, Clone)]
@@ -68,31 +68,20 @@ impl Storage {
     ///
     /// You can alternatively use `storage.functions[idx]`, but this is more symbolic.
     #[inline]
-    pub fn get_function(&self, symbol: Symbol) -> &Function {
-        if let Symbol::Function(idx) = symbol {
-            &self.functions[idx]
-        } else {
-            panic!("tried to load function with non-function symbol: {:?}", symbol)
-        }
+    pub fn get_function(&self, FunctionSymbol(idx): FunctionSymbol) -> &Function {
+        &self.functions[idx]
     }
 
-    pub fn load<'v>(&'v self, symbol: Symbol) -> Result<&'v Value> {
-        match symbol {
-            Symbol::Variable(_, _) => {
-                if let Some(value) = self.current_scope().try_get(symbol) {
-                    self.dereference(value)
-                } else {
-                    for scope in &self.scope_stack {
-                        if let Some(value) = scope.try_get(symbol) {
-                            return self.dereference(value);
-                        }
-                    }
-                    Err(self.err(format!("could not resolve symbol: {}", self.variable_name(symbol))))
+    pub fn load<'v>(&'v self, symbol: VariableSymbol) -> Result<&'v Value> {
+        if let Some(value) = self.current_scope().try_get(symbol) {
+            self.dereference(value)
+        } else {
+            for scope in &self.scope_stack {
+                if let Some(value) = scope.try_get(symbol) {
+                    return self.dereference(value);
                 }
             }
-            Symbol::Constant(idx) => Ok(&self.constants[idx]),
-            Symbol::Function(_) => panic!("tried to load the value of a function symbol `{}`", self.variable_name(symbol)),
-            Symbol::Ty(_) => panic!("tried to load the value of a type symbol `{}`", self.variable_name(symbol)),
+            Err(self.err(format!("could not resolve symbol: {}", self.variable_name(symbol))))
         }
     }
 
@@ -107,7 +96,7 @@ impl Storage {
         }
     }
 
-    pub fn store(&mut self, symbol: Symbol, value: Value) -> Result<()> {
+    pub fn store(&mut self, symbol: VariableSymbol, value: Value) -> Result<()> {
         if self.current_scope_mut().try_set(symbol, value.clone()) {
             Ok(())
         } else {
@@ -127,31 +116,19 @@ impl Storage {
             .expect("no current scope")
     }
 
-    pub fn get_ty(&self, symbol: Symbol) -> &Ty {
-        if let Symbol::Ty(sym) = symbol {
-            &self.tys[sym]
-        } else {
-            panic!("not a type symbol: {:?}", symbol)
-        }
+    pub fn get_ty(&self, TySymbol(sym): TySymbol) -> &Ty {
+        &self.tys[sym]
     }
 
-    pub fn function_name(&self, symbol: Symbol) -> &str {
-        if let Symbol::Function(sym) = symbol {
-            &self.function_names[sym]
-        } else {
-            panic!("not a function symbol: {:?}", symbol)
-        }
+    pub fn function_name(&self, FunctionSymbol(sym): FunctionSymbol) -> &str {
+        &self.function_names[sym]
     }
 
-    pub fn variable_name(&self, symbol: Symbol) -> &str {
-        if let Symbol::Variable(sym, _) = symbol {
-            &self.variable_names[sym]
-        } else {
-            panic!("not a variable symbol: {:?}", symbol)
-        }
+    pub fn variable_name(&self, sym: VariableSymbol) -> &str {
+        &self.variable_names[sym.global]
     }
 
-    pub fn ty_name(&self, symbol: Symbol) -> &str {
+    pub fn ty_name(&self, symbol: TySymbol) -> &str {
         self.get_ty(symbol).name()
     }
 

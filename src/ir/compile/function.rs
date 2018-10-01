@@ -7,7 +7,7 @@ use vm;
 #[derive(Debug, Clone)]
 pub struct FunctionStub {
     /// Name of this function.
-    pub symbol: vm::Symbol,
+    pub symbol: vm::FunctionSymbol,
 
     pub name: String,
 

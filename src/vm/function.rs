@@ -1,7 +1,9 @@
 use std::fmt::{self, Formatter, Debug};
 use syntax::token::Op;
 use vm::{
-    Symbol,
+    TySymbol,
+    FunctionSymbol,
+    VariableSymbol,
     Storage,
     Bc,
     Ty,
@@ -15,7 +17,7 @@ pub enum Function {
 }
 
 impl Function {
-    pub fn symbol(&self) -> &Symbol {
+    pub fn symbol(&self) -> &FunctionSymbol {
         match self {
             Function::Builtin(b) => &b.symbol,
             Function::User(u) => &u.symbol
@@ -32,11 +34,11 @@ impl Function {
 
 #[derive(Debug, Clone)]
 pub struct UserFunction {
-    pub symbol: Symbol,
+    pub symbol: FunctionSymbol,
     pub name: String,
     pub params: usize,
-    pub return_ty: Symbol,
-    pub locals: Vec<Symbol>,
+    pub return_ty: TySymbol,
+    pub locals: Vec<VariableSymbol>,
     pub body: Vec<Bc>,
 }
 
@@ -55,13 +57,13 @@ impl PartialEq for UserFunction {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct FunctionParam {
-    pub symbol: Symbol,
+    pub symbol: VariableSymbol,
     pub ty: Ty,
 }
 
 #[derive(Clone)]
 pub struct BuiltinFunction {
-    pub symbol: Symbol,
+    pub symbol: FunctionSymbol,
     pub name: String,
     pub params: Vec<BuiltinTy>,
     pub return_ty: BuiltinTy,
@@ -92,14 +94,14 @@ impl Debug for BuiltinFunction {
 }
 
 mod functions {
-    use vm::{Value, Storage, Result};
+    use vm::{Value, FunctionSymbol, Storage, Result};
 
     pub fn println(storage: &mut Storage) -> Result<()> {
         let value = storage.value_stack
             .pop()
             .expect("no println stack item");
         let value_string = match value {
-            | Value::FunctionRef(s) 
+            | Value::FunctionRef(FunctionSymbol(f)) => format!("Function #{}", f),
             | Value::Ref(s) => storage.load(s)?
                 .display_string(),
             | value => value.display_string(),
@@ -180,7 +182,7 @@ mod operators {
 macro_rules! builtin {
     ($function_name:path, $name:ident ($($args:expr),*) -> $return_ty:expr) => {
         BuiltinFunction {
-            symbol: Symbol::Function(0),
+            symbol: FunctionSymbol(0),
             name: stringify!($name).to_string(),
             params: vec![$($args),*],
             return_ty: $return_ty,
@@ -190,7 +192,7 @@ macro_rules! builtin {
 
     ($function_name:path, $name:expr, ($($args:expr),*) -> $return_ty:expr) => {
         BuiltinFunction {
-            symbol: Symbol::Function(0),
+            symbol: FunctionSymbol(0),
             name: $name.to_string(),
             params: vec![$($args),*],
             return_ty: $return_ty,

@@ -174,7 +174,6 @@ impl Vm {
                     let sym = if let Value::Ref(sym) = sym_value {
                         sym
                     } else { panic!("non-ref sym on top of the stack: {:?}", sym_value) };
-                    assert_matches!(sym, Symbol::Variable(_, _));
                     let canary = self.pop_stack();
                     assert_eq!(canary, Value::RefCanary, "ref canary error; got {:?} instead", canary);
                     self.store(sym, value)?;
@@ -239,7 +238,7 @@ impl Vm {
                     self.block_jump_top = false;
                     self.block_jump_depth += n;
                 }
-                Bc::CheckSymbolTy { symbol, ty: ty_symbol } if symbol.is_variable() && ty_symbol.is_ty() => {
+                Bc::CheckSymbolTy { symbol, ty: ty_symbol } => {
                     let ty = self.storage.get_ty(*ty_symbol)
                         .clone();
                     let predicate_matches = self.run_ty_predicate(ty, *symbol)?;
@@ -251,18 +250,13 @@ impl Vm {
                     }
                     // if everything's okay, continue
                 }
-                Bc::CheckSymbolTy { symbol, ty } => panic!("invalid CheckSymbolTy: {:?}, {:?}", symbol, ty)
             }
         }
         Ok(())
     }
 
-    fn run_ty_predicate(&mut self, ty: Ty, symbol: Symbol) -> Result<bool> {
-        let val = match symbol {
-            Symbol::Function(_) => Value::FunctionRef(symbol),
-            Symbol::Ty(_) => panic!("invalid symbol {:?}", symbol),
-            _ => Value::Ref(symbol),
-        };
+    fn run_ty_predicate(&mut self, ty: Ty, symbol: VariableSymbol) -> Result<bool> {
+        let val = Value::Ref(symbol);
         match ty {
             Ty::Builtin(builtin, _) => {
                 let cast = val.cast_to_builtin(builtin, &self.storage);
@@ -298,7 +292,8 @@ impl Vm {
             .push(value);
     }
 
-    fn call(&mut self, sym: Symbol) -> Result<()> {
+    fn call(&mut self, FunctionSymbol(index): FunctionSymbol) -> Result<()> {
+        /*
         let index = match sym {
             Symbol::Function(idx) => idx,
             // TODO : Clean this up
@@ -317,8 +312,9 @@ impl Vm {
                     }
                 }
             }
-            | Symbol::Ty(idx) => panic!("attempted to call a value in a type symbol {}", idx),
         };
+        */
+        // TODO(scope) : look up function symbols inside of variables like above
 
         // store current state
         let start_depth = self.call_stack.len();
@@ -355,10 +351,10 @@ impl Vm {
     /// Gets the currently executing function; i.e., the function on top of the call stack.
     fn current_function(&self) -> &Function {
         let function_idx = *self.call_stack.last().unwrap();
-        &self.storage.get_function(Symbol::Function(function_idx))
+        &self.storage.get_function(FunctionSymbol(function_idx))
     }
 
-    fn store(&mut self, symbol: Symbol, value: Value) -> Result<()> {
+    fn store(&mut self, symbol: VariableSymbol, value: Value) -> Result<()> {
         self.storage.store(symbol, value)
     }
 
@@ -366,11 +362,11 @@ impl Vm {
         self.storage.dereference(value)
     }
 
-    fn load(&self, symbol: Symbol) -> Result<&Value> {
+    fn load(&self, symbol: VariableSymbol) -> Result<&Value> {
         self.storage.load(symbol)
     }
 
-    fn get_function(&self, symbol: Symbol) -> &Function {
+    fn get_function(&self, symbol: FunctionSymbol) -> &Function {
         self.storage.get_function(symbol)
     }
 

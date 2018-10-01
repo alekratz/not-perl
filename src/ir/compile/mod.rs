@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 use syntax::token::{Op, AssignOp};
 use ir::*;
 use vm::{
-    self, Bc, Condition, CompareOp,
+    self, Bc, Condition, CompareOp, SymbolIndex,
 };
 
 mod function;
@@ -20,7 +20,7 @@ pub type Result<T> = ::std::result::Result<T, Error>;
 /// IR to bytecode compiler, complete with state.
 #[derive(Debug, Clone)]
 pub struct CompileState {
-    operators: HashMap<Op, vm::Symbol>,
+    operators: HashMap<Op, vm::FunctionSymbol>,
     body: Vec<Bc>,
     // TODO(scope) : remove all_tys when it gets put into the general Scope struct
     all_tys: Vec<vm::Ty>,
@@ -470,7 +470,6 @@ impl CompileState {
             Value::ArrayAccess(_, _) => unimplemented!("compiling IR to bytecode => array access"),
             Value::BinaryExpr(lhs, op, rhs) => {
                 let op_function_symbol = if let Some(sym) = self.operators.get(op) {
-                    assert_matches!(sym, vm::Symbol::Function(_));
                     *sym
                 } else {
                     return Err(self.err(format!("`{}` is not a legal binary operator", op)));
@@ -593,19 +592,19 @@ impl CompileState {
     }
 
     /// Looks up a local symbol, or inserts it if necessary.
-    fn lookup_or_insert_local_variable(&mut self, symbol_name: &str) -> vm::Symbol {
+    fn lookup_or_insert_local_variable(&mut self, symbol_name: &str) -> vm::VariableSymbol {
         self.variable_scope
             .lookup_or_insert_local(symbol_name)
     }
 
     /// Looks up a local symbol, or inserts it if necessary.
-    fn insert_local_variable(&mut self, symbol_name: String) -> vm::Symbol {
+    fn insert_local_variable(&mut self, symbol_name: String) -> vm::VariableSymbol {
         self.variable_scope
             .insert_local_variable(symbol_name)
     }
 
     /// Creates an anonymous, compiler-generated symbol that cannot be referred to in code.
-    fn insert_anonymous_symbol(&mut self) -> vm::Symbol {
+    fn insert_anonymous_symbol(&mut self) -> vm::VariableSymbol {
         // TODO : Figure out how to re-use these when they're done (mite be difficult)
         self.variable_scope.insert_anonymous_symbol()
     }
@@ -616,12 +615,12 @@ impl CompileState {
     }
 
     /// Creates the next symbol used for a function with the given name.
-    fn next_function_symbol(&mut self, name: String) -> vm::Symbol {
+    fn next_function_symbol(&mut self, name: String) -> vm::FunctionSymbol {
         self.function_scope.next_symbol(name)
     }
     
     /// Creates the next symbol used for a function with the given name.
-    fn next_ty_symbol(&mut self, name: String) -> vm::Symbol {
+    fn next_ty_symbol(&mut self, name: String) -> vm::TySymbol {
         self.ty_scope.next_symbol(name)
     }
 
@@ -638,7 +637,7 @@ enum ValueContext {
 
     /// This value appears on the right hand side of an assignment and can be directly stored into
     /// a symbol.
-    StoreInto(vm::Symbol),
+    StoreInto(vm::VariableSymbol),
 
     /// This value is going to be returned.
     Ret,
@@ -653,7 +652,7 @@ impl ValueContext {
         }
     }
 
-    fn with_symbol_to_bytecode(self, sym: vm::Symbol) -> Vec<Bc> {
+    fn with_symbol_to_bytecode(self, sym: vm::VariableSymbol) -> Vec<Bc> {
         self.with_value_to_bytecode(vm::Value::Ref(sym))
     }
 }

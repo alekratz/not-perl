@@ -21,7 +21,7 @@ use vm;
 #[derive(Debug, Clone)]
 pub struct Scope<T, SymbolT>
     where T: Debug + Clone,
-          SymbolT: Debug + Clone
+          SymbolT: Debug + Clone + vm::SymbolIndex
 {
     symbols: Vec<SymbolT>,
     names: Vec<String>,
@@ -33,7 +33,7 @@ pub struct Scope<T, SymbolT>
 
 impl<T, SymbolT> Scope<T, SymbolT>
     where T: Debug + Clone,
-          SymbolT: Debug + Clone
+          SymbolT: Debug + Clone + vm::SymbolIndex
 {
     pub fn new() -> Self {
         Scope {
@@ -70,7 +70,7 @@ impl<T, SymbolT> Scope<T, SymbolT>
     }
 
     /// Looks up a name of an item based on the given symbol.
-    pub fn lookup_name(&self, symbol: vm::Symbol) -> &str {
+    pub fn lookup_name(&self, symbol: SymbolT) -> &str {
         &self.names[symbol.index()]
     }
 
@@ -124,7 +124,7 @@ impl<T, SymbolT> Scope<T, SymbolT>
 
 #[derive(Debug, Clone)]
 pub struct FunctionScope {
-    pub(in super) scope: Scope<FunctionStub, vm::Symbol>,
+    pub(in super) scope: Scope<FunctionStub, vm::FunctionSymbol>,
     pub(in super) compiled_functions: Vec<vm::Function>,
 }
 
@@ -171,10 +171,10 @@ impl FunctionScope {
     }
 
     /// Creates the next symbol used for a function with the given name.
-    pub fn next_symbol(&mut self, name: String) -> vm::Symbol {
+    pub fn next_symbol(&mut self, name: String) -> vm::FunctionSymbol {
         assert!(self.lookup_local_stub_by_name(&name).is_none());
         let num = self.symbols.len();
-        let sym = vm::Symbol::Function(num);
+        let sym = vm::FunctionSymbol(num);
         self.insert_symbol(sym, name);
         sym
     }
@@ -200,7 +200,7 @@ impl FunctionScope {
     }
 
     /// Looks up a function's symbol based on its name and the current function scope.
-    pub fn lookup_symbol(&self, name: &str, param_count: usize) -> Option<vm::Symbol> {
+    pub fn lookup_symbol(&self, name: &str, param_count: usize) -> Option<vm::FunctionSymbol> {
         self.lookup_stub(name, param_count)
             .map(|stub| stub.symbol)
     }
@@ -232,7 +232,7 @@ impl FunctionScope {
         self.lookup_one(|stub| self.lookup_name(stub.symbol) == symbol_name)
     }
 
-    pub fn lookup_builtin(&self, name: &str) -> Option<vm::Symbol> {
+    pub fn lookup_builtin(&self, name: &str) -> Option<vm::FunctionSymbol> {
         self.compiled_functions.iter()
             .filter(|f| if let vm::Function::Builtin(f) = f { f.name == name } else { false })
             .map(|f| *f.symbol())
@@ -241,7 +241,7 @@ impl FunctionScope {
 }
 
 impl Deref for FunctionScope {
-    type Target = Scope<FunctionStub, vm::Symbol>;
+    type Target = Scope<FunctionStub, vm::FunctionSymbol>;
 
     fn deref(&self) -> &Self::Target {
         &self.scope
@@ -256,7 +256,7 @@ impl DerefMut for FunctionScope {
 
 #[derive(Debug, Clone)]
 pub struct VariableScope {
-    scope: Scope<vm::Symbol, vm::Symbol>,
+    scope: Scope<vm::VariableSymbol, vm::VariableSymbol>,
 }
 
 impl VariableScope {
@@ -270,14 +270,17 @@ impl VariableScope {
         self.scope.names
     }
 
-    fn next_symbol(&mut self, name: String) -> vm::Symbol {
-        let global_idx = self.symbols().len();
-        let local_idx = self.scope
+    fn next_symbol(&mut self, name: String) -> vm::VariableSymbol {
+        let global = self.symbols().len();
+        let local = self.scope
             .scope
             .last()
             .unwrap()
             .len();
-        let sym = vm::Symbol::Variable(global_idx, local_idx);
+        let sym = vm::VariableSymbol {
+            global,
+            local,
+        };
         self.insert_symbol(sym, name);
         self.insert_value(sym);
         sym
@@ -286,7 +289,7 @@ impl VariableScope {
     /// Inserts a variable symbol into the local symbol table, returning a reference to it.
     ///
     /// If this symbol already exists in the table, the program will panic.
-    pub fn insert_local_variable(&mut self, symbol_name: String) -> vm::Symbol {
+    pub fn insert_local_variable(&mut self, symbol_name: String) -> vm::VariableSymbol {
         assert!(self.lookup_local(&symbol_name).is_none());
         self.next_symbol(symbol_name.clone())
     }
@@ -301,17 +304,14 @@ impl VariableScope {
     ///
     /// # Returns
     /// `Some(symbol)` if the local symbol was found - otherwise, `None`.
-    pub fn lookup_local(&self, symbol_name: &str) -> Option<vm::Symbol> {
+    pub fn lookup_local(&self, symbol_name: &str) -> Option<vm::VariableSymbol> {
         self.scope
-            .lookup_one(|local|{
-                assert_matches!(local, vm::Symbol::Variable(_, _));
-                self.lookup_name(**local) == symbol_name
-            })
+            .lookup_one(|local| self.lookup_name(**local) == symbol_name)
             .map(|s| *s)
     }
 
     /// Looks up a local symbol, or inserts it if necessary.
-    pub fn lookup_or_insert_local(&mut self, symbol_name: &str) -> vm::Symbol {
+    pub fn lookup_or_insert_local(&mut self, symbol_name: &str) -> vm::VariableSymbol {
         if let Some(sym) = self.lookup_local(symbol_name) {
             sym
         } else {
@@ -322,21 +322,20 @@ impl VariableScope {
     /// Looks up a local variable name based on its VM symbol.
     ///
     /// This will not traverse the scope stack, only checking the local scope.
-    pub fn lookup_local_name(&self, symbol: vm::Symbol) -> Option<&str> {
-        assert_matches!(symbol, vm::Symbol::Variable(_, _));
+    pub fn lookup_local_name(&self, symbol: vm::VariableSymbol) -> Option<&str> {
         let name = self.lookup_name(symbol);
         self.lookup_local(name)
             .map(|v| self.lookup_name(v))
     }
 
-    pub fn insert_anonymous_symbol(&mut self) -> vm::Symbol {
+    pub fn insert_anonymous_symbol(&mut self) -> vm::VariableSymbol {
         let symbol_name = format!("anonymous symbol #{}", self.symbols.len());
         self.insert_local_variable(symbol_name)
     }
 }
 
 impl Deref for VariableScope {
-    type Target = Scope<vm::Symbol, vm::Symbol>;
+    type Target = Scope<vm::VariableSymbol, vm::VariableSymbol>;
 
     fn deref(&self) -> &Self::Target {
         &self.scope
@@ -351,7 +350,7 @@ impl DerefMut for VariableScope {
 
 #[derive(Debug, Clone)]
 pub struct TyScope {
-    scope: Scope<vm::Ty, vm::Symbol>,
+    scope: Scope<vm::Ty, vm::TySymbol>,
     function_scope: FunctionScope,
 }
 
@@ -428,17 +427,17 @@ impl TyScope {
     }
 
     /// Creates the next symbol used for a type with the given name.
-    pub fn next_symbol(&mut self, name: String) -> vm::Symbol {
+    pub fn next_symbol(&mut self, name: String) -> vm::TySymbol {
         assert!(self.lookup_local_ty_by_name(&name).is_none());
         let num = self.symbols.len();
-        let sym = vm::Symbol::Ty(num);
+        let sym = vm::TySymbol(num);
         self.insert_symbol(sym, name);
         sym
     }
 }
 
 impl Deref for TyScope {
-    type Target = Scope<vm::Ty, vm::Symbol>;
+    type Target = Scope<vm::Ty, vm::TySymbol>;
 
     fn deref(&self) -> &Self::Target {
         &self.scope

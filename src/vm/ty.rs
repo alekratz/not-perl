@@ -1,14 +1,14 @@
 use std::fmt::{self, Display, Formatter};
-use vm::Symbol;
+use vm::{FunctionSymbol, TySymbol};
 
 #[derive(EnumIsA, Debug, Clone, PartialEq)]
 pub enum Ty {
-    Builtin(BuiltinTy, Symbol),
+    Builtin(BuiltinTy, TySymbol),
     User(UserTy),
 }
 
 impl Ty {
-    pub fn symbol(&self) -> Symbol {
+    pub fn symbol(&self) -> TySymbol {
         match self {
             | Ty::Builtin(_, sym) => *sym,
             | Ty::User(u) => u.symbol,
@@ -65,9 +65,9 @@ impl Display for BuiltinTy {
 #[derive(Debug, Clone, PartialEq)]
 pub struct UserTy {
     pub name: String,
-    pub symbol: Symbol,
-    pub predicate: Symbol,
-    pub functions: Vec<Symbol>,
+    pub symbol: TySymbol,
+    pub predicate: FunctionSymbol,
+    pub functions: Vec<FunctionSymbol>,
 }
 
 impl Display for UserTy {

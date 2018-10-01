@@ -1,4 +1,4 @@
-use vm::{Result, Symbol, Storage, Ty, BuiltinTy};
+use vm::{Result, VariableSymbol, FunctionSymbol, Storage, Ty, BuiltinTy, SymbolIndex};
 use ir::Const;
 
 /// The index type for a value.
@@ -26,7 +26,7 @@ pub enum Value {
     RefCanary,
 
     /// A reference to something.
-    Ref(Symbol),
+    Ref(VariableSymbol),
 
     /// A canary placed before an expected function ref.
     ///
@@ -34,7 +34,7 @@ pub enum Value {
     /// stack instead of a regular symbol ref.
     FunctionRefCanary,
 
-    FunctionRef(Symbol),
+    FunctionRef(FunctionSymbol),
 
     //ConstantRef(Symbol),
 
