@@ -19,10 +19,11 @@ use vm;
 
 /// A generic scope that keeps track of multiple layers of some given type.
 #[derive(Debug, Clone)]
-pub struct Scope<T>
-    where T: Debug + Clone
+pub struct Scope<T, SymbolT>
+    where T: Debug + Clone,
+          SymbolT: Debug + Clone
 {
-    symbols: Vec<vm::Symbol>,
+    symbols: Vec<SymbolT>,
     names: Vec<String>,
     // TODO(scope) : add "all" group, like this:
     // all: Vec<Rc<T>>
@@ -30,8 +31,9 @@ pub struct Scope<T>
     scope: Vec<Vec<T>>,
 }
 
-impl<T> Scope<T>
-    where T: Debug + Clone
+impl<T, SymbolT> Scope<T, SymbolT>
+    where T: Debug + Clone,
+          SymbolT: Debug + Clone
 {
     pub fn new() -> Self {
         Scope {
@@ -53,7 +55,7 @@ impl<T> Scope<T>
         self.scope.last().unwrap()
     }
 
-    pub fn symbols(&self) -> &[vm::Symbol] {
+    pub fn symbols(&self) -> &[SymbolT] {
         &self.symbols
     }
 
@@ -100,7 +102,7 @@ impl<T> Scope<T>
             .next()
     }
 
-    pub fn insert_symbol(&mut self, symbol: vm::Symbol, name: String) {
+    pub fn insert_symbol(&mut self, symbol: SymbolT, name: String) {
         self.names.push(name);
         self.symbols.push(symbol);
     }
@@ -122,7 +124,7 @@ impl<T> Scope<T>
 
 #[derive(Debug, Clone)]
 pub struct FunctionScope {
-    pub(in super) scope: Scope<FunctionStub>,
+    pub(in super) scope: Scope<FunctionStub, vm::Symbol>,
     pub(in super) compiled_functions: Vec<vm::Function>,
 }
 
@@ -239,7 +241,7 @@ impl FunctionScope {
 }
 
 impl Deref for FunctionScope {
-    type Target = Scope<FunctionStub>;
+    type Target = Scope<FunctionStub, vm::Symbol>;
 
     fn deref(&self) -> &Self::Target {
         &self.scope
@@ -254,7 +256,7 @@ impl DerefMut for FunctionScope {
 
 #[derive(Debug, Clone)]
 pub struct VariableScope {
-    scope: Scope<vm::Symbol>,
+    scope: Scope<vm::Symbol, vm::Symbol>,
 }
 
 impl VariableScope {
@@ -334,7 +336,7 @@ impl VariableScope {
 }
 
 impl Deref for VariableScope {
-    type Target = Scope<vm::Symbol>;
+    type Target = Scope<vm::Symbol, vm::Symbol>;
 
     fn deref(&self) -> &Self::Target {
         &self.scope
@@ -349,7 +351,7 @@ impl DerefMut for VariableScope {
 
 #[derive(Debug, Clone)]
 pub struct TyScope {
-    scope: Scope<vm::Ty>,
+    scope: Scope<vm::Ty, vm::Symbol>,
     function_scope: FunctionScope,
 }
 
@@ -436,7 +438,7 @@ impl TyScope {
 }
 
 impl Deref for TyScope {
-    type Target = Scope<vm::Ty>;
+    type Target = Scope<vm::Ty, vm::Symbol>;
 
     fn deref(&self) -> &Self::Target {
         &self.scope
