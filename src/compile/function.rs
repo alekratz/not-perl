@@ -12,7 +12,19 @@ pub struct FunctionStub {
     pub name: String,
 
     /// Number of parameters for this function. Types are not yet enforced at this point.
-    pub param_count: usize,
+    pub params: usize,
 
     pub return_ty: TyExpr,
+}
+
+impl vm::Symbolic for FunctionStub {
+    type Symbol = vm::FunctionSymbol;
+
+    fn symbol(&self) -> Self::Symbol {
+        self.symbol
+    }
+
+    fn name(&self) -> &str {
+        &self.name
+    }
 }

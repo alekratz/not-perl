@@ -1,11 +1,12 @@
 use std::{
-    fmt,
     ops::{Deref, DerefMut},
     rc::Rc,
 };
 use compile::{
     ReserveSymbol,
     TySymbolAlloc,
+    FunctionSymbolAlloc,
+    FunctionStub,
 };
 use ir;
 use vm::{
@@ -64,6 +65,15 @@ impl<T, A> Scope<T, A>
         let rc = Rc::new(value);
         last.push(Rc::clone(&rc));
         self.all.push(rc);
+    }
+    
+    /// Pushes all values in the given array to the current scope.
+    ///
+    /// This function will panic if there is no current scope.
+    pub fn push_all_values(&mut self, values: Vec<T>) {
+        for value in values {
+            self.push_value(value);
+        }
     }
 
     /// Removes a value using the given predicate.
@@ -172,16 +182,6 @@ impl<T, A> Scope<T, A>
             .iter()
             .map(Rc::as_ref)
     }
-
-    pub fn into_all(self) -> Vec<T>
-        where T: fmt::Debug
-    {
-        self.all
-            .into_iter()
-            .map(Rc::try_unwrap)
-            .map(Result::unwrap)
-            .collect()
-    }
 }
 
 impl<T, A> ReserveSymbol for Scope<T, A>
@@ -222,7 +222,7 @@ impl TyScope {
             vm::BuiltinTy::Any,
             vm::BuiltinTy::None,
         ];
-        self.scope.push_scope(vec![]);
+        self.scope.push_empty_scope();
         for ty in BUILTINS {
             let sym = self.reserve_symbol();
             self.scope.push_value(vm::Ty::Builtin(*ty, sym));
@@ -246,11 +246,15 @@ impl TyScope {
             ir::TyExpr::None => Some(self.get_builtin(vm::BuiltinTy::None)),
         }
     }
-}
 
-impl From<TyScope> for Scope<vm::Ty, TySymbolAlloc> {
-    fn from(other: TyScope) -> Self {
-        other.scope
+    pub fn into_all(mut self) -> Vec<vm::Ty> {
+        self.scope.scope.clear();
+        self.scope
+            .all
+            .into_iter()
+            .map(Rc::try_unwrap)
+            .map(Result::unwrap)
+            .collect()
     }
 }
 
@@ -263,6 +267,70 @@ impl Deref for TyScope {
 }
 
 impl DerefMut for TyScope {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.scope
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct FunctionScope {
+    scope: Scope<FunctionStub, FunctionSymbolAlloc>,
+    vm_functions: Vec<vm::Function>,
+}
+
+impl FunctionScope {
+    pub fn new() -> Self {
+        FunctionScope {
+            scope: Scope::empty(FunctionSymbolAlloc::new()),
+            vm_functions: vec![],
+        }
+    }
+
+    pub fn with_builtins(mut self, builtins: Vec<vm::BuiltinFunction>) -> Self {
+        self.push_empty_scope();
+        for mut function in builtins {
+            function.symbol = self.reserve_symbol();
+            let stub = FunctionStub {
+                name: function.name.clone(),
+                symbol: function.symbol,
+                params: function.params.len(),
+                return_ty: ir::TyExpr::from_builtin_ty(function.return_ty.into()),
+            };
+            self.push_value(stub);
+            self.push_vm_function(vm::Function::Builtin(function));
+        }
+
+        self 
+    }
+
+    pub fn push_vm_function(&mut self, function: vm::Function) {
+        self.vm_functions.push(function);
+    }
+
+    pub fn get_stub_by_params(&self, name: &str, params: usize) -> Option<&FunctionStub> {
+        self.get_value_by(|function| function.params == params && function.name() == name)
+    }
+
+    pub fn get_builtin(&self, name: &str) -> Option<&vm::Function> {
+        self.vm_functions.iter()
+            .filter(|function| function.is_builtin() && function.name() == name)
+            .next()
+    }
+
+    pub fn into_vm_functions(self) -> Vec<vm::Function> {
+        self.vm_functions
+    }
+}
+
+impl Deref for FunctionScope {
+    type Target = Scope<FunctionStub, FunctionSymbolAlloc>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.scope
+    }
+}
+
+impl DerefMut for FunctionScope {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.scope
     }

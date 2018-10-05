@@ -2,6 +2,7 @@ use std::mem;
 use vm::{
     Symbol,
     Symbolic,
+    FunctionSymbol,
     TySymbol,
     VariableSymbol,
     ValueIndex,
@@ -35,6 +36,15 @@ impl NextSymbol for TySymbol {
     fn next_symbol(&self) -> Self {
         let TySymbol(sym) = self;
         TySymbol(sym + 1)
+    }
+}
+
+impl NextSymbol for FunctionSymbol {
+    type Symbol = Self;
+
+    fn next_symbol(&self) -> Self {
+        let FunctionSymbol(sym) = self;
+        FunctionSymbol(sym + 1)
     }
 }
 
@@ -150,3 +160,5 @@ impl ReserveSymbol for VariableSymbolAlloc {
 /// A symbol allocator for VM types.
 pub type TySymbolAlloc = SymbolAlloc<vm::Ty>;
 
+/// A symbol allocator for VM functions.
+pub type FunctionSymbolAlloc = SymbolAlloc<vm::Function>;

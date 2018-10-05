@@ -10,7 +10,7 @@ use vm::{
     BuiltinTy,
 };
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(EnumIsA, Debug, Clone, PartialEq)]
 pub enum Function {
     // TODO : BuiltinFunction, FunctionSymbol
     // similar to how types are handled

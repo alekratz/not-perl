@@ -1,18 +1,17 @@
 use std::collections::{HashMap, HashSet};
 use syntax::token::{Op, AssignOp};
 use compile::{
+    FunctionStub,
+    FunctionScope,
     TyScope,
     ReserveSymbol,
-    self,
 };
 use ir::*;
 use vm::{
     self, Bc, Condition, CompareOp, Symbolic,
 };
 
-mod function;
 mod scope;
-pub use self::function::*;
 pub use self::scope::*;
 
 /// A compilation error.
@@ -35,12 +34,17 @@ pub struct CompileState {
 
 impl CompileState {
     pub fn new() -> Self {
+        let builtin_functions = vm::BUILTIN_FUNCTIONS.iter()
+            .cloned()
+            .chain(vm::BUILTIN_OPERATORS.iter().map(|(_, f)| f).cloned())
+            .collect();
         let function_scope = FunctionScope::new()
-            .with_operators(vm::BUILTIN_OPERATORS.clone())
-            .with_builtins(vm::BUILTIN_FUNCTIONS.clone());
+            .with_builtins(builtin_functions);
         let mut operators = HashMap::new();
         for (ref op, ref function) in vm::BUILTIN_OPERATORS.iter() {
-            let sym = function_scope.lookup_symbol(&function.name, function.params.len()).unwrap();
+            let sym = function_scope.get_stub_by_params(&function.name, function.params.len())
+                .unwrap()
+                .symbol();
             operators.insert(op.clone(), sym);
         }
         let ty_scope = TyScope::new().with_builtins();
@@ -62,13 +66,13 @@ impl CompileState {
     }
 
     pub fn begin(&mut self) {
-        self.function_scope.add_scope();
+        self.function_scope.push_empty_scope();
         self.variable_scope.add_scope();
         self.ty_scope.push_empty_scope();
     }
 
     pub fn into_compile_unit(mut self) -> CompileUnit {
-        let main_function_symbol = self.next_function_symbol("<main>".to_string());
+        let main_function_symbol = self.function_scope.reserve_symbol();
         let globals = self.variable_scope.shed_scope();
 
         let CompileState {
@@ -76,10 +80,7 @@ impl CompileState {
             operators: _,
             body,
             ty_scope,
-            function_scope: FunctionScope {
-                scope: function_scope,
-                compiled_functions: mut functions,
-            },
+            function_scope,
             variable_scope,
             repl: _repl,
         } = self;
@@ -93,23 +94,20 @@ impl CompileState {
             body,
         });
 
-        let ty_scope = compile::Scope::from(ty_scope);
-        let mut all_tys = ty_scope.into_all();
+        let mut tys = ty_scope.into_all();
+        let mut functions = function_scope.into_vm_functions();
         // unstable sort is OK because there (hypothetically) are not duplicates
         functions.sort_unstable_by(|a, b| a.symbol().cmp(&b.symbol()));
-        all_tys.sort_unstable_by(|a, b| a.symbol().cmp(&b.symbol()));
+        tys.sort_unstable_by(|a, b| a.symbol().cmp(&b.symbol()));
 
-        let ty_names = all_tys.iter()
-            .map(vm::Ty::to_string)
-            .collect();
         CompileUnit {
             name: String::new(),
             main_function,
             functions,
-            tys: all_tys,
-            function_names: function_scope.into_names(),
+            tys,
+            function_names: vec![],
             variable_names: variable_scope.into_names(),
-            ty_names,
+            ty_names: vec![],
         }
     }
 
@@ -145,7 +143,7 @@ impl CompileState {
                 }
                 // gather all function stubs
                 let stubs = self.compile_function_stubs(ir_tree.functions())?;
-                self.function_scope.insert_values(stubs);
+                self.function_scope.push_all_values(stubs);
 
                 for user_type in ir_tree.user_types() {
                     let ty = vm::Ty::User(self.compile_user_type(user_type)?);
@@ -155,7 +153,7 @@ impl CompileState {
                 // compile functions
                 for function in ir_tree.functions() {
                     let function = self.compile_function(function)?;
-                    self.insert_vm_function(vm::Function::User(function));
+                    self.function_scope.push_vm_function(vm::Function::User(function));
                 }
 
                 let mut body = self.compile_action_list(ir_tree.actions())?;
@@ -176,13 +174,13 @@ impl CompileState {
         // gather all function stubs
         let mut stubs = vec![];
         for function in functions {
-            if self.function_scope.lookup_local_stub_by_name(function.name()).is_some() {
+            if self.function_scope.get_value_by_name(function.name()).is_some() {
                 return Err(self.err(format!("function `{}` defined twice in the same scope", function.name())));
             }
             let stub = FunctionStub {
                 name: function.name().to_string(),
-                symbol: self.next_function_symbol(function.name().to_string()),
-                param_count: function.params.len(),
+                symbol: self.function_scope.reserve_symbol(),
+                params: function.params.len(),
                 return_ty: function.return_ty.clone(),
             };
             stubs.push(stub);
@@ -192,7 +190,7 @@ impl CompileState {
 
     fn compile_user_type<'n>(&mut self, udt: &UserTy<'n>) -> Result<vm::UserTy> {
         // TODO(predicate) : order-agnostic user defined types
-        self.function_scope.add_scope();
+        self.function_scope.push_empty_scope();
         if !udt.parents.is_empty() {
             // TODO(predicate) : deal with udt parents
             unimplemented!("TODO : compile IR user-defined type with parents");
@@ -205,7 +203,7 @@ impl CompileState {
         
         // collect function stubs
         let stubs = self.compile_function_stubs(&udt.functions)?;
-        self.function_scope.insert_values(stubs);
+        self.function_scope.push_all_values(stubs);
 
         // TODO(predicate) order agnostic user types
 
@@ -215,10 +213,11 @@ impl CompileState {
             let function = self.compile_function(ir_function)?;
             // XXX(predicate) : reference functions instead of cloning them
             udt_functions.push(function.symbol);
-            self.insert_vm_function(vm::Function::User(function));
+            self.function_scope.push_vm_function(vm::Function::User(function));
         }
 
-        let udt_scope = self.function_scope.shed_scope();
+        let udt_scope = self.function_scope.pop_scope()
+            .unwrap();
 
         // get predicate function
         let user_predicate = udt_scope.iter()
@@ -226,14 +225,17 @@ impl CompileState {
             .next();
 
         let predicate = if let Some(p) = user_predicate {
-            if p.param_count == 1 {
-                p.symbol
+            if p.params == 1 {
+                p.symbol()
             } else {
                 return Err(self.err(format!("predicate function in type `{}` must have exactly one param", udt.name)));
             }
         } else {
             // everything's a string!!!!!
-            self.function_scope.lookup_builtin("is-string").unwrap()
+            *self.function_scope
+                .get_builtin("is-string")
+                .unwrap()
+                .symbol()
         };
         let user_ty_symbol = self.ty_scope.reserve_symbol();
 
@@ -298,14 +300,15 @@ impl CompileState {
 
     /// Compiles an IR function into a VM function.
     pub fn compile_function<'n>(&mut self, function: &Function<'n>) -> Result<vm::UserFunction> {
-        self.function_scope.add_scope();
+        self.function_scope.push_empty_scope();
         self.variable_scope.add_scope();
 
         let symbol = match &function.symbol {
             Symbol::Function(name) => {
-                self.function_scope.lookup_symbol(name, function.params.len())
+                self.function_scope.get_stub_by_params(name, function.params.len())
                     .expect(&format!("symbol for function {} (param count {}) was expected to exist, but does not",
                                      name, function.params.len()))
+                    .symbol()
             },
             sym => panic!("got non-function symbol name from IR::Function: {:?}", sym),
         };
@@ -349,14 +352,14 @@ impl CompileState {
 
         // gather all function stubs
         let stubs = self.compile_function_stubs(&function.inner_functions)?;
-        self.function_scope.insert_values(stubs);
+        self.function_scope.push_all_values(stubs);
 
         // TODO: compile user types and their functions
 
         // compile functions
         for inner in &function.inner_functions {
             let inner = self.compile_function(inner)?;
-            self.insert_vm_function(vm::Function::User(inner));
+            self.function_scope.push_vm_function(vm::Function::User(inner));
         }
 
         let return_ty = self.ty_scope.get_value_by_expr(&function.return_ty)
@@ -364,7 +367,7 @@ impl CompileState {
             .symbol();
         body.append(&mut self.compile_action_list(&function.body)?);
         let locals = self.variable_scope.shed_scope();
-        self.function_scope.shed_scope();
+        self.function_scope.pop_scope();
         Ok(vm::UserFunction {
             symbol,
             name: function.name().to_string(),
@@ -451,13 +454,13 @@ impl CompileState {
             Value::Symbol(sym) => {
                 match sym.as_inner() {
                     Symbol::Function(s) => {
-                        let function = self.function_scope.lookup_stub_by_name(s)
+                        let function = self.function_scope.get_value_by_name(s)
                             .ok_or(format!("unknown function `{}`", s))?
                             .clone();
                         Ok(context.with_value_to_bytecode(vm::Value::FunctionRef(function.symbol)))
                     }
                     Symbol::Bareword(b) => {
-                        if let Some(stub) = self.function_scope.lookup_stub_by_name(b) {
+                        if let Some(stub) = self.function_scope.get_value_by_name(b) {
                             Ok(context.with_value_to_bytecode(vm::Value::FunctionRef(stub.symbol)))
                         } else {
                             unimplemented!("compiling IR to bytecode => bareword lookup (name: {})", b)
@@ -523,12 +526,11 @@ impl CompileState {
                 };
 
                 if let Some(function_name) = function_name {
-                    if let Some(stub) = self.function_scope.lookup_stub(function_name, args.len()) {
+                    if let Some(stub) = self.function_scope.get_stub_by_params(function_name, args.len()) {
                         funcall_body.push(Bc::Call(stub.symbol));
                         if context != ValueContext::Push {
                             if stub.return_ty == TyExpr::None {
-                                let fname = self.function_scope.lookup_name(stub.symbol);
-                                return Err(self.err(format!("function `{}` doesn't return a value", fname)));
+                                return Err(self.err(format!("function `{}` doesn't return a value", stub.name)));
                             }
                             match context {
                                 ValueContext::StoreInto(sym) => funcall_body.push(Bc::Pop(sym)),
@@ -609,16 +611,6 @@ impl CompileState {
     fn insert_anonymous_symbol(&mut self) -> vm::VariableSymbol {
         // TODO : Figure out how to re-use these when they're done (mite be difficult)
         self.variable_scope.insert_anonymous_symbol()
-    }
-
-    /// Inserts a function symbol into the function symbol table, returning a reference to it.
-    fn insert_vm_function(&mut self, function: vm::Function) -> &vm::Function {
-        self.function_scope.insert_vm_function(function)
-    }
-
-    /// Creates the next symbol used for a function with the given name.
-    fn next_function_symbol(&mut self, name: String) -> vm::FunctionSymbol {
-        self.function_scope.next_symbol(name)
     }
 
     fn err(&self, message: String) -> Error {
