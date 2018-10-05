@@ -1,4 +1,12 @@
-use vm::{Result, VariableSymbol, FunctionSymbol, Storage, Ty, BuiltinTy};
+use vm::{
+    Result,
+    Symbol,
+    VariableSymbol,
+    FunctionSymbol,
+    Storage,
+    Ty,
+    BuiltinTy,
+};
 use ir::Const;
 
 /// The index type for a value.
@@ -9,7 +17,6 @@ pub type ValueIndex = usize;
 #[derive(EnumIsA, EnumAsGetters, Debug, Clone, PartialEq)]
 pub enum Value {
     Int(i64),
-    //Bignum(
     Float(f64),
     Str(String),
     Bool(bool),
@@ -35,8 +42,6 @@ pub enum Value {
     FunctionRefCanary,
 
     FunctionRef(FunctionSymbol),
-
-    //ConstantRef(Symbol),
 
     /// An unset value.
     ///

@@ -1,26 +1,10 @@
 use std::fmt::{self, Display, Formatter};
-use vm::{FunctionSymbol, TySymbol};
+use vm::{FunctionSymbol, TySymbol, Symbolic};
 
 #[derive(EnumIsA, Debug, Clone, PartialEq)]
 pub enum Ty {
     Builtin(BuiltinTy, TySymbol),
     User(UserTy),
-}
-
-impl Ty {
-    pub fn symbol(&self) -> TySymbol {
-        match self {
-            | Ty::Builtin(_, sym) => *sym,
-            | Ty::User(u) => u.symbol,
-        }
-    }
-
-    pub fn name(&self) -> &str {
-        match self {
-            Ty::Builtin(b, _) => b.name(),
-            Ty::User(u) => &u.name,
-        }
-    }
 }
 
 impl Display for Ty {

@@ -12,6 +12,8 @@ use vm::{
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Function {
+    // TODO : BuiltinFunction, FunctionSymbol
+    // similar to how types are handled
     Builtin(BuiltinFunction),
     User(UserFunction),
 }

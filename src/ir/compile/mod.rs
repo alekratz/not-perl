@@ -1,8 +1,13 @@
 use std::collections::{HashMap, HashSet};
 use syntax::token::{Op, AssignOp};
+use compile::{
+    TyScope,
+    ReserveSymbol,
+    self,
+};
 use ir::*;
 use vm::{
-    self, Bc, Condition, CompareOp,
+    self, Bc, Condition, CompareOp, Symbolic,
 };
 
 mod function;
@@ -22,8 +27,6 @@ pub type Result<T> = ::std::result::Result<T, Error>;
 pub struct CompileState {
     operators: HashMap<Op, vm::FunctionSymbol>,
     body: Vec<Bc>,
-    // TODO(scope) : remove all_tys when it gets put into the general Scope struct
-    all_tys: Vec<vm::Ty>,
     ty_scope: TyScope,
     function_scope: FunctionScope,
     variable_scope: VariableScope,
@@ -40,10 +43,9 @@ impl CompileState {
             let sym = function_scope.lookup_symbol(&function.name, function.params.len()).unwrap();
             operators.insert(op.clone(), sym);
         }
-        let ty_scope = TyScope::with_builtins();
+        let ty_scope = TyScope::new().with_builtins();
         CompileState {
             operators,
-            all_tys: ty_scope.top().into(),
             ty_scope,
             function_scope,
             variable_scope: VariableScope::new(),
@@ -62,7 +64,7 @@ impl CompileState {
     pub fn begin(&mut self) {
         self.function_scope.add_scope();
         self.variable_scope.add_scope();
-        self.ty_scope.add_scope();
+        self.ty_scope.push_empty_scope();
     }
 
     pub fn into_compile_unit(mut self) -> CompileUnit {
@@ -73,7 +75,6 @@ impl CompileState {
             // drop operators; they just keep track of the operators that the functions point at
             operators: _,
             body,
-            mut all_tys,
             ty_scope,
             function_scope: FunctionScope {
                 scope: function_scope,
@@ -83,18 +84,20 @@ impl CompileState {
             repl: _repl,
         } = self;
 
-        // unstable sort is OK because there (hypothetically) are not duplicates
-        functions.sort_unstable_by(|a, b| a.symbol().cmp(&b.symbol()));
-        all_tys.sort_unstable_by(|a, b| a.symbol().cmp(&b.symbol()));
-
         let main_function = vm::Function::User(vm::UserFunction {
             symbol: main_function_symbol,
             name: String::from("#main#"),
             params: 0,
-            return_ty: ty_scope.lookup_builtin(vm::BuiltinTy::None).symbol(),
+            return_ty: ty_scope.get_builtin(vm::BuiltinTy::None).symbol(),
             locals: globals,
             body,
         });
+
+        let ty_scope = compile::Scope::from(ty_scope);
+        let mut all_tys = ty_scope.into_all();
+        // unstable sort is OK because there (hypothetically) are not duplicates
+        functions.sort_unstable_by(|a, b| a.symbol().cmp(&b.symbol()));
+        all_tys.sort_unstable_by(|a, b| a.symbol().cmp(&b.symbol()));
 
         let ty_names = all_tys.iter()
             .map(vm::Ty::to_string)
@@ -146,8 +149,7 @@ impl CompileState {
 
                 for user_type in ir_tree.user_types() {
                     let ty = vm::Ty::User(self.compile_user_type(user_type)?);
-                    self.all_tys.push(ty.clone());
-                    self.ty_scope.insert_value(ty);
+                    self.ty_scope.push_value(ty);
                 }
 
                 // compile functions
@@ -197,7 +199,7 @@ impl CompileState {
         }
 
         // check if this type is already defined
-        if self.ty_scope.lookup_local_ty_by_name(&udt.name).is_some() {
+        if self.ty_scope.get_local_value_by_name(&udt.name).is_some() {
             return Err(self.err(format!("type `{}` has already been defined in this scope", udt.name)));
         }
         
@@ -233,7 +235,7 @@ impl CompileState {
             // everything's a string!!!!!
             self.function_scope.lookup_builtin("is-string").unwrap()
         };
-        let user_ty_symbol = self.next_ty_symbol(udt.name.clone());
+        let user_ty_symbol = self.ty_scope.reserve_symbol();
 
         Ok(vm::UserTy{
             name: udt.name.clone(),
@@ -324,7 +326,7 @@ impl CompileState {
                     // TyExpr::None and TyExpr::All are simply not checked
                     let local_symbol = self.insert_local_variable(param_name.clone());
                     if let TyExpr::Definite(ty_name) = ty {
-                        if let Some(ty) = self.ty_scope.lookup_ty_by_name(ty_name) {
+                        if let Some(ty) = self.ty_scope.get_value_by_name(ty_name) {
                             // insert the predicate check here
                             body.push(Bc::CheckSymbolTy { symbol: local_symbol, ty: ty.symbol(), });
                         } else {
@@ -357,7 +359,7 @@ impl CompileState {
             self.insert_vm_function(vm::Function::User(inner));
         }
 
-        let return_ty = self.ty_scope.lookup_by_expr(&function.return_ty)
+        let return_ty = self.ty_scope.get_value_by_expr(&function.return_ty)
             .ok_or(format!("undefined type: {}", function.return_ty))?
             .symbol();
         body.append(&mut self.compile_action_list(&function.body)?);
@@ -617,11 +619,6 @@ impl CompileState {
     /// Creates the next symbol used for a function with the given name.
     fn next_function_symbol(&mut self, name: String) -> vm::FunctionSymbol {
         self.function_scope.next_symbol(name)
-    }
-    
-    /// Creates the next symbol used for a function with the given name.
-    fn next_ty_symbol(&mut self, name: String) -> vm::TySymbol {
-        self.ty_scope.next_symbol(name)
     }
 
     fn err(&self, message: String) -> Error {

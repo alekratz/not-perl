@@ -2,12 +2,14 @@
 #[macro_use] extern crate matches;
 #[macro_use] extern crate lazy_static;
 #[macro_use] extern crate enum_methods;
+//#[macro_use] extern crate galvanic_test;
 
 mod common;
 pub mod syntax;
 pub mod ir;
 pub mod vm;
 pub mod repl;
+pub mod compile;
 
 use std::{
     io::{self, Write},

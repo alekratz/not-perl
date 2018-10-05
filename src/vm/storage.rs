@@ -1,4 +1,4 @@
-use vm::{Scope, Value, TySymbol, FunctionSymbol, VariableSymbol, Function, Result, Error, CompileUnit, Ty};
+use vm::*;
 
 /// The storage state of the VM, which can be passed around if necessary.
 #[derive(Debug, Clone)]
