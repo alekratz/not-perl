@@ -7,9 +7,12 @@ use compile::{
     TySymbolAlloc,
     FunctionSymbolAlloc,
     FunctionStub,
+    Variable,
+    VariableSymbolAlloc,
 };
 use ir;
 use vm::{
+    Symbol,
     Symbolic,
     self,
 };
@@ -248,6 +251,7 @@ impl TyScope {
     }
 
     pub fn into_all(mut self) -> Vec<vm::Ty> {
+        // clear the current scope because it holds Rc<T> in the 'all' array
         self.scope.scope.clear();
         self.scope
             .all
@@ -331,6 +335,42 @@ impl Deref for FunctionScope {
 }
 
 impl DerefMut for FunctionScope {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.scope
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct VariableScope {
+    scope: Scope<Variable, VariableSymbolAlloc>,
+}
+
+impl VariableScope {
+    pub fn new() -> Self {
+        VariableScope {
+            scope: Scope::empty(VariableSymbolAlloc::new()),
+        }
+    }
+    
+    pub fn push_anonymous_symbol(&mut self) -> &Variable {
+        let sym = self.reserve_symbol();
+        let var = Variable(format!("##anonymous var${:x}##", sym.index()), sym);
+        self.push_value(var);
+        self.all()
+            .last()
+            .unwrap()
+    }
+}
+
+impl Deref for VariableScope {
+    type Target = Scope<Variable, VariableSymbolAlloc>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.scope
+    }
+}
+
+impl DerefMut for VariableScope {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.scope
     }

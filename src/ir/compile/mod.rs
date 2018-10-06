@@ -1,18 +1,17 @@
 use std::collections::{HashMap, HashSet};
 use syntax::token::{Op, AssignOp};
 use compile::{
+    Variable,
     FunctionStub,
     FunctionScope,
     TyScope,
+    VariableScope,
     ReserveSymbol,
 };
 use ir::*;
 use vm::{
     self, Bc, Condition, CompareOp, Symbolic,
 };
-
-mod scope;
-pub use self::scope::*;
 
 /// A compilation error.
 pub type Error = String;
@@ -67,13 +66,12 @@ impl CompileState {
 
     pub fn begin(&mut self) {
         self.function_scope.push_empty_scope();
-        self.variable_scope.add_scope();
+        self.variable_scope.push_empty_scope();
         self.ty_scope.push_empty_scope();
     }
 
     pub fn into_compile_unit(mut self) -> CompileUnit {
         let main_function_symbol = self.function_scope.reserve_symbol();
-        let globals = self.variable_scope.shed_scope();
 
         let CompileState {
             // drop operators; they just keep track of the operators that the functions point at
@@ -84,6 +82,10 @@ impl CompileState {
             variable_scope,
             repl: _repl,
         } = self;
+
+        let globals = variable_scope.all()
+            .map(Variable::symbol)
+            .collect();
 
         let main_function = vm::Function::User(vm::UserFunction {
             symbol: main_function_symbol,
@@ -106,7 +108,7 @@ impl CompileState {
             functions,
             tys,
             function_names: vec![],
-            variable_names: variable_scope.into_names(),
+            variable_names: vec![],
             ty_names: vec![],
         }
     }
@@ -301,7 +303,7 @@ impl CompileState {
     /// Compiles an IR function into a VM function.
     pub fn compile_function<'n>(&mut self, function: &Function<'n>) -> Result<vm::UserFunction> {
         self.function_scope.push_empty_scope();
-        self.variable_scope.add_scope();
+        self.variable_scope.push_empty_scope();
 
         let symbol = match &function.symbol {
             Symbol::Function(name) => {
@@ -327,7 +329,8 @@ impl CompileState {
             match param {
                 FunctionParam::Variable { symbol: _, ty, default } => {
                     // TyExpr::None and TyExpr::All are simply not checked
-                    let local_symbol = self.insert_local_variable(param_name.clone());
+                    let local_symbol = self.variable_scope.reserve_symbol();
+                    self.variable_scope.push_value(Variable(param_name.clone(), local_symbol));
                     if let TyExpr::Definite(ty_name) = ty {
                         if let Some(ty) = self.ty_scope.get_value_by_name(ty_name) {
                             // insert the predicate check here
@@ -366,7 +369,9 @@ impl CompileState {
             .ok_or(format!("undefined type: {}", function.return_ty))?
             .symbol();
         body.append(&mut self.compile_action_list(&function.body)?);
-        let locals = self.variable_scope.shed_scope();
+        let locals = self.variable_scope.all()
+            .map(Variable::symbol)
+            .collect();
         self.function_scope.pop_scope();
         Ok(vm::UserFunction {
             symbol,
@@ -486,7 +491,8 @@ impl CompileState {
                 let lhs_value = if lhs.is_immediate() {
                     self.convert_immediate_value(lhs)
                 } else {
-                    let lhs_sym = self.insert_anonymous_symbol();
+                    let lhs_sym = self.variable_scope.push_anonymous_symbol()
+                        .symbol();
                     expr_body.append(&mut self.compile_value(lhs, ValueContext::StoreInto(lhs_sym.clone()))?);
                     vm::Value::Ref(lhs_sym)
                 };
@@ -494,7 +500,8 @@ impl CompileState {
                 let rhs_value = if rhs.is_immediate() {
                     self.convert_immediate_value(rhs)
                 } else {
-                    let rhs_sym = self.insert_anonymous_symbol();
+                    let rhs_sym = self.variable_scope.push_anonymous_symbol()
+                        .symbol();
                     expr_body.append(&mut self.compile_value(rhs, ValueContext::StoreInto(rhs_sym.clone()))?);
                     vm::Value::Ref(rhs_sym)
                 };
@@ -566,8 +573,10 @@ impl CompileState {
                     | Op::GreaterEquals
                     | Op::Less
                     | Op::Greater => {
-                        let lhs_sym = self.insert_anonymous_symbol();
-                        let rhs_sym = self.insert_anonymous_symbol();
+                        let lhs_sym = self.variable_scope.push_anonymous_symbol()
+                            .symbol();
+                        let rhs_sym = self.variable_scope.push_anonymous_symbol()
+                            .symbol();
                         // TODO : short-circuiting?
                         let mut body = self.compile_value(lhs, ValueContext::StoreInto(lhs_sym.clone()))?;
                         body.append(&mut self.compile_value(rhs, ValueContext::StoreInto(rhs_sym.clone()))?);
@@ -576,7 +585,8 @@ impl CompileState {
                         vec![Bc::Compare(Condition::Compare(lhs_sym, CompareOp::from_syntax(&op).unwrap(), rhs_sym))]
                     }
                     _ => {
-                        let result_sym = self.insert_anonymous_symbol();
+                        let result_sym = self.variable_scope.push_anonymous_symbol()
+                            .symbol();
                         let mut value_body = self.compile_value(value, ValueContext::StoreInto(result_sym.clone()))?;
                         let result_sym = vm::Value::Ref(result_sym);
                         value_body.push(Bc::Compare(Condition::Truthy(result_sym)));
@@ -585,7 +595,8 @@ impl CompileState {
                 }
             }
             _ => {
-                let result_sym = self.insert_anonymous_symbol();
+                let result_sym = self.variable_scope.push_anonymous_symbol()
+                    .symbol();
                 let mut value_body = self.compile_value(value, ValueContext::StoreInto(result_sym.clone()))?;
                 let result_sym = vm::Value::Ref(result_sym);
                 value_body.push(Bc::Compare(Condition::Truthy(result_sym)));
@@ -597,20 +608,14 @@ impl CompileState {
 
     /// Looks up a local symbol, or inserts it if necessary.
     fn lookup_or_insert_local_variable(&mut self, symbol_name: &str) -> vm::VariableSymbol {
-        self.variable_scope
-            .lookup_or_insert_local(symbol_name)
-    }
-
-    /// Looks up a local symbol, or inserts it if necessary.
-    fn insert_local_variable(&mut self, symbol_name: String) -> vm::VariableSymbol {
-        self.variable_scope
-            .insert_local_variable(symbol_name)
-    }
-
-    /// Creates an anonymous, compiler-generated symbol that cannot be referred to in code.
-    fn insert_anonymous_symbol(&mut self) -> vm::VariableSymbol {
-        // TODO : Figure out how to re-use these when they're done (mite be difficult)
-        self.variable_scope.insert_anonymous_symbol()
+        if let Some(sym) = self.variable_scope.get_value_by_name(symbol_name).map(Variable::symbol) {
+            sym
+        } else {
+            let sym = self.variable_scope.reserve_symbol();
+            let var = Variable(symbol_name.to_string(), sym);
+            self.variable_scope.push_value(var);
+            sym
+        }
     }
 
     fn err(&self, message: String) -> Error {

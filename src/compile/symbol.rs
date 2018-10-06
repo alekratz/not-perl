@@ -157,6 +157,15 @@ impl ReserveSymbol for VariableSymbolAlloc {
     }
 }
 
+impl VariableSymbolAlloc {
+    pub fn new() -> Self {
+        VariableSymbolAlloc {
+            reserve_next: VariableSymbol::default(),
+            locals: vec![],
+        }
+    }
+}
+
 /// A symbol allocator for VM types.
 pub type TySymbolAlloc = SymbolAlloc<vm::Ty>;
 
