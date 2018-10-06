@@ -5,14 +5,12 @@ mod function;
 mod action;
 mod symbol;
 mod value;
-mod compile;
 
 pub use self::ty::*;
 pub use self::function::*;
 pub use self::action::*;
 pub use self::symbol::*;
 pub use self::value::*;
-pub use self::compile::*;
 
 pub trait Ir<A>
     where A: Ast + Sized,

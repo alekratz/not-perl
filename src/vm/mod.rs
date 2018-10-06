@@ -1,5 +1,5 @@
 use std::mem;
-use ir::CompileUnit;
+use compile::CompileUnit;
 
 mod value;
 mod symbol;

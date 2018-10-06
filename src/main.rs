@@ -17,7 +17,7 @@ use std::{
     process,
 };
 use common::read_file;
-use ir::CompileState;
+use compile::CompileState;
 use repl::Repl;
 
 fn exec(args: Args) -> Result<(), String> {

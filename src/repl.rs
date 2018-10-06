@@ -1,4 +1,4 @@
-use ir::CompileState;
+use compile::CompileState;
 use vm::{self, Vm, Value};
 
 const REPL_NAME: &'static str = "<stdin>";
