@@ -23,18 +23,11 @@ pub struct Storage {
     /// All types in this VM.
     pub tys: Vec<Ty>,
 
-    /// All function names in this program.
-    pub function_names: Vec<String>,
-
-    /// All variable names in this program.
-    pub variable_names: Vec<String>,
-
-    /// All type names in this program.
-    pub ty_names: Vec<String>,
+    pub variables: Vec<Variable>,
 }
 
 impl From<CompileUnit> for Storage {
-    fn from(CompileUnit { name: _name, main_function, functions, tys, function_names, variable_names, ty_names, }: CompileUnit) -> Self {
+    fn from(CompileUnit { name: _name, main_function, functions, tys, variables, }: CompileUnit) -> Self {
         Storage {
             scope_stack: vec![],
             value_stack: vec![],
@@ -42,9 +35,7 @@ impl From<CompileUnit> for Storage {
             main_function: Some(main_function),
             constants: vec![/* TODO: constants */],
             tys,
-            function_names,
-            variable_names,
-            ty_names,
+            variables,
         }
     }
 }
@@ -58,9 +49,7 @@ impl Storage {
             main_function: None,
             constants: vec![],
             tys: vec![],
-            function_names: vec![],
-            variable_names: vec![],
-            ty_names: vec![],
+            variables: vec![],
         }
     }
 
@@ -121,15 +110,15 @@ impl Storage {
     }
 
     pub fn function_name(&self, FunctionSymbol(sym): FunctionSymbol) -> &str {
-        &self.function_names[sym]
+        self.functions[sym].name()
     }
 
     pub fn variable_name(&self, sym: VariableSymbol) -> &str {
-        &self.variable_names[sym.global]
+        &self.variables[sym.global].name()
     }
 
-    pub fn ty_name(&self, symbol: TySymbol) -> &str {
-        self.get_ty(symbol).name()
+    pub fn ty_name(&self, TySymbol(sym): TySymbol) -> &str {
+        self.tys[sym].name()
     }
 
     fn err(&self, message: String) -> Error {

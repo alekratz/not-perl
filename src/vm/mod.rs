@@ -1,6 +1,7 @@
 use std::mem;
 use compile::CompileUnit;
 
+mod variable;
 mod value;
 mod symbol;
 mod scope;
@@ -11,6 +12,7 @@ mod condition;
 mod storage;
 mod error;
 
+pub use self::variable::*;
 pub use self::value::*;
 pub use self::symbol::*;
 pub use self::scope::*;

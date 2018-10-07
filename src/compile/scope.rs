@@ -7,11 +7,11 @@ use compile::{
     TySymbolAlloc,
     FunctionSymbolAlloc,
     FunctionStub,
-    Variable,
     VariableSymbolAlloc,
 };
 use ir;
 use vm::{
+    Variable,
     Symbol,
     Symbolic,
     self,
@@ -359,6 +359,14 @@ impl VariableScope {
         self.all()
             .last()
             .unwrap()
+    }
+
+    pub fn into_all(mut self) -> Vec<Variable> {
+        self.scope.scope.clear();
+        self.scope.all
+            .into_iter()
+            .map(|r| Rc::try_unwrap(r).unwrap())
+            .collect()
     }
 }
 

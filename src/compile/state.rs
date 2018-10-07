@@ -1,7 +1,6 @@
 use std::collections::{HashMap, HashSet};
 use syntax::token::{Op, AssignOp};
 use compile::{
-    Variable,
     FunctionStub,
     FunctionScope,
     TyScope,
@@ -10,7 +9,7 @@ use compile::{
 };
 use ir::*;
 use vm::{
-    self, Bc, Condition, CompareOp, Symbolic,
+    self, Bc, Condition, CompareOp, Symbolic, Variable,
 };
 
 /// A compilation error.
@@ -79,13 +78,16 @@ impl CompileState {
             body,
             ty_scope,
             function_scope,
-            variable_scope,
+            mut variable_scope,
             repl: _repl,
         } = self;
 
-        let globals = variable_scope.all()
-            .map(Variable::symbol)
+        let globals = variable_scope.pop_scope()
+            .unwrap()
+            .iter()
+            .map(|v| v.symbol())
             .collect();
+        let variables = variable_scope.into_all();
 
         let main_function = vm::Function::User(vm::UserFunction {
             symbol: main_function_symbol,
@@ -107,13 +109,13 @@ impl CompileState {
             main_function,
             functions,
             tys,
-            function_names: vec![],
-            variable_names: vec![],
-            ty_names: vec![],
+            variables,
         }
     }
 
     pub fn to_compile_unit(&self) -> CompileUnit {
+        // TODO : deep clone, this breaks the REPL
+        // or better REPL
         self.clone().into_compile_unit()
     }
 
@@ -657,7 +659,5 @@ pub struct CompileUnit {
     pub main_function: vm::Function,
     pub functions: Vec<vm::Function>,
     pub tys: Vec<vm::Ty>,
-    pub function_names: Vec<String>,
-    pub variable_names: Vec<String>,
-    pub ty_names: Vec<String>,
+    pub variables: Vec<Variable>,
 }
