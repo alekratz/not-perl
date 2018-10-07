@@ -69,9 +69,7 @@ impl CompileState {
         self.ty_scope.push_empty_scope();
     }
 
-    pub fn into_compile_unit(mut self) -> CompileUnit {
-        let main_function_symbol = self.function_scope.reserve_symbol();
-
+    pub fn into_compile_unit(self) -> CompileUnit {
         let CompileState {
             // drop operators; they just keep track of the operators that the functions point at
             operators: _,
@@ -89,15 +87,6 @@ impl CompileState {
             .collect();
         let variables = variable_scope.into_all();
 
-        let main_function = vm::Function::User(vm::UserFunction {
-            symbol: main_function_symbol,
-            name: String::from("#main#"),
-            params: 0,
-            return_ty: ty_scope.get_builtin(vm::BuiltinTy::None).symbol(),
-            locals: globals,
-            body,
-        });
-
         let mut tys = ty_scope.into_all();
         let mut functions = function_scope.into_vm_functions();
         // unstable sort is OK because there (hypothetically) are not duplicates
@@ -105,18 +94,19 @@ impl CompileState {
         tys.sort_unstable_by(|a, b| a.symbol().cmp(&b.symbol()));
 
         CompileUnit {
-            name: String::new(),
-            main_function,
+            body,
             functions,
             tys,
             variables,
+            globals,
         }
     }
 
     pub fn to_compile_unit(&self) -> CompileUnit {
         // TODO : deep clone, this breaks the REPL
         // or better REPL
-        self.clone().into_compile_unit()
+        self.clone()
+            .into_compile_unit()
     }
 
     pub fn feed_str(&mut self, filename: &str, contents: &str) -> Result<()> {
@@ -655,9 +645,9 @@ impl ValueContext {
 
 #[derive(Debug)]
 pub struct CompileUnit {
-    pub name: String,
-    pub main_function: vm::Function,
+    pub body: Vec<Bc>,
     pub functions: Vec<vm::Function>,
     pub tys: Vec<vm::Ty>,
     pub variables: Vec<Variable>,
+    pub globals: Vec<vm::VariableSymbol>,
 }

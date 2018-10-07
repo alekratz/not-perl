@@ -14,8 +14,8 @@ pub struct Storage {
     /// An array of functions, indexed by the function "number".
     pub functions: Vec<Function>,
 
-    /// The main function, if any, that should get executed.
-    pub main_function: Option<Function>,
+    /// The script body.
+    pub body: Vec<Bc>,
 
     /// A list of read-only constants.
     pub constants: Vec<Value>,
@@ -27,12 +27,13 @@ pub struct Storage {
 }
 
 impl From<CompileUnit> for Storage {
-    fn from(CompileUnit { name: _name, main_function, functions, tys, variables, }: CompileUnit) -> Self {
+    fn from(CompileUnit { body, functions, tys, variables, globals, }: CompileUnit) -> Self {
+        let unset_globals = vec!(Value::Unset; globals.len());
         Storage {
-            scope_stack: vec![],
+            scope_stack: vec![Scope::new(globals, unset_globals)],
             value_stack: vec![],
             functions: functions,
-            main_function: Some(main_function),
+            body,
             constants: vec![/* TODO: constants */],
             tys,
             variables,
@@ -46,7 +47,7 @@ impl Storage {
             scope_stack: vec![],
             value_stack: vec![],
             functions: vec![],
-            main_function: None,
+            body: vec![],
             constants: vec![],
             tys: vec![],
             variables: vec![],

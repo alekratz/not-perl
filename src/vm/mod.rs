@@ -69,15 +69,14 @@ impl Vm {
     pub fn launch(&mut self, compile_unit: CompileUnit) -> Result<()> {
         self.reset();
         self.storage = compile_unit.into();
-        if let Some(main_function) = self.storage.main_function.clone() {
-            self.run_function(main_function)
-        } else {
-            Ok(())
-        }
+        let body = self.storage.body.clone();
+        self.run_block(&body)
     }
 
     /// Feeds a new compile unit into this VM, merging it with the current state.
     pub fn repl_launch(&mut self, compile_unit: CompileUnit) -> Result<Option<Value>> {
+        let global_slots: Vec<_> = compile_unit.globals.clone();
+        let unset_global_slots = vec!(Value::Unset; global_slots.len());
         let mut prev_storage = mem::replace(&mut self.storage, compile_unit.into());
         let prev_scope = if prev_storage.scope_stack.len() == 0 {
             Scope::new(vec![], vec![])
@@ -87,18 +86,14 @@ impl Vm {
                 .remove(0)
         };
         assert!(prev_storage.scope_stack.is_empty());
-        let run_result = match self.storage.main_function.clone() {
-            Some(Function::User(function)) => {
-                assert!(self.storage.scope_stack.is_empty());
-                let mut updated_scope = Scope::new(function.locals.clone(), vec!(Value::Unset; function.locals.len()));
-                updated_scope.update(prev_scope);
-                self.storage
-                    .scope_stack
-                    .push(updated_scope);
-                self.run_block(&function.body)
-            }
-            _ => panic!("Builtin functions are not valid entry points"),
-        };
+        assert!(self.storage.scope_stack.is_empty());
+        let mut updated_scope = Scope::new(global_slots, unset_global_slots);
+        updated_scope.update(prev_scope);
+        self.storage
+            .scope_stack
+            .push(updated_scope);
+        let body = self.storage.body.clone();
+        let run_result = self.run_block(&body);
         let stack_top = self.storage.value_stack.pop();
         self.storage.value_stack.clear();
         run_result.map(|_| stack_top)
