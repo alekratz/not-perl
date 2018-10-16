@@ -8,7 +8,6 @@ mod common;
 pub mod syntax;
 pub mod ir;
 pub mod vm;
-pub mod repl;
 pub mod compile;
 
 use std::{
@@ -17,55 +16,13 @@ use std::{
     process,
 };
 use common::read_file;
-use compile::CompileState;
-use repl::Repl;
 
 fn exec(args: Args) -> Result<(), String> {
-    let mut compiler = CompileState::new();
-    compiler.begin();
-
-    for filename in args.skip(1) {
-        let contents = match read_file(&filename) {
-            Ok(lexer) => lexer,
-            Err(e) => {
-                return Err(format!("could not read {}: {}", filename, e));
-            }
-        };
-        if let Err(e) = compiler.feed_str(&filename, &contents) {
-            return Err(format!("could not compile {}: {}", filename, e));
-        }
-    }
-    let compile_unit = compiler.into_compile_unit();
-    let mut vm = vm::Vm::new();
-    if let Err(e) = vm.launch(compile_unit) {
-        return Err(format!("VM runtime error: {}", e));
-    }
-    Ok(())
+    unimplemented!()
 }
 
 fn repl() {
-    let mut repl = Repl::new();
-    loop {
-        let mut line = String::new();
-        {
-            let s = io::stdout();
-            let mut stdout = s.lock();
-            write!(stdout, " > ");
-            stdout.flush().unwrap();
-        }
-        io::stdin().read_line(&mut line).unwrap();
-        if line.len() == 0 {
-            break;
-        }
-        match repl.execute_line(&line) {
-            Ok(None) => {},
-            Ok(Some(val)) => println!("{}", val.display_string()),
-            Err(e) => {
-                eprintln!("Error: {}", e);
-                continue;
-            },
-        }
-    }
+    unimplemented!()
 }
 
 fn main() {

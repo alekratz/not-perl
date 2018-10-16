@@ -1,5 +1,4 @@
 use std::fmt::{self, Display, Formatter};
-use vm;
 use syntax::tree;
 use ir::{Function, Ir};
 
@@ -8,12 +7,6 @@ pub enum TyExpr {
     Any,
     Definite(String),
     None,
-}
-
-impl TyExpr {
-    pub fn from_builtin_ty(builtin: vm::BuiltinTy) -> Self {
-        TyExpr::Definite(builtin.to_string())
-    }
 }
 
 impl Display for TyExpr {
