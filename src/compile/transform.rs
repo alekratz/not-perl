@@ -1,4 +1,3 @@
-use failure::Fail;
 use compile::Error;
 
 /// Implements an immutable transformation using the given input.

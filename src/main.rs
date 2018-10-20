@@ -3,7 +3,7 @@
 #[macro_use] extern crate lazy_static;
 #[macro_use] extern crate enum_methods;
 extern crate failure;
-#[macro_use] extern crate failure_derive;
+//#[macro_use] extern crate failure_derive;
 //#[macro_use] extern crate galvanic_test;
 
 mod common;
@@ -13,13 +13,13 @@ pub mod vm;
 pub mod compile;
 
 use std::{
-    io::{self, Write},
+    //io::{self, Write},
     env::{self, Args},
     process,
 };
 use common::read_file;
 
-fn exec(args: Args) -> Result<(), String> {
+fn exec(_args: Args) -> Result<(), String> {
     unimplemented!()
 }
 

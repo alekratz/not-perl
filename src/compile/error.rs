@@ -1,5 +1,4 @@
 use std::{
-    error,
     fmt::{self, Formatter, Display},
 };
 use failure::{Context, Fail, Backtrace};

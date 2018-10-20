@@ -1,5 +1,5 @@
 use std::mem;
-use vm::{self, Symbol};
+use vm;
 
 /// A symbol allocator for a symbolic VM symbol type.
 pub trait Alloc<T>

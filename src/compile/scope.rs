@@ -2,7 +2,6 @@ use std::{
     fmt::Debug,
     collections::BTreeMap,
     ops::{Deref, DerefMut},
-    mem,
 };
 use compile::{
     Alloc,

@@ -116,7 +116,7 @@ mod builtins {
     /// 
     /// # Postconditions
     /// Leaves an integer on the top of the stack containing the number of bytes written.
-    pub fn writef(storage: &mut Storage) {
+    pub fn writef(_storage: &mut Storage) {
         // TODO(builtin) : write to a file descriptor
     }
 
@@ -130,27 +130,27 @@ mod builtins {
     /// 
     /// # Postconditions
     /// Leaves a string on top of the stack, with the contents of the file.
-    pub fn readf(storage: &mut Storage) {
+    pub fn readf(_storage: &mut Storage) {
         // TODO(builtin) : read from a file descriptor
     }
 
-    pub fn plus_binop(storage: &mut Storage) {
+    pub fn plus_binop(_storage: &mut Storage) {
         // TODO(builtin) : + operator
     }
 
-    pub fn minus_binop(storage: &mut Storage) {
+    pub fn minus_binop(_storage: &mut Storage) {
         // TODO(builtin) : - operator
     }
 
-    pub fn splat_binop(storage: &mut Storage) {
+    pub fn splat_binop(_storage: &mut Storage) {
         // TODO(builtin) : * operator
     }
     
-    pub fn fslash_binop(storage: &mut Storage) {
+    pub fn fslash_binop(_storage: &mut Storage) {
         // TODO(builtin) : / operator
     }
 
-    pub fn tilde_binop(storage: &mut Storage) {
+    pub fn tilde_binop(_storage: &mut Storage) {
         // TODO(builtin) : ~ operator
     }
 }
@@ -158,6 +158,7 @@ mod builtins {
 lazy_static! {
     pub static ref builtin_functions: Vec<BuiltinFun> = vec![
         builtin_fun!(writef = writef ( 2 ) -> BuiltinTy::Int),
+        builtin_fun!(readf = readf ( 1 ) -> BuiltinTy::Str),
     ];
     
     pub static ref builtin_ops: Vec<BuiltinOp> = vec![
