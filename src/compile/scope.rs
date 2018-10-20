@@ -3,6 +3,7 @@ use std::{
     collections::BTreeMap,
     ops::{Deref, DerefMut},
 };
+use common::lang::Op;
 use compile::{
     Alloc,
     Fun,
@@ -10,7 +11,6 @@ use compile::{
     RegSymbolAlloc,
     FunSymbolAlloc,
     TySymbolAlloc,
-    Op,
 };
 use vm::{self, Symbol, Symbolic};
 
@@ -128,6 +128,16 @@ pub struct VarScope {
 }
 
 impl VarScope {
+    pub fn get_or_insert_var(&mut self, name: &str) -> vm::RegSymbol {
+        if let Some(var) = self.scope.get_by_name(name) {
+            return var.symbol();
+        }
+
+        let sym = self.scope.reserve_symbol();
+        self.insert(Var::new(name.to_string(), sym));
+        sym
+    }
+
     pub fn insert_anonymous_var(&mut self) -> vm::RegSymbol {
         let sym = self.scope.reserve_symbol();
         let var = Var::new(format!("anonvalue#{:x}", sym.index()), sym);

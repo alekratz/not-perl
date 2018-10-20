@@ -48,3 +48,5 @@ macro_rules! symbol_def {
 symbol_def!(FunSymbol);
 symbol_def!(RegSymbol);
 symbol_def!(TySymbol);
+
+symbol_def!(BlockSymbol);

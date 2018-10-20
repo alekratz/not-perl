@@ -1,6 +1,5 @@
 use compile::{
     Error,
-    ErrorKind,
     State,
     Transform,
     TryTransform,
@@ -33,7 +32,7 @@ impl vm::Symbolic for Var {
     }
 }
 
-struct ValueContext<'s, 'scope: 's> {
+pub (in super) struct ValueContext<'s, 'scope: 's> {
     /// The type of the value context that we're dealing with.
     kind: ValueContextKind,
 
@@ -65,7 +64,7 @@ impl<'n, 'r: 'n, 's, 'scope: 's> TryTransform<'n, &'r ir::Value<'n>> for ValueCo
                 let value = match s {
                     ir::Symbol::Fun(name) => {
                         let symbol = self.state.fun_scope.get_by_name(name)
-                            .ok_or_else(|| Error::new(range, ErrorKind::UnknownFun(name.clone())))?
+                            .ok_or_else(|| Error::unknown_fun(range, name.clone()))?
                             .symbol();
                         vm::Value::FunRef(symbol)
                     }
@@ -77,7 +76,7 @@ impl<'n, 'r: 'n, 's, 'scope: 's> TryTransform<'n, &'r ir::Value<'n>> for ValueCo
                     }
                     ir::Symbol::Ty(name) => {
                         let symbol = self.state.ty_scope.get_by_name(name)
-                            .ok_or_else(|| Error::new(range, ErrorKind::UnknownTy(name.clone())))?
+                            .ok_or_else(|| Error::unknown_ty(range, name.clone()))?
                             .symbol();
                         vm::Value::TyRef(symbol)
                     }
@@ -91,9 +90,7 @@ impl<'n, 'r: 'n, 's, 'scope: 's> TryTransform<'n, &'r ir::Value<'n>> for ValueCo
             // Binary expression
             Value::BinaryExpr(lhs, op, rhs) => {
                 let op_fun = self.state.fun_scope.get_op(op)
-                    .ok_or_else(|| {
-                        Error::new(range, ErrorKind::UnknownOp(op.clone()))
-                    })?
+                    .ok_or_else(|| Error::unknown_op(range, op.clone()))?
                     .symbol();
                 let lhs_sym = self.state.var_scope.insert_anonymous_var();
                 let lhs_code = {
@@ -129,7 +126,7 @@ impl<'n, 'r: 'n, 's, 'scope: 's> TryTransform<'n, &'r ir::Value<'n>> for ValueCo
     }
 }
 
-enum ValueContextKind {
+pub (in super) enum ValueContextKind {
     /// A value that is to be stored in a register.
     Store(vm::RegSymbol),
 

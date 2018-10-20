@@ -1,5 +1,5 @@
+use common::lang::Op;
 use compile::{
-    Op,
     State,
     TransformMut,
 };

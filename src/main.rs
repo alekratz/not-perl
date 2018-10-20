@@ -7,6 +7,7 @@ extern crate failure;
 //#[macro_use] extern crate galvanic_test;
 
 mod common;
+mod util;
 pub mod syntax;
 pub mod ir;
 pub mod vm;
@@ -17,7 +18,7 @@ use std::{
     env::{self, Args},
     process,
 };
-use common::read_file;
+use util::read_file;
 
 fn exec(_args: Args) -> Result<(), String> {
     unimplemented!()

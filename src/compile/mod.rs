@@ -12,8 +12,6 @@ pub use self::error::*;
 pub use self::function::*;
 pub use self::state::*;
 pub use self::unit::*;
-pub use self::value::*;
+pub (in self) use self::value::*;
 pub use self::scope::*;
 pub (in self) use self::transform::*;
-
-pub use syntax::token::Op;

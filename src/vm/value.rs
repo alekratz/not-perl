@@ -12,4 +12,5 @@ pub enum Value {
     FunRef(FunSymbol),
     TyRef(TySymbol),
     StackRef(StackIndex),
+    None,
 }

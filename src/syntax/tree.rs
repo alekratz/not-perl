@@ -1,3 +1,4 @@
+use common::lang::Op;
 use syntax::token::*;
 
 macro_rules! token_is_lookahead {

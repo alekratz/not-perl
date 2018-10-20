@@ -1,7 +1,7 @@
 use std::{
     fmt::{self, Debug, Formatter},
 };
-use syntax::token::Op;
+use common::lang::Op;
 use vm::{
     symbol::*,
     storage::*,
@@ -92,7 +92,7 @@ macro_rules! builtin_fun {
 macro_rules! builtin_op {
     ($fun_name:ident = $op:ident ( $count:tt ) -> $($retval:tt)+) => {{
         use self::builtins;
-        use syntax::token::Op;
+        use common::lang::Op;
         BuiltinOp(Op::$op, BuiltinFun {
             name: Op::$op.to_string(),
             params: $count,

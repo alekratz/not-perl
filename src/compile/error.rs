@@ -2,32 +2,25 @@ use std::{
     fmt::{self, Formatter, Display},
 };
 use failure::{Context, Fail, Backtrace};
-use compile::Op;
+use common::lang::Op;
 use syntax::Range;
 
-#[derive(Debug)]
-pub enum ErrorKind {
-    UnknownOp(Op),
-    UnknownFun(String),
-    UnknownTy(String),
-}
-
 macro_rules! error_kind_def {
-    (fn $builder_name:ident ( $($argname:ident : $argty:ty),+ )
+    (fn $builder_name:ident ( $($argname:ident : $argty:ty ),+ )
      -> $error_kind:ident
      => ($($display_args:expr),+)
         $body:block
      $($tail:tt)*) => {
         impl<'n> Error<'n> {
             #[allow(dead_code)]
-            fn $builder_name (range: Range<'n>, $($argname: $argty),*) -> Error<'n> {
+            pub fn $builder_name (range: Range, $($argname: $argty),*) -> Error {
                 Error::new(range, $body)
             }
         }
 
         error_kind_def! {
             $($tail)*
-            @DISPLAY_ARGS $error_kind ($($argname),+) ($($display_args),+)
+            @DISPLAY_ARGS $error_kind ($($argname:$argty),+) ($($display_args),+)
         }
     };
 
@@ -45,16 +38,23 @@ macro_rules! error_kind_def {
         }
     };
 
-    ($(@DISPLAY_ARGS $kind:ident ($($args:ident),+) ($($display_args:expr),+) )+) => {
+    ($(@DISPLAY_ARGS $kind:ident ($($argname:ident:$argty:ty),+) ($($display_args:expr),+) )+) => {
         impl Display for ErrorKind {
             fn fmt(&self, fmt: &mut Formatter) -> fmt::Result {
                 use self::ErrorKind::*;
                 match self {
                     $(
-                        $kind ( $($args),+ ) => write!(fmt, $($display_args),+),
+                        $kind ( $($argname),+ ) => write!(fmt, $($display_args),+),
                     )+
                 }
             }
+        }
+
+        #[derive(Debug)]
+        pub enum ErrorKind {
+            $(
+                $kind ( $($argty),+)
+            ),+
         }
     };
 
@@ -65,6 +65,7 @@ error_kind_def! {
     fn unknown_op(op: Op)        -> UnknownOp   => ("unknown operator {}", op)
     fn unknown_fun(name: String) -> UnknownFun  => ("unknown function `{}`", name)
     fn unknown_ty(name: String)  -> UnknownTy   => ("unknown type `{}`", name)
+    fn invalid_assign_lhs(lhs: String) -> InvalidAssignLhs => ("invalid left-hand side of assignment: {}", lhs)
 }
 
 #[derive(Debug)]

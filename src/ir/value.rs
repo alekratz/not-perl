@@ -1,9 +1,10 @@
 use syntax::{
-    token::{Token, Op},
+    token::{Token},
     tree::Expr,
     Range,
     Ranged,
 };
+use common::lang::Op;
 use ir::{Ir, Symbol, RangeSymbol};
 
 pub use common::value::Const;
@@ -67,24 +68,21 @@ impl<'n> Value<'n> {
         }
     }
 
-    /*
-    /// Gets whether this value is allowed to appear on the LHS of an
-    /// assignment.
-    pub fn is_lhs_candidate(&self) -> bool {
+    /// Gets whether this value is allowed to appear on the LHS of an assignment.
+    pub fn is_assign_candidate(&self) -> bool {
         match self {
             Value::Const(_) => false,
             // binary expressions are valid LHS candidates if at least one of its sides is an LHS
             // candidate
-            Value::BinaryExpr(l, _, r) => l.is_lhs_candidate() || r.is_lhs_candidate(),
+            Value::BinaryExpr(l, _, r) => l.is_assign_candidate() || r.is_assign_candidate(),
             // unary expressions pass the value's LHS candidacy through
-            Value::UnaryExpr(_, u) => u.is_lhs_candidate(),
+            Value::UnaryExpr(_, u) => u.is_assign_candidate(),
             // symbols, array accesses, and function calls are always valid LHS candidates
             | Value::Symbol(_)
             | Value::ArrayAccess(_, _)
             | Value::FunCall(_, _) => true,
         }
     }
-    */
 }
 
 impl<'n> Ir<Expr<'n>> for Value<'n> {

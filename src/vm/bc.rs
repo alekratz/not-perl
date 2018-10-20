@@ -2,6 +2,7 @@ use vm::{
     Value,
     RegSymbol,
     FunSymbol,
+    BlockSymbol,
 };
 
 pub enum Bc {
@@ -32,4 +33,14 @@ pub enum Bc {
 
     /// Pushes the given value to the top of the stack and exits the current function.
     Ret(Value),
+
+    /// Jumps forwards or backwards by the given number of instructions, starting at the first
+    /// instruction after this one.
+    JmpRelative(isize),
+
+    /// Jumps to the given instruction address in the current function.
+    JmpAbsolute(usize),
+
+    /// Jumps to the given block symbol in the current block.
+    JmpSymbol(BlockSymbol),
 }

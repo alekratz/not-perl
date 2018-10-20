@@ -9,6 +9,7 @@ use syntax::{
     tree::*,
     token::*,
 };
+use common::lang::Op;
 
 pub struct Parser<'n, S>
     where S: Iterator<Item=char>
