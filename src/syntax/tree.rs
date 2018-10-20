@@ -38,7 +38,7 @@ impl<'n> Default for SyntaxTree<'n> {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Stmt<'n> {
-    Function(Function<'n>),
+    Fun(Fun<'n>),
     UserTy(UserTy<'n>),
     Expr(Expr<'n>),
     Assign(Expr<'n>, AssignOp, Expr<'n>),
@@ -68,7 +68,7 @@ pub type Block<'n> = Vec<Stmt<'n>>;
 pub struct UserTy<'n> {
     pub name: String,
     pub parents: Vec<String>,
-    pub functions: Vec<Function<'n>>,
+    pub functions: Vec<Fun<'n>>,
 }
 
 impl<'n> Ast for UserTy<'n> {
@@ -80,14 +80,14 @@ impl<'n> Ast for UserTy<'n> {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Function<'n> {
+pub struct Fun<'n> {
     pub name: String,
-    pub params: Vec<FunctionParam<'n>>,
+    pub params: Vec<FunParam<'n>>,
     pub return_ty: Option<String>,
     pub body: Block<'n>,
 }
 
-impl<'n> Ast for Function<'n> {
+impl<'n> Ast for Fun<'n> {
     fn token_is_lookahead(token: &Token) -> bool {
         token_is_lookahead!(token, Token::FunKw)
     }
@@ -96,7 +96,7 @@ impl<'n> Ast for Function<'n> {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum FunctionParam<'n> {
+pub enum FunParam<'n> {
     SelfKw,
     Variable {
         name: String,
@@ -105,7 +105,7 @@ pub enum FunctionParam<'n> {
     },
 }
 
-impl<'n> Ast for FunctionParam<'n> {
+impl<'n> Ast for FunParam<'n> {
     fn token_is_lookahead(token: &Token) -> bool {
         matches!(token, Token::Variable(_)) || token == &Token::SelfKw
     }

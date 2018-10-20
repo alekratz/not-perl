@@ -1,20 +1,12 @@
 use syntax::{
     token::{Token, Op},
     tree::Expr,
+    Range,
     Ranged,
 };
 use ir::{Ir, Symbol, RangeSymbol};
 
-// NOTE: not Eq because f64 is not Eq
-#[derive(Debug, PartialEq, Clone)]
-pub enum Const {
-    Str(String),
-    Int(i64),
-    // TODO : Bignum
-    Float(f64),
-    // TODO : user-defined structures
-    Bool(bool),
-}
+pub use common::value::Const;
 
 pub type RangeConst<'n> = Ranged<'n, Const>;
 
@@ -47,6 +39,23 @@ pub enum Value<'n> {
 }
 
 impl<'n> Value<'n> {
+    pub fn range(&self) -> Range<'n> {
+        match self {
+            | Value::Const(Ranged(r, _))
+            | Value::Symbol(Ranged(r, _)) => { *r }
+            | Value::ArrayAccess(r1, r2)
+            | Value::BinaryExpr(r1, _, r2) => { r1.range().union(&r2.range()) }
+            Value::UnaryExpr(_op, _value) => { unimplemented!() }
+            Value::FunCall(fun, args) => {
+                if let Some(last) = args.last() {
+                    fun.range().union(&last.range())
+                } else {
+                    fun.range()
+                }
+            }
+        }
+    }
+
     /// Determines whether this value can be treated as an "immediate".
     pub fn is_immediate(&self) -> bool {
         match self {
@@ -57,17 +66,32 @@ impl<'n> Value<'n> {
             _ => false,
         }
     }
+
+    /*
+    /// Gets whether this value is allowed to appear on the LHS of an
+    /// assignment.
+    pub fn is_lhs_candidate(&self) -> bool {
+        match self {
+            Value::Const(_) => false,
+            // binary expressions are valid LHS candidates if at least one of its sides is an LHS
+            // candidate
+            Value::BinaryExpr(l, _, r) => l.is_lhs_candidate() || r.is_lhs_candidate(),
+            // unary expressions pass the value's LHS candidacy through
+            Value::UnaryExpr(_, u) => u.is_lhs_candidate(),
+            // symbols, array accesses, and function calls are always valid LHS candidates
+            | Value::Symbol(_)
+            | Value::ArrayAccess(_, _)
+            | Value::FunCall(_, _) => true,
+        }
+    }
+    */
 }
 
 impl<'n> Ir<Expr<'n>> for Value<'n> {
     fn from_syntax(expr: &Expr<'n>) -> Self {
         match expr {
             Expr::FunCall { ref function, ref args } => {
-                let function = match Value::from_syntax(function) {
-                    Value::Symbol(Ranged(range, Symbol::Bareword(bareword))) =>
-                        Value::Symbol(Ranged(range, Symbol::Function(bareword))),
-                    v => v,
-                };
+                let function = Value::from_syntax(function);
                 let mut fun_args = vec![];
                 for arg in args.iter() {
                     fun_args.push(Value::from_syntax(arg));

@@ -36,7 +36,7 @@ impl<'n> Ir<Stmt<'n>> for Action<'n> {
     fn from_syntax(stmt: &Stmt<'n>) -> Self {
         match stmt {
             Stmt::UserTy(_) => unreachable!(), // user types are covered as non-action types
-            Stmt::Function(_) => unreachable!(), // functions are covered as non-action types
+            Stmt::Fun(_) => unreachable!(), // functions are covered as non-action types
             Stmt::Expr(expr) => Action::Eval(Value::from_syntax(expr)),
             Stmt::Assign(lhs, op, rhs) => {
                 let lhs = Value::from_syntax(lhs);

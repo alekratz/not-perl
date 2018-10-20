@@ -141,7 +141,7 @@ impl<'n, S> Parser<'n, S>
                     else_block,
                 }
             }
-            Token::FunKw => Stmt::Function(self.next_function()?),
+            Token::FunKw => Stmt::Fun(self.next_function()?),
             Token::TypeKw => Stmt::UserTy(self.next_user_type()?),
             ref t if t.is_lookahead::<Expr>() => {
                 // expr, assignment
@@ -291,7 +291,7 @@ impl<'n, S> Parser<'n, S>
         }
     }
 
-    fn next_function(&mut self) -> Result<'n, Function<'n>> {
+    fn next_function(&mut self) -> Result<'n, Fun<'n>> {
         self.match_token(Token::FunKw)?;
         let name = self.next_bareword()?;
         let mut params = vec![];
@@ -306,7 +306,7 @@ impl<'n, S> Parser<'n, S>
                     return Err(self.err(format!("'self' parameter is only allowed as the first argument to a function")));
                 }
                 self.next_token()?;
-                params.push(FunctionParam::SelfKw);
+                params.push(FunParam::SelfKw);
             } else {
                 let param_name = self.next_variable()?;
                 let mut ty = None;
@@ -321,7 +321,7 @@ impl<'n, S> Parser<'n, S>
                     self.match_token(Token::AssignOp(AssignOp::Equals))?;
                     default = Some(self.next_expr()?);
                 }
-                params.push(FunctionParam::Variable { name: param_name, ty, default } );
+                params.push(FunParam::Variable { name: param_name, ty, default } );
 
                 if !self.is_token_match(&Token::RParen) {
                     self.match_token(Token::Comma)?;
@@ -334,7 +334,7 @@ impl<'n, S> Parser<'n, S>
             return_ty = Some(self.next_bareword()?);
         }
         let body = self.next_block()?;
-        Ok(Function {
+        Ok(Fun {
             name,
             params,
             return_ty,
@@ -364,7 +364,7 @@ impl<'n, S> Parser<'n, S>
 
         self.match_token(Token::LBrace)?;
         let mut functions = Vec::new();
-        while self.is_lookahead::<Function>() {
+        while self.is_lookahead::<Fun>() {
             let function = self.next_function()?;
             functions.push(function);
 

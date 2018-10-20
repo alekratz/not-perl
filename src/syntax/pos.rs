@@ -33,6 +33,28 @@ impl<'n> Pos<'n> {
             ..Default::default()
         }
     }
+
+    pub fn max(self, other: Pos<'n>) -> Self {
+        match self.line.cmp(&other.line) {
+            Ordering::Less => other,
+            Ordering::Equal => match self.col.cmp(&other.col) {
+                Ordering::Less => other,
+                _ => self
+            }
+            Ordering::Greater => self,
+        }
+    }
+
+    pub fn min(self, other: Pos<'n>) -> Self {
+        match self.line.cmp(&other.line) {
+            Ordering::Greater => other,
+            Ordering::Equal => match self.col.cmp(&other.col) {
+                Ordering::Greater => other,
+                _ => self
+            }
+            Ordering::Less => self,
+        }
+    }
 }
 
 impl<'n> Display for Pos<'n> {
@@ -84,6 +106,12 @@ impl<'n> Range<'n> {
 
     pub fn end(&self) -> Pos<'n> {
         self.1
+    }
+
+    pub fn union(&self, other: &Range<'n>) -> Self {
+        let start = self.start().min(other.start());
+        let end = self.end().max(other.end());
+        Range(start, end)
     }
 }
 

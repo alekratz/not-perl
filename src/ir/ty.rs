@@ -1,6 +1,6 @@
 use std::fmt::{self, Display, Formatter};
 use syntax::tree;
-use ir::{Function, Ir};
+use ir::{Fun, Ir};
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum TyExpr {
@@ -24,7 +24,7 @@ impl Display for TyExpr {
 pub struct UserTy<'n> {
     pub name: String,
     pub parents: Vec<String>,
-    pub functions: Vec<Function<'n>>,
+    pub functions: Vec<Fun<'n>>,
 }
 
 impl<'n> Ir<tree::UserTy<'n>> for UserTy<'n> {
@@ -34,7 +34,7 @@ impl<'n> Ir<tree::UserTy<'n>> for UserTy<'n> {
             parents: ty.parents.clone(),
             functions: ty.functions
                 .iter()
-                .map(Function::from_syntax)
+                .map(Fun::from_syntax)
                 .collect(),
         }
     }
