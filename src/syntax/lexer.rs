@@ -1,5 +1,6 @@
 use std::{
     mem,
+    str::Chars,
 };
 use syntax::{
     Pos,
@@ -47,27 +48,24 @@ char_class!(BAREWORD_CHARS, "bareword", |c| { c.is_alphanumeric() || "_-".contai
 char_class!(STR_LIT_ESCAPE_CHARS, "string escape", |c| { "trn\"\\".contains(c) });
 
 /// A lexer, which converts a stream of characters into a stream of tokens.
-pub struct Lexer<'n, S>
-    where S: Iterator<Item=char>
-{
-    input: S,
+pub struct Lexer<'n> {
+    input: Chars<'n>,
 
     curr: Option<char>,
     next: Option<char>,
     pos: Pos<'n>,
 }
 
-impl<'n, S> Lexer<'n, S>
-    where S: Iterator<Item=char>
-{
+impl<'n> Lexer<'n> {
     /// Creates a new lexer with the specified input and source name.
-    pub fn new(mut input: S, source_name: &'n str) -> Self {
+    pub fn new(source_name: &'n str, source_text: &'n str) -> Self {
+        let mut input = source_text.chars();
         let next = input.next();
         Lexer {
             input,
             curr: None,
             next,
-            pos: Pos::new(Some(source_name)),
+            pos: Pos::new(Some(source_name), Some(source_text)),
         }
     }
 
@@ -327,9 +325,7 @@ impl<'n, S> Lexer<'n, S>
     }
 }
 
-impl<'n, S> Iterator for Lexer<'n, S>
-    where S: Iterator<Item=char>
-{
+impl<'n> Iterator for Lexer<'n> {
     type Item = Result<'n, RangeToken<'n>>;
 
     fn next(&mut self) -> Option<Self::Item> {

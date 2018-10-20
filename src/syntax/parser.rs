@@ -11,25 +11,21 @@ use syntax::{
 };
 use common::lang::Op;
 
-pub struct Parser<'n, S>
-    where S: Iterator<Item=char>
-{
-    lexer: Lexer<'n, S>,
+pub struct Parser<'n> {
+    lexer: Lexer<'n>,
     curr: Option<RangeToken<'n>>,
     next: Option<RangeToken<'n>>,
     stmt_level: usize,
     inside_type: bool,
 }
 
-impl<'n, S> Parser<'n, S>
-    where S: Iterator<Item=char>
-{
-    pub fn new(input: S, source_name: &'n str) -> Self {
-        let lexer = Lexer::new(input, source_name);
+impl<'n> Parser<'n> {
+    pub fn new(source_name: &'n str, source_text: &'n str) -> Self {
+        let lexer = Lexer::new(source_name, source_text);
         Parser::from_lexer(lexer)
     }
 
-    pub fn from_lexer(lexer: Lexer<'n, S>) -> Self {
+    pub fn from_lexer(lexer: Lexer<'n>) -> Self {
         Parser {
             lexer,
             curr: None,

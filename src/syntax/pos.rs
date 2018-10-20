@@ -5,13 +5,25 @@ use std::{
 };
 
 /// A position in a character stream.
-#[derive(Debug, Clone, Copy)]
+#[derive(Clone, Copy)]
 #[cfg_attr(not(test), derive(PartialEq))]
 pub struct Pos<'n> {
     pub source: usize,
     pub line: usize,
     pub col: usize,
     pub source_name: Option<&'n str>,
+    pub source_text: Option<&'n str>,
+}
+
+impl<'n> Debug for Pos<'n> {
+    fn fmt(&self, fmt: &mut Formatter) -> fmt::Result {
+        fmt.debug_struct("Pos")
+            .field("source", &self.source)
+            .field("line", &self.line)
+            .field("col", &self.col)
+            .field("source_name", &self.source_name)
+            .finish()
+    }
 }
 
 impl<'n> Pos<'n> {
@@ -27,9 +39,10 @@ impl<'n> Pos<'n> {
         self.col = 0;
     }
 
-    pub fn new(source_name: Option<&'n str>) -> Self {
+    pub fn new(source_name: Option<&'n str>, source_text: Option<&'n str>) -> Self {
         Pos {
             source_name,
+            source_text,
             ..Default::default()
         }
     }
@@ -70,6 +83,7 @@ impl<'n> Default for Pos<'n> {
             line: 0,
             col: 0,
             source_name: None,
+            source_text: None,
         }
     }
 }
@@ -122,6 +136,11 @@ pub struct Ranged<'n, T>(pub Range<'n>, pub T)
 impl<'n, T> Ranged<'n, T>
     where T: Sized + Clone + Debug
 {
+    /// Makes a new ranged value.
+    ///
+    /// # Arguments
+    /// * `range` - the range that the object takes up space in.
+    /// * `value` - the wrapped value.
     pub fn new(range: Range<'n>, value: T) -> Self {
         Ranged(range, value)
     }
