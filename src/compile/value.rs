@@ -113,8 +113,8 @@ impl<'n, 'r: 'n, 's, 'scope: 's> TryTransform<'n, &'r ir::Value<'n>> for ValueCo
                 code.push(Bc::Push(vm::Value::Ref(Ref::Reg(rhs_sym))));
                 code.push(Bc::Call(op_fun));
                 // free the anonymous symbols
-                self.state.var_scope.free_symbol(lhs_sym);
-                self.state.var_scope.free_symbol(rhs_sym);
+                self.state.var_scope.free_anonymous_var(lhs_sym);
+                self.state.var_scope.free_anonymous_var(rhs_sym);
                 Ok(code)
             }
 
@@ -128,7 +128,7 @@ impl<'n, 'r: 'n, 's, 'scope: 's> TryTransform<'n, &'r ir::Value<'n>> for ValueCo
                     let value_ctx = ValueContext::new(ValueContextKind::Store(Ref::Reg(value_sym)), self.state);
                     value_ctx.try_transform(value)?
                 };
-                self.state.var_scope.free_symbol(value_sym);
+                self.state.var_scope.free_anonymous_var(value_sym);
                 Ok(value_code)
             }
 

@@ -77,8 +77,8 @@ impl<'n, 'r: 'n, 'scope> TryTransformMut<'n, &'r ir::Action<'n>> for State<'scop
                             rhs_ctx.try_transform(rhs)?
                         };
 
-                        self.var_scope.free_symbol(lhs_store);
-                        self.var_scope.free_symbol(rhs_store);
+                        self.var_scope.free_anonymous_var(lhs_store);
+                        self.var_scope.free_anonymous_var(rhs_store);
                         lhs_code.into_iter()
                             .chain(rhs_code.into_iter())
                             // TODO : deref RHS?
