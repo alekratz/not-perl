@@ -548,6 +548,7 @@ impl<'n> Parser<'n> {
     }
 }
 
+/*
 #[cfg(test)]
 mod test {
     use syntax::*;
@@ -589,4 +590,4 @@ mod test {
         parser.match_token(Token::RParen).unwrap();
     }
 }
-
+*/

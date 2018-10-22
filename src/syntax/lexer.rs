@@ -337,6 +337,7 @@ impl<'n> Iterator for Lexer<'n> {
     }
 }
 
+/*
 #[cfg(test)]
 mod test {
     use super::*;
@@ -468,3 +469,4 @@ mod test {
         first_token!("\"unclosed string");
     }
 }
+*/
