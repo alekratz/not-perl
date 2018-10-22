@@ -391,5 +391,11 @@ mod tests {
         // Check that anonymous symbols are not allocated to inappropriate scopes
         let anon_sym3 = reg_scope.insert_anonymous_var();
         assert_ne!(anon_sym1, anon_sym3);
+
+        // Check that values are inserted or removed appropriately
+        let old_a_sym = reg_scope.get_or_insert("a");
+        assert_eq!(a_sym, old_a_sym);
+        let new_d_sym = reg_scope.get_or_insert("d");
+        assert_eq!(new_d_sym, RegSymbol { global: 0, local: 3 });
     }
 }
