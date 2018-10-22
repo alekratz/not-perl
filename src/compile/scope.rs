@@ -275,7 +275,7 @@ impl FunScope {
     /// # Preconditions
     /// The function to replace must be registered. It does not necessarily need to be visible in
     /// the current scope.
-    pub fn replace<P>(&mut self, value: Fun) -> Fun {
+    pub fn replace(&mut self, value: Fun) -> Fun {
         assert!(self.all.contains_key(&value.symbol()),
             format!("tried to replace unregistered function, symbol: {:?} name: {:?}", value.symbol(), value.name()));
         self.all.insert(value.symbol(), value)
@@ -331,6 +331,8 @@ impl Default for FunScope {
 
 #[cfg(test)]
 mod tests {
+    use ir;
+    use compile::{FunStub, self};
     use vm::*;
     use super::*;
 
@@ -397,5 +399,108 @@ mod tests {
         assert_eq!(a_sym, old_a_sym);
         let new_d_sym = reg_scope.get_or_insert("d");
         assert_eq!(new_d_sym, RegSymbol { global: 0, local: 3 });
+    }
+
+    #[test]
+    fn test_fun_scope() {
+        let mut fun_scope = FunScope::default();
+        fun_scope.push_empty_scope();
+        fun_scope.insert_builtin_functions();
+        fun_scope.insert_builtin_ops();
+
+        // Check that builtin functions are added (use both get_by_name_and_params and get_builtin)
+        for builtin in builtin_functions.iter() {
+            let found = fun_scope.get_by_name_and_params(&builtin.name, builtin.params)
+                .expect("Failed to get registered builtin");
+            assert_eq!(fun_scope.get_builtin(&builtin.name).unwrap().symbol(), found.symbol());
+        }
+
+        // Check that builtin operators are added
+        for BuiltinOp(op, builtin) in builtin_ops.iter() {
+            if builtin.params == 2 {
+                assert!(fun_scope.get_binary_op(op).is_some());
+            } else if builtin.params == 1 {
+                assert!(fun_scope.get_unary_op(op).is_some());
+            }
+        }
+
+        // Check that insertion works
+        fun_scope.push_empty_scope();
+        let stub_a_sym = fun_scope.reserve_symbol();
+        let stub_a = compile::Fun::Stub(FunStub {
+            name: "a".to_string(),
+            symbol: stub_a_sym,
+            params: 2,
+            return_ty: ir::TyExpr::None,
+        });
+
+        fun_scope.insert(stub_a);
+
+        assert!(fun_scope.get_by_name_and_params("a", 2).unwrap().symbol() == stub_a_sym);
+
+        // Check that adding a sub-scope with the same function name and params will yield the more
+        // local function
+        fun_scope.push_empty_scope();
+        let new_stub_a_sym = fun_scope.reserve_symbol();
+        let stub_a = compile::Fun::Stub(FunStub {
+            name: "a".to_string(),
+            symbol: new_stub_a_sym,
+            params: 2,
+            return_ty: ir::TyExpr::None,
+        });
+        fun_scope.insert(stub_a);
+
+        {
+            let stub_a_lookup = fun_scope.get_by_name_and_params("a", 2)
+                .unwrap();
+            assert_eq!(stub_a_lookup.symbol(), new_stub_a_sym);
+            assert_ne!(stub_a_lookup.symbol(), stub_a_sym);
+        }
+        fun_scope.pop_scope();
+
+        // Check that functions with the same name and different args are resolved correctly
+        fun_scope.push_empty_scope();
+        let params_stub_a_sym = fun_scope.reserve_symbol();
+        let stub_a = compile::Fun::Stub(FunStub {
+            name: "a".to_string(),
+            symbol: params_stub_a_sym,
+            params: 3,
+            return_ty: ir::TyExpr::None,
+        });
+        fun_scope.insert(stub_a);
+
+        {
+            // Check that we get a(arg, arg, arg) correctly
+            let stub_a_lookup = fun_scope.get_by_name_and_params("a", 3)
+                .unwrap();
+            assert_eq!(stub_a_lookup.symbol(), params_stub_a_sym);
+            assert_ne!(stub_a_lookup.symbol(), stub_a_sym);
+            // Check that we get a(arg, arg, arg) correctly with a simple name lookup
+            let stub_a_lookup = fun_scope.get_by_name("a")
+                .unwrap();
+            assert_eq!(stub_a_lookup.symbol(), params_stub_a_sym);
+            assert_ne!(stub_a_lookup.symbol(), stub_a_sym);
+            // Check that we get the global a(arg, arg) function
+            let stub_a_lookup = fun_scope.get_by_name_and_params("a", 2)
+                .unwrap();
+            assert_eq!(stub_a_lookup.symbol(), stub_a_sym);
+            assert_ne!(stub_a_lookup.symbol(), params_stub_a_sym);
+        }
+        fun_scope.pop_scope();
+
+        // Check that functions can be replaced correctly
+        let stub_b = compile::Fun::Stub(FunStub {
+            name: "b".to_string(),
+            symbol: stub_a_sym,
+            params: 2,
+            return_ty: ir::TyExpr::None,
+        });
+        let stub_a = fun_scope.replace(stub_b);
+        assert_eq!(stub_a.symbol(), stub_a_sym);
+        {
+            let stub_b_lookup = fun_scope.get_by_name("b")
+                .expect("Failed to get replaced function");
+            assert_eq!(stub_b_lookup.symbol(), stub_a.symbol());
+        }
     }
 }

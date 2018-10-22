@@ -1,5 +1,5 @@
 use std::{
-    collections::{BTreeSet, VecDeque},
+    collections::VecDeque,
     mem,
 };
 use vm::{self, Symbol, SymbolIndex};
