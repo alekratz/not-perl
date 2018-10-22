@@ -8,7 +8,13 @@ use compile::{
     transform::*,
 };
 use ir;
-use vm::{self, Bc};
+use syntax::Ranged;
+use vm::{
+    self,
+    Bc,
+    Ref,
+    Value,
+};
 
 pub struct State<'scope> {
     /// Current variable scope.
@@ -24,7 +30,7 @@ pub struct State<'scope> {
 impl<'n, 'r: 'n, 'scope> TryTransformMut<'n, &'r ir::Action<'n>> for State<'scope> {
     type Out = Vec<Bc>;
 
-    fn try_transform_mut(&mut self, action: &'r ir::Action<'n>) -> Result<Self::Out, Error<'n>> {
+    fn try_transform_mut(&mut self, action: &'r ir::Action<'n>) -> Result<Vec<Bc>, Error<'n>> {
         use ir::Action;
         match action {
             // Evaluate an IR value
@@ -34,15 +40,53 @@ impl<'n, 'r: 'n, 'scope> TryTransformMut<'n, &'r ir::Action<'n>> for State<'scop
             },
             // Assign a value to a place in memory
             Action::Assign(lhs, _op, rhs) => {
+                // TODO : remove assignment ops, desugar assignment ops
                 if !lhs.is_assign_candidate() {
-                    return Err(Error::invalid_assign_lhs(lhs.range(), unimplemented!("TODO: output LHS verbatim from code parsed")));
+                    let range = lhs.range();
+                    return Err(Error::invalid_assign_lhs(range, range.text().to_string()));
                 }
-                
-                if lhs.is_immediate() {
-                    assert!(matches!(lhs, ir::Value::Symbol(_)));
-                } else {
-                }
-                unimplemented!()
+
+                let code = match lhs {
+                    // unreachable since is_assign_candidate excludes constants
+                    ir::Value::Const(_) => unreachable!(),
+                    ir::Value::Symbol(Ranged(_, ir::Symbol::Variable(varname))) => {
+                        let lhs_store = Ref::Reg(self.var_scope.get_or_insert(varname));
+                        ValueContext::new(ValueContextKind::Store(lhs_store), self)
+                            .try_transform(rhs)?
+                    },
+                    // unreachable since is_assign_candidate excludes non-variable symbol
+                    ir::Value::Symbol(Ranged(_, _)) => unreachable!(),
+                    ir::Value::ArrayAccess(_, _) => unimplemented!("TODO(array) : array assign"),
+                    | ir::Value::FunCall(_, _)
+                    | ir::Value::UnaryExpr(_, _)
+                    | ir::Value::BinaryExpr(_, _, _) => {
+                        // Unary/binary expressions and funcalls are all just function calls.
+                        //
+                        // Function calls may return a reference.
+                        //
+                        // As a result, anything that ends up being a function call on the LHS of
+                        // an assignment should be evaluated.
+                        let lhs_store = self.var_scope.insert_anonymous_var();
+                        let lhs_code = {
+                            let lhs_ctx = ValueContext::new(ValueContextKind::Store(Ref::Reg(lhs_store)), self);
+                            lhs_ctx.try_transform(lhs)?
+                        };
+                        let rhs_store = self.var_scope.insert_anonymous_var();
+                        let rhs_code = {
+                            let rhs_ctx = ValueContext::new(ValueContextKind::Store(Ref::Reg(rhs_store)), self);
+                            rhs_ctx.try_transform(rhs)?
+                        };
+
+                        self.var_scope.free_symbol(lhs_store);
+                        self.var_scope.free_symbol(rhs_store);
+                        lhs_code.into_iter()
+                            .chain(rhs_code.into_iter())
+                            // TODO : deref RHS?
+                            .chain(vec![Bc::DerefPush(Ref::Reg(lhs_store)), Bc::PopDerefStore(Value::Ref(Ref::Reg(rhs_store)))].into_iter())
+                            .collect()
+                    }
+                };
+                Ok(code)
             },
             // Loop over a block
             Action::Loop(_block) => { unimplemented!() },
@@ -61,7 +105,7 @@ impl<'n, 'r: 'n, 'scope> TryTransformMut<'n, &'r ir::Action<'n>> for State<'scop
                     ctx.try_transform(val)
                 }).unwrap_or_else(|| {
                     let ctx = ValueContextKind::Ret;
-                    Ok(vec![ctx.transform(vm::Value::None)])
+                    Ok(vec![ctx.transform(Value::None)])
                 })
             },
         }

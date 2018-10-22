@@ -1,5 +1,8 @@
-use std::mem;
-use vm;
+use std::{
+    collections::BTreeSet,
+    mem,
+};
+use vm::{self, Symbol};
 
 /// A symbol allocator for a symbolic VM symbol type.
 pub trait Alloc<T>
@@ -30,5 +33,40 @@ impl<T: vm::Symbol> Alloc<T> for SymbolAlloc<T> {
 }
 
 pub type FunSymbolAlloc = SymbolAlloc<vm::FunSymbol>;
-pub type RegSymbolAlloc = SymbolAlloc<vm::RegSymbol>;
 pub type TySymbolAlloc = SymbolAlloc<vm::TySymbol>;
+
+#[derive(Debug)]
+pub struct RegSymbolAlloc {
+    next: vm::RegSymbol,
+    unused: BTreeSet<vm::RegSymbol>,
+}
+
+impl RegSymbolAlloc {
+    pub fn free(&mut self, sym: vm::RegSymbol) {
+        assert!(!self.unused.contains(&sym), "double free of reg symbol");
+        self.unused.insert(sym);
+    }
+}
+
+impl Alloc<vm::RegSymbol> for RegSymbolAlloc {
+    fn reserve(&mut self) -> vm::RegSymbol {
+        if self.unused.is_empty() {
+            let next = self.next.next();
+            mem::replace(&mut self.next, next)
+        } else {
+            let min = *self.unused.iter().min()
+                .unwrap();
+            assert!(self.unused.remove(&min));
+            min
+        }
+    }
+}
+
+impl Default for RegSymbolAlloc {
+    fn default() -> Self {
+        RegSymbolAlloc {
+            next: vm::RegSymbol::default(),
+            unused: BTreeSet::new(),
+        }
+    }
+}

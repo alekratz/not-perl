@@ -1,22 +1,31 @@
 use vm::{
+    Ref,
     Value,
-    RegSymbol,
     FunSymbol,
     BlockSymbol,
 };
 
 pub enum Bc {
     /// Pushes the given value to the value stack.
-    PushValue(Value),
+    Push(Value),
 
-    /// Pops the top value of the value from the stack.
-    PopValue,
+    /// Pops the top value of the value from the stack, discarding it.
+    Pop,
 
-    /// Pops the top value of the value from the stack and stores it in the given register.
-    PopValueInto(RegSymbol),
+    /// Pops the top value of the value from the stack and stores it into the given reference.
+    PopStore(Ref),
 
-    /// Stores the given value into the given register.
-    Store(RegSymbol, Value),
+    /// Stores the given value into the given reference.
+    Store(Ref, Value),
+
+    /// Dereferences the given ref and pushes the value to the stack.
+    DerefPush(Ref),
+
+    /// Pops a reference off of the stack, and stores the given value into it.
+    ///
+    /// If the top value of the stack is not a reference, or the reference value is incompatible
+    /// with the given value, an error is raised.
+    PopDerefStore(Value),
 
     /// Pushes a new stack frame.
     PushFrame,

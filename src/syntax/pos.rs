@@ -12,7 +12,7 @@ pub struct Pos<'n> {
     pub line: usize,
     pub col: usize,
     pub source_name: Option<&'n str>,
-    pub source_text: Option<&'n str>,
+    pub source_text: &'n str,
 }
 
 impl<'n> Debug for Pos<'n> {
@@ -39,7 +39,7 @@ impl<'n> Pos<'n> {
         self.col = 0;
     }
 
-    pub fn new(source_name: Option<&'n str>, source_text: Option<&'n str>) -> Self {
+    pub fn new(source_name: Option<&'n str>, source_text: &'n str) -> Self {
         Pos {
             source_name,
             source_text,
@@ -83,7 +83,7 @@ impl<'n> Default for Pos<'n> {
             line: 0,
             col: 0,
             source_name: None,
-            source_text: None,
+            source_text: "",
         }
     }
 }
@@ -126,6 +126,12 @@ impl<'n> Range<'n> {
         let start = self.start().min(other.start());
         let end = self.end().max(other.end());
         Range(start, end)
+    }
+
+    pub fn text(&self) -> &str {
+        let start_source = self.start().source;
+        let end_source = self.end().source;
+        &self.start().source_text[start_source .. end_source]
     }
 }
 

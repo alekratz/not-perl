@@ -57,6 +57,18 @@ impl<'n> Value<'n> {
         }
     }
 
+    /// Gets whether this value consists of only constant values.
+    pub fn is_constant(&self) -> bool {
+        match self {
+            Value::Const(_) => true,
+            Value::BinaryExpr(lhs, _, rhs) => lhs.is_constant() && rhs.is_constant(),
+            Value::UnaryExpr(_, expr) => expr.is_constant(),
+            | Value::ArrayAccess(_, _)
+            | Value::FunCall(_, _)
+            | Value::Symbol(_) => false,
+        }
+    }
+
     /// Determines whether this value can be treated as an "immediate".
     pub fn is_immediate(&self) -> bool {
         match self {
@@ -70,6 +82,9 @@ impl<'n> Value<'n> {
 
     /// Gets whether this value is allowed to appear on the LHS of an assignment.
     pub fn is_assign_candidate(&self) -> bool {
+        // constant expressions cannot be assigned to
+        if self.is_constant() { return false; }
+
         match self {
             Value::Const(_) => false,
             // binary expressions are valid LHS candidates if at least one of its sides is an LHS
@@ -78,9 +93,10 @@ impl<'n> Value<'n> {
             // unary expressions pass the value's LHS candidacy through
             Value::UnaryExpr(_, u) => u.is_assign_candidate(),
             // symbols, array accesses, and function calls are always valid LHS candidates
-            | Value::Symbol(_)
+            | Value::Symbol(Ranged(_, Symbol::Variable(_)))
             | Value::ArrayAccess(_, _)
             | Value::FunCall(_, _) => true,
+            _ => false,
         }
     }
 }

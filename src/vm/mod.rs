@@ -11,5 +11,3 @@ pub use self::function::*;
 pub use self::value::*;
 pub use self::ty::*;
 pub use self::storage::*;
-
-pub type StackIndex = usize;

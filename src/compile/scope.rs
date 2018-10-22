@@ -29,19 +29,12 @@ impl<T, A> Scope<T, A>
           T::Symbol: Debug,
           A: Alloc<T::Symbol> + Default,
 {
-    pub fn empty() -> Self {
-        Scope {
-            scope_stack: vec![],
-            all: BTreeMap::new(),
-            symbol_alloc: A::default(),
-        }
-    }
-
+    /// Reserves a symbol in this scope.
     pub fn reserve_symbol(&mut self) -> T::Symbol {
         self.symbol_alloc.reserve()
     }
 
-    /// Pushes the given layer to this scope.
+    /// Pushes a stack layer to the scope.
     pub fn push_scope(&mut self, layer: Vec<T>) {
         // push a new layer on, and insert each value one-by-one
         self.scope_stack.push(vec![]);
@@ -50,9 +43,11 @@ impl<T, A> Scope<T, A>
         }
     }
 
-    /// Convenience function which is equivalent to `Scope::push_scope(Vec::new())`.
+    /// Pushes an empty stack layer to the scope.
+    ///
+    /// This is the equivalent of calling `push_scope(Vec::new())`.
     pub fn push_empty_scope(&mut self) {
-        self.push_scope(Vec::new())
+        self.push_scope(vec![]);
     }
 
     /// Pops the top scope layer as a list of symbols.
@@ -98,17 +93,19 @@ impl<T, A> Scope<T, A>
     /// Iterates over values that are visible in the current scope, starting at the values defined
     /// most locally to the values defined most globally (i.e., in reverse).
     pub fn iter(&self) -> impl Iterator<Item=&T> {
-        self.scope_stack
+        let iter = self.scope_stack
             .iter()
             .rev()
             .flat_map(|scope| scope.iter().map(|sym| *sym))
-            .map(move |sym| self.all.get(&sym).unwrap())
+            .map(move |sym| self.all.get(&sym).unwrap());
+        Box::new(iter)
     }
 
     /// Iterates over all values inserted to this scope.
     pub fn iter_all(&self) -> impl Iterator<Item=&T> {
-        self.all
-            .values()
+        let iter = self.all
+            .values();
+        Box::new(iter)
     }
 
     /// Consumes this scope, yielding all registered values over the lifetime of this scope.
@@ -128,7 +125,15 @@ pub struct VarScope {
 }
 
 impl VarScope {
-    pub fn get_or_insert_var(&mut self, name: &str) -> vm::RegSymbol {
+    /// Frees the given symbol to be re-used for a variable.
+    pub fn free_symbol(&mut self, sym: vm::RegSymbol) {
+        self.scope.symbol_alloc.free(sym);
+    }
+
+    /// Gets a symbol to a variable with the given name, or inserts it if it doesn't exist.
+    ///
+    /// This will clone the given name if the inserted variable does not exist.
+    pub fn get_or_insert(&mut self, name: &str) -> vm::RegSymbol {
         if let Some(var) = self.scope.get_by_name(name) {
             return var.symbol();
         }
@@ -215,8 +220,13 @@ impl FunScope {
     }
 
     /// Gets a builtin function by its name.
-    pub fn get_op(&self, op: &Op) -> Option<&Fun> {
-        self.get_by(|f| if let Fun::Op(o, _) = f { op == o } else { false })
+    pub fn get_binary_op(&self, op: &Op) -> Option<&Fun> {
+        self.get_by(|f| if let Fun::Op(o, f) = f { op == o && f.params() == 2 } else { false })
+    }
+
+    /// Gets a builtin function by its name.
+    pub fn get_unary_op(&self, op: &Op) -> Option<&Fun> {
+        self.get_by(|f| if let Fun::Op(o, f) = f { op == o && f.params() == 1 } else { false })
     }
 }
 

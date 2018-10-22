@@ -65,7 +65,7 @@ impl<'n> Lexer<'n> {
             input,
             curr: None,
             next,
-            pos: Pos::new(Some(source_name), Some(source_text)),
+            pos: Pos::new(Some(source_name), source_text),
         }
     }
 
