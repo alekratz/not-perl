@@ -5,6 +5,18 @@ use vm::{
     BlockSymbol,
 };
 
+/// A condition for when a jump should be taken.
+pub enum JumpCond {
+    /// This jump should always be taken.
+    Always,
+
+    /// This jump should only be taken when the VM's condition flag has been set.
+    CondTrue,
+
+    /// This jump should only be taken when the VM's condition flag has *not* been set.
+    CondFalse,
+}
+
 pub enum Bc {
     /// Pushes the given value to the value stack.
     Push(Value),
@@ -40,13 +52,12 @@ pub enum Bc {
     /// Pushes the given value to the top of the stack and exits the current function.
     PushRet(Value),
 
-    /// Jumps forwards or backwards by the given number of instructions, starting at the first
-    /// instruction after this one.
-    JmpRel(isize),
-
     /// Jumps to the given instruction address in the current function.
-    JmpAbs(usize),
+    JumpAbs(usize, JumpCond),
 
-    /// Jumps to the given block symbol in the current block.
-    JmpSymbol(BlockSymbol),
+    /// Jumps to the given block symbol in the current function.
+    JumpSymbol(BlockSymbol, JumpCond),
+
+    /// Pops the top value off of the stack and checks if it is true or not.
+    PopTest,
 }
