@@ -1,12 +1,20 @@
+use std::{
+    collections::{
+        BTreeSet,
+    },
+    ops::{Deref, DerefMut},
+};
 use compile::{
     Error,
+    RegSymbolAlloc,
+    Scope,
     State,
     Transform,
     TryTransform,
 };
 use ir;
 use syntax::Ranged;
-use vm::{self, Bc, Ref, Symbolic};
+use vm::{self, Bc, Ref, Symbolic, Symbol};
 
 #[derive(Debug, Clone)]
 pub struct Var {
@@ -196,5 +204,184 @@ impl Transform<vm::Value> for ValueContextKind {
             ValueContextKind::Push => Bc::Push(value),
             ValueContextKind::Ret => Bc::PushRet(value),
         }
+    }
+}
+
+#[derive(Debug)]
+pub struct VarScope {
+    scope: Scope<Var, RegSymbolAlloc>,
+
+    /// A stack of all unused anonymous variables.
+    unused_anon: Vec<BTreeSet<vm::RegSymbol>>,
+}
+
+impl VarScope {
+    /// Gets a symbol to a variable with the given name, or inserts it if it doesn't exist.
+    ///
+    /// This will clone the given name if the inserted variable does not exist.
+    pub fn get_or_insert(&mut self, name: &str) -> vm::RegSymbol {
+        if let Some(var) = self.scope.get_by_name(name) {
+            return var.symbol();
+        }
+
+        let sym = self.scope.reserve_symbol();
+        self.insert(Var::new(name.to_string(), sym));
+        sym
+    }
+
+    /// Inserts an anonymous variable.
+    pub fn insert_anonymous_var(&mut self) -> vm::RegSymbol {
+        self.ensure_unused_anon_size();
+
+        let has_unused = self.unused_anon
+            .last()
+            .map(|u| !u.is_empty())
+            .expect("attempted to reserve anonymous variable from depthless scope");
+        if has_unused {
+            let active = self.unused_anon
+                .last_mut()
+                .expect("attempted to free anonymous variable from depthless scope");
+            let sym = *active
+                .iter()
+                .min()
+                .unwrap();
+            active.remove(&sym);
+            sym
+        } else {
+            let sym = self.scope.reserve_symbol();
+            let var = Var::new(format!("anonvalue#{:x}", sym.index()), sym);
+            self.insert(var);
+            sym
+        }
+    }
+
+    /// Frees the given anonymous variable.
+    ///
+    /// Note that this does not check if this is actually an anonymous variable being freed. It is
+    /// up to the programmer to determine this themselves.
+    pub fn free_anonymous_var(&mut self, sym: vm::RegSymbol) {
+        self.ensure_unused_anon_size();
+
+        let active = self.unused_anon
+            .last_mut()
+            .expect("attempted to free anonymous variable from depthless scope");
+        assert!(!active.contains(&sym), "attempted to double-free an anonymous variable");
+        active.insert(sym);
+    }
+
+    /// Pushes or pops an appropriate number of values to the the `unused_anon` stack so that it
+    /// matches the current scope stack size.
+    fn ensure_unused_anon_size(&mut self) {
+        let size_diff: isize = self.unused_anon.len() as isize - self.scope.scope_stack.len() as isize;
+        if size_diff < 0 {
+            self.unused_anon.append(&mut vec!(BTreeSet::new(); (-size_diff) as usize));
+        } else if size_diff > 0 {
+            self.unused_anon.truncate(size_diff as usize);
+        }
+    }
+}
+
+impl From<Scope<Var, RegSymbolAlloc>> for VarScope {
+    fn from(scope: Scope<Var, RegSymbolAlloc>) -> Self {
+        let depth = scope.scope_stack.len();
+        VarScope {
+            scope, unused_anon: vec!(BTreeSet::new(); depth)
+        }
+    }
+}
+
+impl From<VarScope> for Scope<Var, RegSymbolAlloc> {
+    fn from(scope: VarScope) -> Self { scope.scope }
+}
+
+impl Deref for VarScope {
+    type Target = Scope<Var, RegSymbolAlloc>;
+
+    fn deref(&self) -> &Self::Target { &self.scope }
+}
+
+impl DerefMut for VarScope {
+    fn deref_mut(&mut self) -> &mut Self::Target { &mut self.scope }
+}
+
+impl Default for VarScope {
+    fn default() -> Self {
+        VarScope {
+            scope: Scope::default(),
+            unused_anon: Vec::new(),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use ir;
+    use compile::{FunStub, self};
+    use vm::*;
+    use super::*;
+
+    #[test]
+    fn test_reg_scope() {
+        // Check that values are inserted correctly
+        let mut reg_scope = VarScope::default();
+        reg_scope.push_empty_scope();
+        let a_sym = reg_scope.reserve_symbol();
+        assert_eq!(a_sym, RegSymbol { global: 0, local: 0 });
+        let a = Var::new("a".to_string(), a_sym);
+        reg_scope.insert(a);
+        let b_sym = reg_scope.reserve_symbol();
+        assert_eq!(b_sym, RegSymbol { global: 0, local: 1 });
+        let b = Var::new("b".to_string(), b_sym);
+        reg_scope.insert(b);
+
+        // Check that local layers can be added while still having access to parent layers
+        reg_scope.push_empty_scope();
+        let c_sym = reg_scope.reserve_symbol();
+        assert_eq!(c_sym, RegSymbol { global: 1, local: 0 });
+        let c = Var::new("c".to_string(), c_sym);
+        reg_scope.insert(c);
+        assert_eq!(reg_scope.get_by_name("a").unwrap().symbol(), a_sym);
+        assert_eq!(reg_scope.get_by_name("c").unwrap().symbol(), c_sym);
+
+        // Check that scope layers that have been shed don't yield old values
+        reg_scope.pop_scope();
+        assert_eq!(reg_scope.get_by_name("b").unwrap().symbol(), b_sym);
+        assert!(reg_scope.get_by_name("c").is_none());
+
+        // Check that using the same name in two sibling scopes yields the correct register
+        reg_scope.push_empty_scope();
+        assert!(reg_scope.get_by_name("c").is_none());
+        let c_sym = reg_scope.reserve_symbol();
+        assert_eq!(c_sym, RegSymbol { global: 2, local: 0 });
+        let c = Var::new("c".to_string(), c_sym);
+        reg_scope.insert(c);
+        assert_eq!(reg_scope.get_by_name("c").unwrap().symbol(), c_sym);
+
+        // Check that overriding values in the parent scope yields the correct register
+        let new_a_sym = reg_scope.reserve_symbol();
+        assert_eq!(new_a_sym, RegSymbol { global: 2, local: 1 });
+        let a = Var::new("a".to_string(), new_a_sym);
+        reg_scope.insert(a);
+        assert_eq!(reg_scope.get_by_name("a").unwrap().symbol(), new_a_sym);
+
+        // Check that anonymous symbols are inserted and freed correctly
+        let anon_sym1 = reg_scope.insert_anonymous_var();
+        reg_scope.free_anonymous_var(anon_sym1);
+        let anon_sym2 = reg_scope.insert_anonymous_var();
+        assert_eq!(anon_sym1, anon_sym2);
+
+        // Check that overriden values are restored after the layer is shed
+        reg_scope.pop_scope();
+        assert_eq!(reg_scope.get_by_name("a").unwrap().symbol(), a_sym);
+
+        // Check that anonymous symbols are not allocated to inappropriate scopes
+        let anon_sym3 = reg_scope.insert_anonymous_var();
+        assert_ne!(anon_sym1, anon_sym3);
+
+        // Check that values are inserted or removed appropriately
+        let old_a_sym = reg_scope.get_or_insert("a");
+        assert_eq!(a_sym, old_a_sym);
+        let new_d_sym = reg_scope.get_or_insert("d");
+        assert_eq!(new_d_sym, RegSymbol { global: 0, local: 3 });
     }
 }

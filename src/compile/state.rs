@@ -1,11 +1,9 @@
 use compile::{
-    Error,
     FunScope,
     VarScope,
     LabelScope,
     TyScope,
 };
-use ir;
 
 pub struct State<'scope> {
     /// Current variable scope.
