@@ -6,6 +6,9 @@ mod unit;
 mod value;
 mod scope;
 mod transform;
+mod driver;
+mod thunk;
+mod ty;
 
 pub use self::alloc::*;
 pub use self::error::*;
@@ -15,3 +18,6 @@ pub use self::unit::*;
 pub (in self) use self::value::*;
 pub use self::scope::*;
 pub (in self) use self::transform::*;
+pub use self::driver::*;
+pub use self::thunk::*;
+pub use self::ty::*;

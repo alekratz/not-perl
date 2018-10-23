@@ -11,6 +11,7 @@ use compile::{
     Alloc,
     Fun,
     Var,
+    Ty,
     RegSymbolAlloc,
     FunSymbolAlloc,
     TySymbolAlloc,
@@ -75,6 +76,35 @@ impl<T, A> Scope<T, A>
         top.push(sym);
     }
 
+    /// Gets the first scope value that matches this predicate, traversing only the most local
+    /// scope.
+    pub fn get_local_by<P>(&self, pred: P) -> Option<&T>
+        where for <'r> P: Fn(&'r &T) -> bool
+    {
+        if self.scope_stack.is_empty() {
+            return None;
+        }
+        self.scope_stack
+            .last()
+            .unwrap()
+            .iter()
+            .map(|sym| self.all.get(&sym).unwrap())
+            .filter(pred)
+            .next()
+    }
+
+    /// Gets the first scope value that matches the given name, traversing only the most local
+    /// scope.
+    pub fn get_local_by_name(&self, name: &str) -> Option<&T> {
+        self.get_local_by(|v| v.name() == name)
+    }
+
+    /// Gets the first scope value that matches the given name, traversing only the most local
+    /// scope.
+    pub fn get_local_by_symbol(&self, symbol: T::Symbol) -> Option<&T> {
+        self.get_local_by(|v| v.symbol() == symbol)
+    }
+
     /// Gets the first scope value that matches this predicate, using the same traversal order as
     /// `Scope::iter`.
     pub fn get_by<P>(&self, pred: P) -> Option<&T>
@@ -135,7 +165,7 @@ impl<T, A> Default for Scope<T, A>
     }
 }
 
-pub type TyScope = Scope<vm::Ty, TySymbolAlloc>;
+pub type TyScope = Scope<Ty, TySymbolAlloc>;
 pub type LabelScope = Scope<vm::Label, BlockSymbolAlloc>;
 
 #[derive(Debug)]
