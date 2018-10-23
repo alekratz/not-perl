@@ -1,7 +1,7 @@
 //#![feature(nll)]
 #[macro_use] extern crate matches;
 #[macro_use] extern crate lazy_static;
-#[macro_use] extern crate enum_methods;
+//#[macro_use] extern crate enum_methods;
 extern crate failure;
 //#[macro_use] extern crate failure_derive;
 //#[macro_use] extern crate galvanic_test;
