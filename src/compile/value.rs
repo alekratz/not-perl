@@ -112,9 +112,14 @@ impl<'n, 'r: 'n, 's, 'scope: 's> TryTransform<'n, &'r ir::Value<'n>> for ValueCo
                 code.push(Bc::Push(vm::Value::Ref(Ref::Reg(lhs_sym))));
                 code.push(Bc::Push(vm::Value::Ref(Ref::Reg(rhs_sym))));
                 code.push(Bc::Call(op_fun));
-                // free the anonymous symbols
+                // free the anonymous symbols that were just used
                 self.state.var_scope.free_anonymous_var(lhs_sym);
                 self.state.var_scope.free_anonymous_var(rhs_sym);
+                // allocate storage, pop result into storage, and pass storage along to the value
+                // context
+                let result_var = self.state.var_scope.insert_anonymous_var();
+                code.push(self.kind.transform(vm::Value::Ref(Ref::Reg(result_var))));
+                self.state.var_scope.free_anonymous_var(result_var);
                 Ok(code)
             }
 
@@ -124,17 +129,49 @@ impl<'n, 'r: 'n, 's, 'scope: 's> TryTransform<'n, &'r ir::Value<'n>> for ValueCo
                     .ok_or_else(|| Error::unknown_unary_op(range, op.clone()))?
                     .symbol();
                 let value_sym = self.state.var_scope.insert_anonymous_var();
-                let value_code = {
+                let mut value_code = {
                     let value_ctx = ValueContext::new(ValueContextKind::Store(Ref::Reg(value_sym)), self.state);
                     value_ctx.try_transform(value)?
                 };
+                value_code.push(self.kind.transform(vm::Value::Ref(Ref::Reg(value_sym))));
                 self.state.var_scope.free_anonymous_var(value_sym);
                 Ok(value_code)
             }
 
             // Fun call
-            Value::FunCall(_fun, _args) => {
-                unimplemented!("TODO : function call action");
+            Value::FunCall(fun, args) => {
+                let mut code = Vec::new();
+                for arg in args {
+                    code.append(&mut ValueContext::new(ValueContextKind::Push, self.state).try_transform(arg)?);
+                }
+                if let Value::Symbol(Ranged(_, ir::Symbol::Fun(name))) = fun.as_ref() {
+                    let fun = self.state
+                        .fun_scope
+                        .get_by_name_and_params(name, args.len());
+                    if let Some(fun) = fun {
+                        // compile function call like normal
+                        code.push(Bc::Call(fun.symbol()));
+                    } else {
+                        return Err(Error::unknown_fun(range, name.to_string()));
+                    }
+                } else {
+                    // evaluate LHS and try to call it as a function
+                    code.append(&mut ValueContext::new(ValueContextKind::Push, self.state).try_transform(fun)?);
+                    code.push(Bc::PopCall);
+                }
+
+                match self.kind {
+                    // pop return value into the given ref
+                    ValueContextKind::Store(r) => code.push(Bc::PopStore(r)),
+                    // push already happens as a result of the funcall so nothing needs to be done
+                    // here
+                    ValueContextKind::Push => { },
+                    // the return value is already on top of the stack so a simple exit is all
+                    // that's required
+                    ValueContextKind::Ret => code.push(Bc::Ret),
+                }
+
+                Ok(code)
             }
         }
     }
@@ -157,7 +194,7 @@ impl Transform<vm::Value> for ValueContextKind {
         match self {
             ValueContextKind::Store(r) => Bc::Store(r, value),
             ValueContextKind::Push => Bc::Push(value),
-            ValueContextKind::Ret => Bc::Ret(value),
+            ValueContextKind::Ret => Bc::PushRet(value),
         }
     }
 }

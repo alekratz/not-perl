@@ -2,6 +2,14 @@
 
 A dumb language that isn't Perl.
 
+## Current status
+
+This project is currently in the middle of a backend rewrite. Nothing is actually set up to run, and
+only a few tests are available.
+
+Basically, this is a whole lotta nothing for the time being. Hopefully I'll update this README when
+this rewrite is complete.
+
 # Build and use
 
 1. Install [rust](rustup.rs)
@@ -24,7 +32,7 @@ I have created for myself.
 
 # Disclaimer
 
-If you're reading this, the ~~compiler~~ VM doesn't work.
+If you're reading this, nothing works.
 
 # License
 

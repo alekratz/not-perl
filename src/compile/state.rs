@@ -2,6 +2,7 @@ use compile::{
     Error,
     FunScope,
     VarScope,
+    LabelScope,
     TyScope,
     ValueContext,
     ValueContextKind,
@@ -25,6 +26,16 @@ pub struct State<'scope> {
 
     /// Current type scope.
     pub (in super) ty_scope: &'scope mut TyScope,
+}
+
+impl<'scope, 'n, 'r: 'n> State<'scope> {
+    /// Attempts to transform a block of IR actions into bytecode.
+    fn try_transform_block(&mut self, block: &'r [ir::Action<'n>]) -> Result<Vec<Bc>, Error<'n>> {
+        block.iter().try_fold(vec![], |mut code, action| {
+            code.append(&mut self.try_transform_mut(&action)?);
+            Ok(code)
+        })
+    }
 }
 
 impl<'n, 'r: 'n, 'scope> TryTransformMut<'n, &'r ir::Action<'n>> for State<'scope> {
@@ -89,9 +100,16 @@ impl<'n, 'r: 'n, 'scope> TryTransformMut<'n, &'r ir::Action<'n>> for State<'scop
                 Ok(code)
             },
             // Loop over a block
-            Action::Loop(_block) => { unimplemented!() },
+            Action::Loop(block) => {
+                // translate block
+                let mut code = self.try_transform_block(block)?;
+                // relative jump
+                let jumpback = -(code.len() as isize);
+                code.push(Bc::JmpRel(jumpback));
+                Ok(code)
+            },
             // Add a block of actions
-            Action::Block(_block) => { unimplemented!() },
+            Action::Block(block) => self.try_transform_block(block),
             // Execute conditional blocks
             Action::ConditionBlock { if_block: _, elseif_blocks: _, else_block: _ } => { unimplemented!() },
             // Break out of the current block loop

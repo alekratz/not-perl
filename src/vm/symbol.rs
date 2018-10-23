@@ -49,8 +49,6 @@ symbol_def!(FunSymbol);
 symbol_def!(TySymbol);
 symbol_def!(BlockSymbol);
 
-//symbol_def!(RegSymbol);
-
 #[derive(Copy, Clone, PartialEq, PartialOrd, Ord, Eq, Debug)]
 pub struct RegSymbol {
     pub global: SymbolIndex,

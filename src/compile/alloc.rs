@@ -44,6 +44,7 @@ impl<T: vm::Symbol> Alloc<T> for SymbolAlloc<T> {
 
 pub type FunSymbolAlloc = SymbolAlloc<vm::FunSymbol>;
 pub type TySymbolAlloc = SymbolAlloc<vm::TySymbol>;
+pub type BlockSymbolAlloc = SymbolAlloc<vm::BlockSymbol>;
 
 /// A register symbol layer allocator.
 ///

@@ -9,8 +9,8 @@ pub enum Bc {
     /// Pushes the given value to the value stack.
     Push(Value),
 
-    /// Pops the top value of the value from the stack, discarding it.
-    Pop,
+    /// Pops the top N values from the stack, discarding them.
+    Pop(usize),
 
     /// Pops the top value of the value from the stack and stores it into the given reference.
     PopStore(Ref),
@@ -27,12 +27,6 @@ pub enum Bc {
     /// with the given value, an error is raised.
     PopDerefStore(Value),
 
-    /// Pushes a new stack frame.
-    PushFrame,
-
-    /// Pops a stack frame.
-    PopFrame,
-
     /// Calls the given function symbol.
     Call(FunSymbol),
 
@@ -40,15 +34,18 @@ pub enum Bc {
     /// reference. Upon success, the function is called. Otherwise, an error is thrown.
     PopCall,
 
+    /// Exits the current function.
+    Ret,
+
     /// Pushes the given value to the top of the stack and exits the current function.
-    Ret(Value),
+    PushRet(Value),
 
     /// Jumps forwards or backwards by the given number of instructions, starting at the first
     /// instruction after this one.
-    JmpRelative(isize),
+    JmpRel(isize),
 
     /// Jumps to the given instruction address in the current function.
-    JmpAbsolute(usize),
+    JmpAbs(usize),
 
     /// Jumps to the given block symbol in the current block.
     JmpSymbol(BlockSymbol),

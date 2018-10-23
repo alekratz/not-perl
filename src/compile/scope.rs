@@ -14,6 +14,7 @@ use compile::{
     RegSymbolAlloc,
     FunSymbolAlloc,
     TySymbolAlloc,
+    BlockSymbolAlloc,
 };
 use vm::{self, Symbol, Symbolic};
 
@@ -135,6 +136,7 @@ impl<T, A> Default for Scope<T, A>
 }
 
 pub type TyScope = Scope<vm::Ty, TySymbolAlloc>;
+pub type LabelScope = Scope<vm::Label, BlockSymbolAlloc>;
 
 #[derive(Debug)]
 pub struct VarScope {
