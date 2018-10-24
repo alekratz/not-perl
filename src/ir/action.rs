@@ -45,7 +45,7 @@ impl<'n> Ir<Stmt<'n>> for Action<'n> {
             }
             Stmt::If { ref if_block, ref elseif_blocks, ref else_block } => {
                 let if_cond_action = ConditionAction::from_condition_block(if_block);
-                let mut elseif_action_blocks = elseif_blocks.iter()
+                let elseif_action_blocks = elseif_blocks.iter()
                     .map(ConditionAction::from_condition_block)
                     .collect();
                 let else_action_block = else_block.as_ref()
