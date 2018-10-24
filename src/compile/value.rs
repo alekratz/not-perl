@@ -4,7 +4,7 @@ use std::{
     },
     ops::{Deref, DerefMut},
 };
-use compile::{
+use crate::compile::{
     Error,
     RegSymbolAlloc,
     Scope,
@@ -12,9 +12,9 @@ use compile::{
     Transform,
     TryTransform,
 };
-use ir;
-use syntax::Ranged;
-use vm::{self, Bc, Ref, Symbolic, Symbol};
+use crate::ir;
+use crate::syntax::Ranged;
+use crate::vm::{self, Bc, Ref, Symbolic, Symbol};
 
 #[derive(Debug, Clone)]
 pub struct Var {
@@ -58,7 +58,7 @@ impl<'n, 'r: 'n, 's, 'scope: 's> TryTransform<'n, &'r ir::Value<'n>> for ValueCo
     type Out = Vec<Bc>;
 
     fn try_transform(self, value: &'r ir::Value<'n>) -> Result<Self::Out, Error<'n>> {
-        use ir::Value;
+        use crate::ir::Value;
         let range = value.range();
         match value {
             // Constant/literal value
@@ -133,7 +133,7 @@ impl<'n, 'r: 'n, 's, 'scope: 's> TryTransform<'n, &'r ir::Value<'n>> for ValueCo
 
             // Unary expression
             Value::UnaryExpr(op, value) => {
-                let op_fun = self.state.fun_scope.get_unary_op(op)
+                let _op_fun = self.state.fun_scope.get_unary_op(op)
                     .ok_or_else(|| Error::unknown_unary_op(range, op.clone()))?
                     .symbol();
                 let value_sym = self.state.var_scope.insert_anonymous_var();
@@ -315,9 +315,9 @@ impl Default for VarScope {
 
 #[cfg(test)]
 mod tests {
-    use ir;
-    use compile::{FunStub, self};
-    use vm::*;
+    use crate::ir;
+    use crate::compile::{FunStub, self};
+    use crate::vm::*;
     use super::*;
 
     #[test]

@@ -2,7 +2,7 @@ use std::{
     mem,
     str::Chars,
 };
-use syntax::{
+use crate::syntax::{
     Pos,
     Range,
     Result,

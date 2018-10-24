@@ -1,13 +1,13 @@
-use syntax::{
+use crate::syntax::{
     token::{Token},
     tree::Expr,
     Range,
     Ranged,
 };
-use common::lang::Op;
-use ir::{Ir, Symbol, RangeSymbol};
+use crate::common::lang::Op;
+use crate::ir::{Ir, Symbol, RangeSymbol};
 
-pub use common::value::Const;
+pub use crate::common::value::Const;
 
 pub type RangeConst<'n> = Ranged<'n, Const>;
 

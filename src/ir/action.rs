@@ -1,5 +1,5 @@
-use ir::{Ir, Value};
-use syntax::{
+use crate::ir::{Ir, Value};
+use crate::syntax::{
     tree::{Stmt, ConditionBlock},
     token::AssignOp,
 };

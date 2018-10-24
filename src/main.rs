@@ -18,7 +18,7 @@ use std::{
     env::{self, Args},
     process,
 };
-use util::read_file;
+use crate::util::read_file;
 
 fn exec(_args: Args) -> Result<(), String> {
     unimplemented!()

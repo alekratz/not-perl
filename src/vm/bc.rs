@@ -1,4 +1,4 @@
-use vm::{
+use crate::vm::{
     Ref,
     Value,
     FunSymbol,

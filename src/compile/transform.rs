@@ -1,4 +1,4 @@
-use compile::Error;
+use crate::compile::Error;
 
 /// Implements an immutable transformation using the given input.
 pub trait Transform<In> {

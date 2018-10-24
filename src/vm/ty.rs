@@ -1,7 +1,7 @@
 use std::{
     fmt::{self, Display, Formatter},
 };
-use vm::{Symbolic, TySymbol};
+use crate::vm::{Symbolic, TySymbol};
 
 #[derive(Debug, Clone)]
 pub enum Ty {

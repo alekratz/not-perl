@@ -1,15 +1,15 @@
 use std::{
     ops::{Deref, DerefMut},
 };
-use common::lang::Op;
-use compile::{
+use crate::common::lang::Op;
+use crate::compile::{
     FunSymbolAlloc,
     Scope,
     State,
     TransformMut,
 };
-use ir;
-use vm::{self, Symbolic};
+use crate::ir;
+use crate::vm::{self, Symbolic};
 
 #[derive(Debug, Clone)]
 pub enum Fun {
@@ -172,9 +172,9 @@ impl Default for FunScope {
 
 #[cfg(test)]
 mod tests {
-    use ir;
-    use compile::{FunStub, self};
-    use vm::*;
+    use crate::ir;
+    use crate::compile::{FunStub, self};
+    use crate::vm::*;
     use super::*;
 
     #[test]

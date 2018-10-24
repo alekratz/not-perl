@@ -1,4 +1,4 @@
-use syntax::tree::{Ast, SyntaxTree, Stmt};
+use crate::syntax::tree::{Ast, SyntaxTree, Stmt};
 
 mod ty;
 mod function;

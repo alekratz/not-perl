@@ -1,13 +1,13 @@
-use compile::{
+use crate::compile::{
     State,
     Error,
     ValueContext,
     ValueContextKind,
     transform::*,
 };
-use ir;
-use syntax::Ranged;
-use vm::{
+use crate::ir;
+use crate::syntax::Ranged;
+use crate::vm::{
     self,
     Bc,
     Ref,
@@ -66,7 +66,7 @@ impl<'n, 'r: 'n, 's, 'scope: 's> TryTransformMut<'n, &'r ir::Action<'n>> for Jum
     type Out = Thunk;
 
     fn try_transform_mut(&mut self, action: &'r ir::Action<'n>) -> Result<Thunk, Error<'n>> {
-        use ir::Action;
+        use crate::ir::Action;
         match action {
             // Evaluate an IR value
             Action::Eval(val) => {

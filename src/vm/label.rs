@@ -1,4 +1,4 @@
-use vm::{BlockSymbol, Symbolic, Symbol};
+use crate::vm::{BlockSymbol, Symbolic, Symbol};
 
 pub type LabelIndex = usize;
 

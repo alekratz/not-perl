@@ -1,5 +1,5 @@
-use common::lang::Op;
-use syntax::token::*;
+use crate::common::lang::Op;
+use crate::syntax::token::*;
 
 macro_rules! token_is_lookahead {
     ($token:expr, $head:pat $(, $tail:pat)*) => {{

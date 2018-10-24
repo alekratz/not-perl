@@ -1,4 +1,4 @@
-use syntax::{
+use crate::syntax::{
     token::Token,
     Ranged,
 };

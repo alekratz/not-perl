@@ -2,14 +2,14 @@ use std::{
     mem,
     collections::VecDeque
 };
-use syntax::{
+use crate::syntax::{
     Lexer,
     Result,
     SyntaxError,
     tree::*,
     token::*,
 };
-use common::lang::Op;
+use crate::common::lang::Op;
 
 pub struct Parser<'n> {
     lexer: Lexer<'n>,

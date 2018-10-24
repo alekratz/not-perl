@@ -1,4 +1,4 @@
-use vm::{self, Symbolic};
+use crate::vm::{self, Symbolic};
 
 /// A compile-time type.
 ///

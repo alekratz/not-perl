@@ -1,8 +1,8 @@
-use vm::{
+use crate::vm::{
     symbol::*,
 };
 
-pub use common::value::Const;
+pub use crate::common::value::Const;
 
 #[derive(Debug, Clone)]
 pub enum Value {

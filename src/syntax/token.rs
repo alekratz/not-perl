@@ -1,6 +1,6 @@
 use std::fmt::{self, Formatter, Display};
-use common::lang::Op;
-use syntax::{
+use crate::common::lang::Op;
+use crate::syntax::{
     Ranged,
     tree::Ast,
 };

@@ -4,13 +4,13 @@ use std::{
         BTreeMap,
     },
 };
-use compile::{
+use crate::compile::{
     Alloc,
     Ty,
     TySymbolAlloc,
     BlockSymbolAlloc,
 };
-use vm::{self, Symbolic};
+use crate::vm::{self, Symbolic};
 
 /// A generic scope over a symbolic value.
 #[derive(Debug)]

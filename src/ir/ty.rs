@@ -1,6 +1,6 @@
 use std::fmt::{self, Display, Formatter};
-use syntax::tree;
-use ir::{Fun, Ir};
+use crate::syntax::tree;
+use crate::ir::{Fun, Ir};
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum TyExpr {

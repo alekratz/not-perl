@@ -2,7 +2,7 @@ use std::{
     collections::VecDeque,
     mem,
 };
-use vm::{self, Symbol, SymbolIndex};
+use crate::vm::{self, Symbol, SymbolIndex};
 
 /// A symbol allocator for a symbolic VM symbol type.
 pub trait Alloc<T>

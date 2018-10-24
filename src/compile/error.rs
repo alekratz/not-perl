@@ -2,8 +2,8 @@ use std::{
     fmt::{self, Formatter, Display},
 };
 use failure::{Context, Fail, Backtrace};
-use common::lang::Op;
-use syntax::Range;
+use crate::common::lang::Op;
+use crate::syntax::Range;
 
 macro_rules! error_kind_def {
     (fn $builder_name:ident ( $($argname:ident : $argty:ty ),+ )

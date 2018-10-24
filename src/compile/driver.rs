@@ -1,4 +1,4 @@
-use compile::{
+use crate::compile::{
     Unit,
     State,
     Error,
@@ -7,7 +7,7 @@ use compile::{
     LabelScope,
     TyScope,
 };
-use ir;
+use crate::ir;
 
 /// Compiler driver.
 ///
@@ -34,8 +34,8 @@ impl Driver {
     }
 
     /// Compile a single IR tree, updating this driver's current state.
-    pub fn update(&mut self, ir_tree: &ir::IrTree) -> Result<(), Error> {
-        let mut state = State {
+    pub fn update(&mut self, _ir_tree: &ir::IrTree) -> Result<(), Error> {
+        let _state = State {
             var_scope: &mut self.var_scope,
             fun_scope: &mut self.fun_scope,
             ty_scope: &mut self.ty_scope,
@@ -47,7 +47,7 @@ impl Driver {
 }
 
 impl From<Driver> for Unit {
-    fn from(other: Driver) -> Self {
+    fn from(_other: Driver) -> Self {
         unimplemented!("TODO : Driver -> compile unit")
     }
 }

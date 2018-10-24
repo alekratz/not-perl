@@ -1,4 +1,4 @@
-use compile::{
+use crate::compile::{
     FunScope,
     VarScope,
     LabelScope,

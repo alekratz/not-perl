@@ -1,5 +1,5 @@
-use syntax::tree::{self, Stmt};
-use ir::{
+use crate::syntax::tree::{self, Stmt};
+use crate::ir::{
     Ir,
     Action, Symbol, TyExpr, Value, Block,
 };

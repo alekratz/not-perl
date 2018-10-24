@@ -1,8 +1,8 @@
 use std::{
     fmt::{self, Debug, Formatter},
 };
-use common::lang::Op;
-use vm::{
+use crate::common::lang::Op;
+use crate::vm::{
     symbol::*,
     storage::*,
     ty::BuiltinTy,
@@ -92,7 +92,7 @@ macro_rules! builtin_fun {
 macro_rules! builtin_op {
     ($fun_name:ident = $op:ident ( $count:tt ) -> $($retval:tt)+) => {{
         use self::builtins;
-        use common::lang::Op;
+        use crate::common::lang::Op;
         BuiltinOp(Op::$op, BuiltinFun {
             name: Op::$op.to_string(),
             params: $count,
@@ -103,7 +103,7 @@ macro_rules! builtin_op {
 }
 
 mod builtins {
-    use vm::Storage;
+    use crate::vm::Storage;
 
     /// Writes string value to a file descriptor.
     ///

@@ -2,6 +2,7 @@
 name = "not-perl"
 version = "0.1.0"
 authors = ["Alek Ratzloff <alekratz@gmail.com>"]
+edition = "2018"
 
 [dependencies]
 matches = "*"
