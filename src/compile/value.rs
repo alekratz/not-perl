@@ -40,21 +40,21 @@ impl vm::Symbolic for Var {
     }
 }
 
-pub (in super) struct ValueContext<'s, 'scope: 's> {
+pub (in super) struct ValueContext<'s, 'driver: 's> {
     /// The type of the value context that we're dealing with.
     kind: ValueContextKind,
 
     /// A reference to the current state of the compiler.
-    state: &'s mut State<'scope>,
+    state: &'s mut State<'driver>,
 }
 
-impl<'s, 'scope: 's> ValueContext<'s, 'scope> {
-    pub fn new(kind: ValueContextKind, state: &'s mut State<'scope>) -> Self {
+impl<'s, 'driver: 's> ValueContext<'s, 'driver> {
+    pub fn new(kind: ValueContextKind, state: &'s mut State<'driver>) -> Self {
         ValueContext { kind, state }
     }
 }
 
-impl<'n, 'r: 'n, 's, 'scope: 's> TryTransform<'n, &'r ir::Value<'n>> for ValueContext<'s, 'scope> {
+impl<'n, 'r: 'n, 's, 'driver: 's> TryTransform<'n, &'r ir::Value<'n>> for ValueContext<'s, 'driver> {
     type Out = Vec<Bc>;
 
     fn try_transform(self, value: &'r ir::Value<'n>) -> Result<Self::Out, Error<'n>> {

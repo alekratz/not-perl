@@ -13,10 +13,10 @@ use crate::ir;
 ///
 /// This is what directly converts IR into a final compile unit.
 pub struct Driver {
-    var_scope: VarScope,
-    fun_scope: FunScope,
-    ty_scope: TyScope,
-    label_scope: LabelScope,
+    pub (in super) var_scope: VarScope,
+    pub (in super) fun_scope: FunScope,
+    pub (in super) ty_scope: TyScope,
+    pub (in super) label_scope: LabelScope,
 }
 
 impl Driver {
@@ -35,11 +35,8 @@ impl Driver {
 
     /// Compile a single IR tree, updating this driver's current state.
     pub fn update(&mut self, _ir_tree: &ir::IrTree) -> Result<(), Error> {
-        let _state = State {
-            var_scope: &mut self.var_scope,
-            fun_scope: &mut self.fun_scope,
-            ty_scope: &mut self.ty_scope,
-            label_scope: &mut self.label_scope,
+        let state = State {
+            driver: self,
         };
 
         unimplemented!()

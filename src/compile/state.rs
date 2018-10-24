@@ -1,20 +1,21 @@
-use crate::compile::{
-    FunScope,
-    VarScope,
-    LabelScope,
-    TyScope,
-};
+use std::ops::{Deref, DerefMut};
+use crate::compile::Driver;
 
-pub struct State<'scope> {
-    /// Current variable scope.
-    pub (in super) var_scope: &'scope mut VarScope,
+pub struct State<'driver> {
+    /// Driver for this compiler state.
+    pub (in super) driver: &'driver mut Driver,
+}
 
-    /// Current function scope.
-    pub (in super) fun_scope: &'scope mut FunScope,
+impl<'driver> Deref for State<'driver> {
+    type Target = Driver;
 
-    /// Current type scope.
-    pub (in super) ty_scope: &'scope mut TyScope,
+    fn deref(&self) -> &Driver {
+        &self.driver
+    }
+}
 
-    /// Current label scope.
-    pub (in super) label_scope: &'scope mut LabelScope,
+impl<'driver> DerefMut for State<'driver> {
+    fn deref_mut(&mut self) -> &mut Driver {
+        &mut self.driver
+    }
 }

@@ -73,7 +73,7 @@ impl FunStub {
     }
 }
 
-impl<'n, 'r: 'n, 'scope> TransformMut<&'r ir::Fun<'n>> for State<'scope> {
+impl<'n, 'r: 'n, 'driver> TransformMut<&'r ir::Fun<'n>> for State<'driver> {
     type Out = FunStub;
 
     fn transform_mut(&mut self, value: &'r ir::Fun<'n>) -> Self::Out {
@@ -168,7 +168,6 @@ impl Default for FunScope {
         }
     }
 }
-
 
 #[cfg(test)]
 mod tests {
