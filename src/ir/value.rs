@@ -46,7 +46,7 @@ impl<'n> Value<'n> {
             | Value::Symbol(Ranged(r, _)) => { *r }
             | Value::ArrayAccess(r1, r2)
             | Value::BinaryExpr(r1, _, r2) => { r1.range().union(&r2.range()) }
-            Value::UnaryExpr(_op, _value) => { unimplemented!() }
+            Value::UnaryExpr(_op, value) => { value.range() } // TODO : give ops a range?
             Value::FunCall(fun, args) => {
                 if let Some(last) = args.last() {
                     fun.range().union(&last.range())
