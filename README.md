@@ -12,9 +12,12 @@ this rewrite is complete.
 
 # Build and use
 
+This project requires Rust 1.30-beta.
+
 1. Install [rust](rustup.rs)
-2. Run `cargo check` to make sure it builds correctly
-3. Run `cargo run -- examples/blocks.npl` to watch the compiler break
+2. In the project directory, run `rustup set override beta`
+3. Run `cargo check` to make sure it builds correctly
+4. Run `cargo run -- examples/blocks.npl` to watch the compiler break
 
 More examples in `examples/`.
 
