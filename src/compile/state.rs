@@ -1,21 +1,36 @@
-use std::ops::{Deref, DerefMut};
-use crate::compile::Driver;
+use crate::compile::{
+    Unit,
+    Error,
+    FunScope,
+    VarScope,
+    LabelScope,
+    TyScope,
+};
+use crate::ir;
 
-pub struct State<'driver> {
-    /// Driver for this compiler state.
-    pub (in super) driver: &'driver mut Driver,
+pub struct State {
+    pub (in super) var_scope: VarScope,
+    pub (in super) fun_scope: FunScope,
+    pub (in super) ty_scope: TyScope,
+    pub (in super) label_scope: LabelScope,
 }
 
-impl<'driver> Deref for State<'driver> {
-    type Target = Driver;
-
-    fn deref(&self) -> &Driver {
-        &self.driver
+impl State {
+    pub fn new() -> Self {
+        let mut fun_scope = FunScope::default();
+        fun_scope.insert_builtin_functions();
+        fun_scope.insert_builtin_ops();
+        // TODO : insert builtin types
+        State {
+            var_scope: VarScope::default(),
+            fun_scope,
+            ty_scope: TyScope::default(),
+            label_scope: LabelScope::default(),
+        }
     }
-}
 
-impl<'driver> DerefMut for State<'driver> {
-    fn deref_mut(&mut self) -> &mut Driver {
-        &mut self.driver
+    /// Compile a single IR tree, updating this state.
+    pub fn update(&mut self, ir_tree: &ir::IrTree) -> Result<(), Error> {
+        unimplemented!()
     }
 }

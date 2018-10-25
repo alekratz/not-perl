@@ -3,10 +3,12 @@ use std::{
 };
 use crate::common::lang::Op;
 use crate::compile::{
+    Error,
     FunSymbolAlloc,
     Scope,
     State,
     TransformMut,
+    TryTransform,
 };
 use crate::ir;
 use crate::vm::{self, Symbolic};
@@ -73,12 +75,29 @@ impl FunStub {
     }
 }
 
-impl<'n, 'r: 'n, 'driver> TransformMut<&'r ir::Fun<'n>> for State<'driver> {
-    type Out = FunStub;
+/// A function stub gatherer.
+///
+/// This type implements `TryTransform` over an input of IR function definitions, filling out the
+/// state it holds.
+pub struct GatherFunStubs<'s> {
+    state: &'s mut State,
+}
 
-    fn transform_mut(&mut self, value: &'r ir::Fun<'n>) -> Self::Out {
-        let symbol = self.fun_scope.reserve_symbol();
-        FunStub::from_ir_function(symbol, value)
+impl<'n, 'r: 'n, 's> TryTransform<'n, &'r [ir::Fun<'n>]> for GatherFunStubs<'s> {
+    type Out = ();
+
+    fn try_transform(self, funs: &'r [ir::Fun<'n>]) -> Result<(), Error<'n>> {
+        for fun in funs {
+            let name = fun.name();
+            if let Some(f) = self.state.var_scope.get_local_by_name(name) {
+                unimplemented!("TODO(rewrite) : duplication function name and function range")
+                //return Err(Error::duplicate_fun(fun.range())) // oops this isn't possible, no good range for function defs
+            }
+            let symbol = self.state.fun_scope.reserve_symbol();
+            let stub = FunStub::from_ir_function(symbol, fun);
+            self.state.fun_scope.insert(Fun::Stub(stub));
+        }
+        Ok(())
     }
 }
 

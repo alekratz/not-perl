@@ -41,14 +41,14 @@ impl Thunk {
     }
 }
 
-pub struct JumpBlock<'s, 'scope: 's> {
+pub struct JumpBlock<'s> {
     entry: vm::BlockSymbol,
     exit: vm::BlockSymbol,
-    state: &'s mut State<'scope>
+    state: &'s mut State,
 }
 
-impl<'n, 'r: 'n, 's, 'scope: 's> JumpBlock<'s, 'scope> {
-    pub fn new(entry: vm::BlockSymbol, exit: vm::BlockSymbol, state: &'s mut State<'scope>) -> Self {
+impl<'n, 'r: 'n, 's> JumpBlock<'s> {
+    pub fn new(entry: vm::BlockSymbol, exit: vm::BlockSymbol, state: &'s mut State) -> Self {
         JumpBlock { entry, exit, state, }
     }
 
@@ -62,7 +62,7 @@ impl<'n, 'r: 'n, 's, 'scope: 's> JumpBlock<'s, 'scope> {
     }
 }
 
-impl<'n, 'r: 'n, 's, 'scope: 's> TryTransformMut<'n, &'r ir::Action<'n>> for JumpBlock<'s, 'scope> {
+impl<'n, 'r: 'n, 's> TryTransformMut<'n, &'r ir::Action<'n>> for JumpBlock<'s> {
     type Out = Thunk;
 
     fn try_transform_mut(&mut self, action: &'r ir::Action<'n>) -> Result<Thunk, Error<'n>> {

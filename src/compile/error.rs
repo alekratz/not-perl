@@ -13,7 +13,7 @@ macro_rules! error_kind_def {
      $($tail:tt)*) => {
         impl<'n> Error<'n> {
             #[allow(dead_code)]
-            pub fn $builder_name (range: Range, $($argname: $argty),*) -> Error {
+            pub fn $builder_name (range: Range<'n>, $($argname: $argty),*) -> Error<'n> {
                 Error::new(range, $body)
             }
         }
@@ -39,7 +39,7 @@ macro_rules! error_kind_def {
     };
 
     ($(@DISPLAY_ARGS $kind:ident ($($argname:ident:$argty:ty),+) ($($display_args:expr),+) )+) => {
-        impl Display for ErrorKind {
+        impl<'n> Display for ErrorKind<'n> {
             fn fmt(&self, fmt: &mut Formatter) -> fmt::Result {
                 use self::ErrorKind::*;
                 match self {
@@ -51,7 +51,7 @@ macro_rules! error_kind_def {
         }
 
         #[derive(Debug)]
-        pub enum ErrorKind {
+        pub enum ErrorKind<'n> {
             $(
                 $kind ( $($argty),+)
             ),+
@@ -62,21 +62,25 @@ macro_rules! error_kind_def {
 }
 
 error_kind_def! {
-    fn unknown_unary_op(op: Op)        -> UnknownUnaryOp   => ("unknown binary operator {}", op)
-    fn unknown_binary_op(op: Op)       -> UnknownBinaryOp  => ("unknown unary operator {}", op)
-    fn unknown_fun(name: String)       -> UnknownFun       => ("unknown function `{}`", name)
-    fn unknown_ty(name: String)        -> UnknownTy        => ("unknown type `{}`", name)
-    fn invalid_assign_lhs(lhs: String) -> InvalidAssignLhs => ("invalid left-hand side of assignment: {}", lhs)
+    fn unknown_unary_op(op: Op)         -> UnknownUnaryOp   => ("unknown binary operator {}", op)
+    fn unknown_binary_op(op: Op)        -> UnknownBinaryOp  => ("unknown unary operator {}", op)
+    fn unknown_fun(name: String)        -> UnknownFun       => ("unknown function `{}`", name)
+    fn unknown_ty(name: String)         -> UnknownTy        => ("unknown type `{}`", name)
+    fn invalid_assign_lhs(lhs: String)  -> InvalidAssignLhs => ("invalid left-hand side of assignment: {}", lhs)
+    fn duplicate_fun(first_def: Range<'n>, name: String)
+                                        -> DuplicateFun     => ("duplicate function definition: {}", name)
 }
 
 #[derive(Debug)]
-pub struct Error<'n> {
+pub struct Error<'n>
+    where ErrorKind<'n>: 'static
+{
     range: Range<'n>,
-    kind: Context<ErrorKind>,
+    kind: Context<ErrorKind<'n>>,
 }
 
 impl<'n> Error<'n> {
-    pub fn new(range: Range<'n>, kind: ErrorKind) -> Self {
+    pub fn new(range: Range<'n>, kind: ErrorKind<'n>) -> Self {
         Error { range, kind: Context::new(kind) }
     }
 
