@@ -9,12 +9,25 @@ use crate::syntax::{
     tree::*,
     token::*,
 };
-use crate::common::lang::Op;
+use crate::common::{
+    pos::{Ranged, Range, RangeWrapper},
+    lang::Op,
+};
+
+macro_rules! ranged {
+    ( $lexer:expr, $block:block ) => {{
+        let begin = ($lexer).pos();
+        let value = $block;
+        let end = ($lexer).pos();
+        let range = Range::new(begin, end);
+        (range, value)
+    }};
+}
 
 pub struct Parser<'n> {
     lexer: Lexer<'n>,
-    curr: Option<RangeToken<'n>>,
-    next: Option<RangeToken<'n>>,
+    curr: Option<RangedToken<'n>>,
+    next: Option<RangedToken<'n>>,
     stmt_level: usize,
     inside_type: bool,
 }
@@ -37,11 +50,7 @@ impl<'n> Parser<'n> {
 
     pub fn into_parse_tree(mut self) -> Result<'n, SyntaxTree<'n>> {
         self.init()?;
-        if self.curr.is_some() {
-            self.next_tree()
-        } else {
-            Ok(SyntaxTree::default())
-        }
+        self.next_tree()
     }
 
     /// Readies this parser by filling in the first two tokens.
@@ -65,11 +74,14 @@ impl<'n> Parser<'n> {
     }
 
     fn next_tree(&mut self) -> Result<'n, SyntaxTree<'n>> {
-        let mut stmts = vec![];
-        while self.curr.is_some() {
-            stmts.push(self.next_stmt()?);
-        }
-        Ok(SyntaxTree { stmts })
+        let (range, stmts) = ranged!(self.lexer, {
+            let mut stmts = vec![];
+            while self.curr.is_some() {
+                stmts.push(self.next_stmt()?);
+            }
+            stmts
+        });
+        Ok(SyntaxTree::new(stmts, range))
     }
     
     fn skip_whitespace(&mut self) -> Result<'n, ()> {
@@ -90,20 +102,25 @@ impl<'n> Parser<'n> {
         };
         let stmt = match curr {
             Token::ReturnKw => {
-                self.next_token_or_newline()?;
-                if self.is_lookahead::<Expr>() {
-                    Stmt::Return(Some(self.next_expr()?))
-                } else {
-                    Stmt::Return(None)
-                }
+                let (range, stmt) = ranged!(self.lexer, {
+                    self.next_token_or_newline()?;
+                    if self.is_lookahead::<Expr>() {
+                        Some(self.next_expr()?)
+                    } else {
+                        None
+                    }
+                });
+                Stmt::Return(stmt, range)
             }
             Token::ContinueKw => {
-                self.next_token_or_newline()?;
-                Stmt::Continue
+                let token = self.next_token_or_newline()?
+                    .unwrap();
+                Stmt::Continue(token.range())
             }
             Token::BreakKw => {
-                self.next_token_or_newline()?;
-                Stmt::Continue
+                let token = self.next_token_or_newline()?
+                    .unwrap();
+                Stmt::Break(token.range())
             }
             Token::WhileKw => {
                 self.next_token()?;
@@ -174,14 +191,17 @@ impl<'n> Parser<'n> {
     }
 
     fn next_block(&mut self) -> Result<'n, Block<'n>> {
-        self.match_token(Token::LBrace)?;
-        let mut stmts = vec![];
-        while !self.is_token_match(&Token::RBrace) {
-            let stmt = self.next_stmt()?;
-            stmts.push(stmt);
-        }
-        self.match_token_preserve_newline(Token::RBrace)?;
-        Ok(stmts)
+        let (range, stmts) = ranged!(self.lexer, {
+            self.match_token(Token::LBrace)?;
+            let mut stmts = vec![];
+            while !self.is_token_match(&Token::RBrace) {
+                let stmt = self.next_stmt()?;
+                stmts.push(stmt);
+            }
+            self.match_token_preserve_newline(Token::RBrace)?;
+            stmts
+        });
+        Ok(RangeWrapper(range, stmts))
     }
 
     fn next_expr(&mut self) -> Result<'n, Expr<'n>> {
@@ -236,6 +256,7 @@ impl<'n> Parser<'n> {
     }
 
     fn next_atom_expr(&mut self) -> Result<'n, Expr<'n>> {
+        let begin = self.lexer.pos();
         let curr = if let Some(curr) = self.curr.clone() {
             Token::from(curr)
         } else {
@@ -275,20 +296,25 @@ impl<'n> Parser<'n> {
 
         if self.is_token_match(&Token::LParen) {
             let args = self.next_funcall_args()?;
-            expr = Expr::FunCall { function: Box::new(expr), args }
+            let end = self.lexer.pos();
+            let range = Range::new(begin, end);
+            expr = Expr::FunCall { function: Box::new(expr), args, range, }
         }
 
         if self.is_token_match(&Token::LBracket) {
             self.next_token()?;
             let index = self.next_expr()?;
             self.match_token_preserve_newline(Token::RBracket)?;
-            Ok(Expr::ArrayAccess{ array: Box::new(expr), index: Box::new(index) })
+            let end = self.lexer.pos();
+            let range = Range::new(begin, end);
+            Ok(Expr::ArrayAccess{ array: Box::new(expr), index: Box::new(index), range, })
         } else {
             Ok(expr)
         }
     }
 
     fn next_function(&mut self) -> Result<'n, Fun<'n>> {
+        let begin = self.lexer.pos();
         self.match_token(Token::FunKw)?;
         let name = self.next_bareword()?;
         let mut params = vec![];
@@ -302,9 +328,12 @@ impl<'n> Parser<'n> {
                 } else if params.len() > 0 {
                     return Err(self.err(format!("'self' parameter is only allowed as the first argument to a function")));
                 }
-                self.next_token()?;
-                params.push(FunParam::SelfKw);
+                let range = self.next_token()?
+                    .unwrap()
+                    .range();
+                params.push(FunParam::SelfKw(range));
             } else {
+                let begin = self.lexer.pos();
                 let param_name = self.next_variable()?;
                 let mut ty = None;
                 let mut default = None;
@@ -318,7 +347,9 @@ impl<'n> Parser<'n> {
                     self.match_token(Token::AssignOp(AssignOp::Equals))?;
                     default = Some(self.next_expr()?);
                 }
-                params.push(FunParam::Variable { name: param_name, ty, default } );
+                let end = self.lexer.pos();
+                let range = Range::new(begin, end);
+                params.push(FunParam::Variable { name: param_name, ty, default, range } );
 
                 if !self.is_token_match(&Token::RParen) {
                     self.match_token(Token::Comma)?;
@@ -331,15 +362,19 @@ impl<'n> Parser<'n> {
             return_ty = Some(self.next_bareword()?);
         }
         let body = self.next_block()?;
+        let end = self.lexer.pos();
+        let range = Range::new(begin, end);
         Ok(Fun {
             name,
             params,
             return_ty,
             body,
+            range,
         })
     }
 
     fn next_user_type(&mut self) -> Result<'n, UserTy<'n>> {
+        let begin = self.lexer.pos();
         let old_inside_type = self.inside_type;
         self.inside_type = true;
 
@@ -373,7 +408,9 @@ impl<'n> Parser<'n> {
         self.match_token_preserve_newline(Token::RBrace)?;
 
         self.inside_type = old_inside_type;
-        Ok(UserTy { name, parents, functions })
+        let end = self.lexer.pos();
+        let range = Range::new(begin, end);
+        Ok(UserTy { name, parents, functions, range, })
     }
 
     fn next_funcall_args(&mut self) -> Result<'n, Vec<Expr<'n>>> {
@@ -455,7 +492,7 @@ impl<'n> Parser<'n> {
         }
     }
 
-    fn is_lookahead<A: Ast>(&mut self) -> bool {
+    fn is_lookahead<A: Ast<'n>>(&mut self) -> bool {
         if let Some(ref curr) = self.curr {
             curr.is_lookahead::<A>()
         } else {
@@ -463,7 +500,7 @@ impl<'n> Parser<'n> {
         }
     }
 
-    fn match_token_preserve_newline(&mut self, token: Token) -> Result<'n, RangeToken<'n>> {
+    fn match_token_preserve_newline(&mut self, token: Token) -> Result<'n, RangedToken<'n>> {
         if self.curr.as_ref().map(|r| r.token() == &token).unwrap_or(false) {
             self.next_token_or_newline()?
                 .ok_or_else(|| self.err_expected_got_eof(token.to_string()))
@@ -473,7 +510,7 @@ impl<'n> Parser<'n> {
         }
     }
 
-    fn match_token(&mut self, token: Token) -> Result<'n, RangeToken<'n>> {
+    fn match_token(&mut self, token: Token) -> Result<'n, RangedToken<'n>> {
         if self.curr.as_ref().map(|r| r.token() == &token).unwrap_or(false) {
             self.next_token()?
                 .ok_or_else(|| self.err_expected_got_eof(token.to_string()))
@@ -487,7 +524,7 @@ impl<'n> Parser<'n> {
     ///
     /// This method will not skip over newlines, and will instead return them as part of the normal
     /// token stream.
-    fn next_token_or_newline(&mut self) -> Result<'n, Option<RangeToken<'n>>> {
+    fn next_token_or_newline(&mut self) -> Result<'n, Option<RangedToken<'n>>> {
         let next = if let Some(result) = self.lexer.next() {
             Some(result?)
         } else {
@@ -500,7 +537,7 @@ impl<'n> Parser<'n> {
     ///
     /// This skips over newlines, since, *for the most part*, the language is newline-agnostic.
     /// Only statements are required to be ended with either newlines *or* line-end characters.
-    fn next_token(&mut self) -> Result<'n, Option<RangeToken<'n>>> {
+    fn next_token(&mut self) -> Result<'n, Option<RangedToken<'n>>> {
         let mut token = self.next_token_or_newline()?;
         while self.is_token_match(&Token::NewLine) || self.is_token_match(&Token::Comment) {
             token = self.next_token_or_newline()?;
@@ -564,7 +601,7 @@ mod test {
     }
 
     macro_rules! token {
-        ($($token:tt)+) => { RangeToken::new(Range::new(Pos::default(), Pos::default()), $($token)+) }
+        ($($token:tt)+) => { RangedToken::new(Range::new(Pos::default(), Pos::default()), $($token)+) }
     }
 
     #[test]

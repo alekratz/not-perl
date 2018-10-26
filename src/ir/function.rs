@@ -22,15 +22,15 @@ impl<'n> Fun<'n> {
     pub fn name(&self) -> &str { &self.symbol.name() }
 }
 
-impl<'n> Ir<tree::Fun<'n>> for Fun<'n> {
-    fn from_syntax(tree::Fun { name, params, return_ty, body }: &tree::Fun<'n>) -> Self {
+impl<'n> Ir<'n, tree::Fun<'n>> for Fun<'n> {
+    fn from_syntax(tree::Fun { name, params, return_ty, body, range, }: &tree::Fun<'n>) -> Self {
         let symbol = Symbol::Fun(name.clone());
         let params = params.iter()
             .map(FunParam::from_syntax)
             .collect();
         let return_ty = if let Some(return_ty) = return_ty {
             TyExpr::Definite(return_ty.to_string())
-        } else if body.iter().any(|stmt| matches!(stmt, Stmt::Return(Some(_)))) {
+        } else if body.iter().any(|stmt| matches!(stmt, Stmt::Return(Some(_), _))) {
             // search for at least one return statement that has a value
             TyExpr::Any
         } else {
@@ -69,10 +69,11 @@ impl<'n> FunParam<'n> {
     }
 }
 
-impl<'n> Ir<tree::FunParam<'n>> for FunParam<'n> {
+impl<'n> Ir<'n, tree::FunParam<'n>> for FunParam<'n> {
     fn from_syntax(param: &tree::FunParam<'n>) -> Self {
         match param {
-            tree::FunParam::Variable { name, ty, default } => {
+            // TODO(range) ir::FunParam range
+            tree::FunParam::Variable { name, ty, default, range, } => {
                 let symbol = Symbol::Variable(name.to_string());
                 let ty = if let Some(ty) = ty {
                     TyExpr::Definite(ty.to_string())
@@ -83,7 +84,8 @@ impl<'n> Ir<tree::FunParam<'n>> for FunParam<'n> {
                 let default = default.as_ref().map(Value::from_syntax);
                 FunParam::Variable { symbol, ty, default }
             }
-            tree::FunParam::SelfKw => FunParam::SelfKw,
+            // TODO(range) ir::FunParam range
+            tree::FunParam::SelfKw(range) => FunParam::SelfKw,
         }
     }
 }

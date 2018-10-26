@@ -27,7 +27,7 @@ pub struct UserTy<'n> {
     pub functions: Vec<Fun<'n>>,
 }
 
-impl<'n> Ir<tree::UserTy<'n>> for UserTy<'n> {
+impl<'n> Ir<'n, tree::UserTy<'n>> for UserTy<'n> {
     fn from_syntax(ty: &tree::UserTy<'n>) -> Self {
         UserTy {
             name: ty.name.clone(),

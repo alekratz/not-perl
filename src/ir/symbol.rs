@@ -1,4 +1,4 @@
-use crate::common::pos::Ranged;
+use crate::common::pos::RangeWrapper;
 use crate::syntax::{
     token::Token,
 };
@@ -41,4 +41,4 @@ impl Symbol {
     }
 }
 
-pub type RangeSymbol<'n> = Ranged<'n, Symbol>;
+pub type RangedSymbol<'n> = RangeWrapper<'n, Symbol>;

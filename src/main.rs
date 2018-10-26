@@ -1,4 +1,3 @@
-//#![feature(nll)]
 #[macro_use] extern crate matches;
 #[macro_use] extern crate lazy_static;
 //#[macro_use] extern crate enum_methods;
@@ -6,19 +5,20 @@ extern crate failure;
 //#[macro_use] extern crate failure_derive;
 //#[macro_use] extern crate galvanic_test;
 
-mod common;
+#[macro_use] pub mod common;
 mod util;
 pub mod syntax;
 pub mod ir;
 pub mod vm;
 pub mod compile;
+pub mod repl;
 
 use std::{
     //io::{self, Write},
     env::{self, Args},
     process,
 };
-use crate::util::read_file;
+//use crate::util::read_file;
 
 fn exec(_args: Args) -> Result<(), String> {
     unimplemented!()

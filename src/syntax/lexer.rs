@@ -328,14 +328,14 @@ impl<'n> Lexer<'n> {
 }
 
 impl<'n> Iterator for Lexer<'n> {
-    type Item = Result<'n, RangeToken<'n>>;
+    type Item = Result<'n, RangedToken<'n>>;
 
     fn next(&mut self) -> Option<Self::Item> {
         let start = self.pos;
         let token = self.next_token();
         let end = self.pos;
-        // next_token returns Option<Result<Token>>, we need O<R<RangeToken>>
-        token.map(|r| r.map(|t| RangeToken::new(Range::new(start, end), t)))
+        // next_token returns Option<Result<Token>>, we need O<R<RangedToken>>
+        token.map(|r| r.map(|t| RangedToken::new(Range::new(start, end), t)))
     }
 }
 

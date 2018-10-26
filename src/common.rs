@@ -1,3 +1,3 @@
 pub mod value;
 pub mod lang;
-pub mod pos;
+#[macro_use] pub mod pos;

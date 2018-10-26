@@ -1,7 +1,7 @@
 use std::fmt::{self, Formatter, Display};
 use crate::common::{
     lang::Op,
-    pos::Ranged,
+    pos::RangeWrapper,
 };
 use crate::syntax::{
     tree::Ast,
@@ -113,7 +113,7 @@ pub enum Token {
 
 impl Token {
     /// Gets whether this token is a lookahead to the given AST type.
-    pub fn is_lookahead<A: Ast>(&self) -> bool {
+    pub fn is_lookahead<'n, A: Ast<'n>>(&self) -> bool {
         A::token_is_lookahead(self)
     }
 
@@ -230,21 +230,21 @@ impl Display for Token {
     }
 }
 
-impl<'n> From<RangeToken<'n>> for Token {
-    fn from(other: RangeToken<'n>) -> Self {
+impl<'n> From<RangedToken<'n>> for Token {
+    fn from(other: RangedToken<'n>) -> Self {
         other.1
     }
 }
 
-impl<'n> Display for RangeToken<'n> {
+impl<'n> Display for RangedToken<'n> {
     fn fmt(&self, fmt: &mut Formatter) -> fmt::Result {
         (self.1).fmt(fmt)
     }
 }
 
-pub type RangeToken<'n> = Ranged<'n, Token>;
+pub type RangedToken<'n> = RangeWrapper<'n, Token>;
 
-impl<'n> RangeToken<'n> {
+impl<'n> RangedToken<'n> {
     pub fn token(&self) -> &Token {
         &self.1
     }

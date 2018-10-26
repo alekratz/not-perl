@@ -6,7 +6,7 @@ use crate::compile::{
     transform::*,
 };
 use crate::ir;
-use crate::common::pos::Ranged;
+use crate::common::pos::RangeWrapper;
 use crate::vm::{
     self,
     Bc,
@@ -84,13 +84,13 @@ impl<'n, 'r: 'n, 's> TryTransformMut<'n, &'r ir::Action<'n>> for JumpBlock<'s> {
                 let code = match lhs {
                     // unreachable since is_assign_candidate excludes constants
                     ir::Value::Const(_) => unreachable!(),
-                    ir::Value::Symbol(Ranged(_, ir::Symbol::Variable(varname))) => {
+                    ir::Value::Symbol(RangeWrapper(_, ir::Symbol::Variable(varname))) => {
                         let lhs_store = Ref::Reg(self.state.var_scope.get_or_insert(varname));
                         ValueContext::new(ValueContextKind::Store(lhs_store), self.state)
                             .try_transform(rhs)?
                     },
                     // unreachable since is_assign_candidate excludes non-variable symbol
-                    ir::Value::Symbol(Ranged(_, _)) => unreachable!(),
+                    ir::Value::Symbol(RangeWrapper(_, _)) => unreachable!(),
                     ir::Value::ArrayAccess(_, _) => unimplemented!("TODO(array) : array assign"),
                     | ir::Value::FunCall(_, _)
                     | ir::Value::UnaryExpr(_, _)

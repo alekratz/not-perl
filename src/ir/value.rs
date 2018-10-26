@@ -5,15 +5,15 @@ use crate::syntax::{
 use crate::common::{
     pos::{
         Range,
-        Ranged,
+        RangeWrapper,
     },
     lang::Op,
 };
-use crate::ir::{Ir, Symbol, RangeSymbol};
+use crate::ir::{Ir, Symbol, RangedSymbol};
 
 pub use crate::common::value::Const;
 
-pub type RangeConst<'n> = Ranged<'n, Const>;
+pub type RangeConst<'n> = RangeWrapper<'n, Const>;
 
 impl Const {
     pub fn from_token(other: &Token) -> Self {
@@ -36,7 +36,7 @@ impl Const {
 #[derive(Clone, Debug)]
 pub enum Value<'n> {
     Const(RangeConst<'n>),
-    Symbol(RangeSymbol<'n>),
+    Symbol(RangedSymbol<'n>),
     ArrayAccess(Box<Value<'n>>, Box<Value<'n>>),
     BinaryExpr(Box<Value<'n>>, Op, Box<Value<'n>>),
     UnaryExpr(Op, Box<Value<'n>>),
@@ -46,8 +46,8 @@ pub enum Value<'n> {
 impl<'n> Value<'n> {
     pub fn range(&self) -> Range<'n> {
         match self {
-            | Value::Const(Ranged(r, _))
-            | Value::Symbol(Ranged(r, _)) => { *r }
+            | Value::Const(RangeWrapper(r, _))
+            | Value::Symbol(RangeWrapper(r, _)) => { *r }
             | Value::ArrayAccess(r1, r2)
             | Value::BinaryExpr(r1, _, r2) => { r1.range().union(&r2.range()) }
             Value::UnaryExpr(_op, value) => { value.range() } // TODO : give ops a range?
@@ -97,7 +97,7 @@ impl<'n> Value<'n> {
             // unary expressions pass the value's LHS candidacy through
             Value::UnaryExpr(_, u) => u.is_assign_candidate(),
             // symbols, array accesses, and function calls are always valid LHS candidates
-            | Value::Symbol(Ranged(_, Symbol::Variable(_)))
+            | Value::Symbol(RangeWrapper(_, Symbol::Variable(_)))
             | Value::ArrayAccess(_, _)
             | Value::FunCall(_, _) => true,
             _ => false,
@@ -105,10 +105,11 @@ impl<'n> Value<'n> {
     }
 }
 
-impl<'n> Ir<Expr<'n>> for Value<'n> {
+impl<'n> Ir<'n, Expr<'n>> for Value<'n> {
     fn from_syntax(expr: &Expr<'n>) -> Self {
         match expr {
-            Expr::FunCall { ref function, ref args } => {
+            // TODO(range) ir::Value range
+            Expr::FunCall { function, args, range } => {
                 let function = Value::from_syntax(function);
                 let mut fun_args = vec![];
                 for arg in args.iter() {
@@ -116,7 +117,8 @@ impl<'n> Ir<Expr<'n>> for Value<'n> {
                 }
                 Value::FunCall(Box::new(function), fun_args)
             }
-            Expr::ArrayAccess { ref array, ref index } => {
+            // TODO(range) ir::Value range
+            Expr::ArrayAccess { array, index, range } => {
                 let array = Value::from_syntax(array);
                 let index = Value::from_syntax(index);
                 Value::ArrayAccess(Box::new(array), Box::new(index))

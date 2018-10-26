@@ -4,7 +4,7 @@ use std::{
     },
     ops::{Deref, DerefMut},
 };
-use crate::common::pos::Ranged;
+use crate::common::pos::RangeWrapper;
 use crate::compile::{
     Error,
     RegSymbolAlloc,
@@ -62,13 +62,13 @@ impl<'n, 'r: 'n, 's> TryTransform<'n, &'r ir::Value<'n>> for ValueContext<'s> {
         let range = value.range();
         match value {
             // Constant/literal value
-            Value::Const(Ranged(_, c)) => {
+            Value::Const(RangeWrapper(_, c)) => {
                 let value = vm::Value::Const(c.clone());
                 Ok(vec![self.kind.transform(value)])
             }
 
             // User symbol (function, var, or ty)
-            Value::Symbol(Ranged(_, s)) => {
+            Value::Symbol(RangeWrapper(_, s)) => {
                 let ref_value = match s {
                     ir::Symbol::Fun(name) => {
                         let symbol = self.state.fun_scope.get_by_name(name)
@@ -152,7 +152,7 @@ impl<'n, 'r: 'n, 's> TryTransform<'n, &'r ir::Value<'n>> for ValueContext<'s> {
                 for arg in args {
                     code.append(&mut ValueContext::new(ValueContextKind::Push, self.state).try_transform(arg)?);
                 }
-                if let Value::Symbol(Ranged(_, ir::Symbol::Fun(name))) = fun.as_ref() {
+                if let Value::Symbol(RangeWrapper(_, ir::Symbol::Fun(name))) = fun.as_ref() {
                     let fun = self.state
                         .fun_scope
                         .get_by_name_and_params(name, args.len());

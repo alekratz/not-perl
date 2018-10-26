@@ -12,8 +12,8 @@ pub use self::action::*;
 pub use self::symbol::*;
 pub use self::value::*;
 
-pub trait Ir<A>
-    where A: Ast + Sized,
+pub trait Ir<'n, A>
+    where A: Ast<'n> + Sized,
           Self: Sized,
 {
     fn from_syntax(ast: &A) -> Self;
@@ -40,7 +40,7 @@ impl<'n> IrTree<'n> {
     }
 }
 
-impl<'n> Ir<SyntaxTree<'n>> for IrTree<'n> {
+impl<'n> Ir<'n, SyntaxTree<'n>> for IrTree<'n> {
     fn from_syntax(ast: &SyntaxTree<'n>) -> Self {
         let mut actions = vec![];
         let mut functions = vec![];

@@ -1,10 +1,11 @@
 use crate::compile::{
-    Unit,
+    GatherFunStubs,
     Error,
     FunScope,
     VarScope,
     LabelScope,
     TyScope,
+    transform::*,
 };
 use crate::ir;
 
@@ -30,7 +31,10 @@ impl State {
     }
 
     /// Compile a single IR tree, updating this state.
-    pub fn update(&mut self, ir_tree: &ir::IrTree) -> Result<(), Error> {
-        unimplemented!()
+    pub fn update<'n, 'r: 'n>(&mut self, ir_tree: &'r ir::IrTree<'n>) -> Result<(), Error<'n>> {
+        // Gather function stubs
+        GatherFunStubs::new(self)
+            .try_transform(ir_tree.functions())?;
+        Ok(())
     }
 }

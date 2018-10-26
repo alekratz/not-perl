@@ -7,7 +7,6 @@ use crate::compile::{
     FunSymbolAlloc,
     Scope,
     State,
-    TransformMut,
     TryTransform,
 };
 use crate::ir;
@@ -81,6 +80,12 @@ impl FunStub {
 /// state it holds.
 pub struct GatherFunStubs<'s> {
     state: &'s mut State,
+}
+
+impl<'s> GatherFunStubs<'s> {
+    pub fn new(state: &'s mut State) -> Self {
+        GatherFunStubs { state, }
+    }
 }
 
 impl<'n, 'r: 'n, 's> TryTransform<'n, &'r [ir::Fun<'n>]> for GatherFunStubs<'s> {

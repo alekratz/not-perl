@@ -136,10 +136,10 @@ impl<'n> Range<'n> {
 }
 
 #[derive(Clone, Debug)]
-pub struct Ranged<'n, T>(pub Range<'n>, pub T)
+pub struct RangeWrapper<'n, T>(pub Range<'n>, pub T)
     where T: Sized + Clone + Debug;
 
-impl<'n, T> Ranged<'n, T>
+impl<'n, T> RangeWrapper<'n, T>
     where T: Sized + Clone + Debug
 {
     /// Makes a new ranged value.
@@ -148,15 +148,15 @@ impl<'n, T> Ranged<'n, T>
     /// * `range` - the range that the object takes up space in.
     /// * `value` - the wrapped value.
     pub fn new(range: Range<'n>, value: T) -> Self {
-        Ranged(range, value)
+        RangeWrapper(range, value)
     }
 
-    pub fn map<Out>(&self, mapfn: impl FnOnce(&T) -> Out) -> Ranged<'n, Out>
+    pub fn map<Out>(&self, mapfn: impl FnOnce(&T) -> Out) -> RangeWrapper<'n, Out>
         where Out: Clone + Debug
     {
-        let Ranged(range, ref inner) = self;
+        let RangeWrapper(range, ref inner) = self;
         let inner = (mapfn)(inner);
-        Ranged(*range, inner)
+        RangeWrapper(*range, inner)
     }
 
     pub fn into_inner(self) -> T {
@@ -168,7 +168,7 @@ impl<'n, T> Ranged<'n, T>
     }
 }
 
-impl<'n, T> Deref for Ranged<'n, T>
+impl<'n, T> Deref for RangeWrapper<'n, T>
     where T: Sized + Clone + Debug
 {
     type Target = T;
@@ -177,10 +177,34 @@ impl<'n, T> Deref for Ranged<'n, T>
     }
 }
 
-impl<'n, T> PartialEq for Ranged<'n, T>
+impl<'n, T> PartialEq for RangeWrapper<'n, T>
     where T: Sized + Clone + Debug + PartialEq
 {
     fn eq(&self, other: &Self) -> bool {
         self.1.eq(&other.1)
     }
 }
+
+impl<'n, T> Ranged<'n> for RangeWrapper<'n, T>
+    where T: Sized + Clone + Debug
+{
+    fn range(&self) -> Range<'n> {
+        self.0
+    }
+}
+
+pub trait Ranged<'n>: Clone + Debug {
+    fn range(&self) -> Range<'n>;
+}
+
+#[macro_export]
+macro_rules! impl_ranged {
+    ($ty:ident :: $member:tt) => {
+        impl<'n> $crate::common::pos::Ranged<'n> for $ty <'n> {
+            fn range(&self) -> Range<'n> {
+                self.$member
+            }
+        }
+    };
+}
+

@@ -32,7 +32,7 @@ impl<'n> Action<'n> {
     }
 }
 
-impl<'n> Ir<Stmt<'n>> for Action<'n> {
+impl<'n> Ir<'n, Stmt<'n>> for Action<'n> {
     fn from_syntax(stmt: &Stmt<'n>) -> Self {
         match stmt {
             Stmt::UserTy(_) => unreachable!(), // user types are covered as non-action types
@@ -71,9 +71,12 @@ impl<'n> Ir<Stmt<'n>> for Action<'n> {
                 Action::Loop(loop_block)
             }
             Stmt::Loop(block) => Action::Loop(block.iter().map(Action::from_syntax).collect()),
-            Stmt::Return(expr) => Action::Return(expr.as_ref().map(Value::from_syntax)),
-            Stmt::Break => Action::Break,
-            Stmt::Continue => Action::Continue,
+            // TODO(range) : Action::Break range
+            Stmt::Return(expr, range) => Action::Return(expr.as_ref().map(Value::from_syntax)),
+            // TODO(range) : Action::Break range
+            Stmt::Break(range) => Action::Break,
+            // TODO(range) : Action::Continue range
+            Stmt::Continue(range) => Action::Continue,
         }
     }
 }
