@@ -5,25 +5,25 @@ use crate::ir::{
 };
 
 #[derive(Debug)]
-pub struct Fun<'n> {
+pub struct Fun {
     pub symbol: Symbol,
-    pub params: Vec<FunParam<'n>>,
+    pub params: Vec<FunParam>,
     pub return_ty: TyExpr,
-    pub body: Block<'n>,
-    pub inner_functions: Vec<Fun<'n>>,
+    pub body: Block,
+    pub inner_functions: Vec<Fun>,
 }
 
-impl<'n> Fun<'n> {
-    pub fn new(symbol: Symbol, params: Vec<FunParam<'n>>, return_ty: TyExpr, body: Block<'n>,
-               inner_functions: Vec<Fun<'n>>) -> Self {
+impl Fun {
+    pub fn new(symbol: Symbol, params: Vec<FunParam>, return_ty: TyExpr, body: Block,
+               inner_functions: Vec<Fun>) -> Self {
         Fun { symbol, params, return_ty, body, inner_functions }
     }
 
     pub fn name(&self) -> &str { &self.symbol.name() }
 }
 
-impl<'n> Ir<'n, tree::Fun<'n>> for Fun<'n> {
-    fn from_syntax(tree::Fun { name, params, return_ty, body, range, }: &tree::Fun<'n>) -> Self {
+impl Ir<tree::Fun> for Fun {
+    fn from_syntax(tree::Fun { name, params, return_ty, body, range, }: &tree::Fun) -> Self {
         let symbol = Symbol::Fun(name.clone());
         let params = params.iter()
             .map(FunParam::from_syntax)
@@ -51,16 +51,16 @@ impl<'n> Ir<'n, tree::Fun<'n>> for Fun<'n> {
 }
 
 #[derive(Debug)]
-pub enum FunParam<'n> {
+pub enum FunParam {
     SelfKw,
     Variable {
         symbol: Symbol,
         ty: TyExpr,
-        default: Option<Value<'n>>,
+        default: Option<Value>,
     },
 }
 
-impl<'n> FunParam<'n> {
+impl FunParam {
     pub fn name(&self) -> &str {
         match self {
             FunParam::SelfKw => "self",
@@ -69,8 +69,8 @@ impl<'n> FunParam<'n> {
     }
 }
 
-impl<'n> Ir<'n, tree::FunParam<'n>> for FunParam<'n> {
-    fn from_syntax(param: &tree::FunParam<'n>) -> Self {
+impl Ir<tree::FunParam> for FunParam {
+    fn from_syntax(param: &tree::FunParam) -> Self {
         match param {
             // TODO(range) ir::FunParam range
             tree::FunParam::Variable { name, ty, default, range, } => {

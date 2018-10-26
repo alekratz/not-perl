@@ -1,6 +1,7 @@
 use std::{
     mem,
     str::Chars,
+    sync::Arc,
 };
 use crate::common::pos::{
     Pos,
@@ -50,35 +51,35 @@ char_class!(BAREWORD_CHARS, "bareword", |c| { c.is_alphanumeric() || "_-".contai
 char_class!(STR_LIT_ESCAPE_CHARS, "string escape", |c| { "trn\"\\".contains(c) });
 
 /// A lexer, which converts a stream of characters into a stream of tokens.
-pub struct Lexer<'n> {
-    input: Chars<'n>,
+pub struct Lexer<'c> {
+    input: Chars<'c>,
 
     curr: Option<char>,
     next: Option<char>,
-    pos: Pos<'n>,
+    pos: Pos,
 }
 
-impl<'n> Lexer<'n> {
+impl<'c> Lexer<'c> {
     /// Creates a new lexer with the specified input and source name.
-    pub fn new(source_name: &'n str, source_text: &'n str) -> Self {
+    pub fn new(source_name: &str, source_text: &'c str) -> Self {
         let mut input = source_text.chars();
         let next = input.next();
         Lexer {
             input,
             curr: None,
             next,
-            pos: Pos::new(Some(source_name), source_text),
+            pos: Pos::new(Arc::new(source_name.to_string()), Arc::new(source_text.to_string())),
         }
     }
 
     /// The position that the lexer is currently looking at.
-    pub fn pos(&self) -> Pos<'n> {
-        self.pos
+    pub fn pos(&self) -> Pos {
+        self.pos.clone()
     }
 
     /// Gets the next token in this stream, resulting in an error if an unexpected character is
     /// encountered.
-    fn next_token(&mut self) -> Option<Result<'n, Token>> {
+    fn next_token(&mut self) -> Option<Result<Token>> {
         match self.next_char()? {
             '#' => Some(self.next_comment()),
             '$' => Some(self.next_variable_token()),
@@ -106,7 +107,7 @@ impl<'n> Lexer<'n> {
                 // recursion is guaranteed to be only one layer deep
                 self.next_token()
             }
-            e => Some(Err(SyntaxError::new(format!("unexpected character: {:?}", e), self.pos))),
+            e => Some(Err(SyntaxError::new(format!("unexpected character: {:?}", e), self.pos.clone()))),
         }
     }
 
@@ -114,7 +115,7 @@ impl<'n> Lexer<'n> {
     ///
     /// # Preconditions
     /// `self.curr` must be the line-comment start character `#`.
-    fn next_comment(&mut self) -> Result<'n, Token> {
+    fn next_comment(&mut self) -> Result<Token> {
         assert_eq!(self.curr, Some('#'), "precondition failed");
 
         while let Some(c) = self.next_char() {
@@ -129,7 +130,7 @@ impl<'n> Lexer<'n> {
     ///
     /// # Preconditions
     /// `self.curr` must be the variable sigil character `$`.
-    fn next_variable_token(&mut self) -> Result<'n, Token> {
+    fn next_variable_token(&mut self) -> Result<Token> {
         assert_eq!(self.curr, Some('$'), "precondition failed");
         let mut var_name = String::new();
         var_name.push(self.next_char_expect(&VARIABLE_NAME_CHARS)?);
@@ -148,7 +149,7 @@ impl<'n> Lexer<'n> {
     ///
     /// # Preconditions
     /// `self.curr` must match the OP_CHARS character class.
-    fn next_op_token(&mut self) -> Result<'n, Token> {
+    fn next_op_token(&mut self) -> Result<Token> {
         assert!(OP_CHARS.is_match(self.curr.expect("precondition failed")));
         let mut op = String::new();
         op.push(self.curr.unwrap());
@@ -171,7 +172,7 @@ impl<'n> Lexer<'n> {
     ///
     /// # Preconditions
     /// `self.curr` must be the double quote character `"`.
-    fn next_str_lit(&mut self) -> Result<'n, Token> {
+    fn next_str_lit(&mut self) -> Result<Token> {
         assert_eq!(self.curr, Some('"'), "precondition failed");
         let mut str_lit = String::new();
         loop {
@@ -186,8 +187,8 @@ impl<'n> Lexer<'n> {
                 }
                 Some('"') => break Ok(Token::StrLit(str_lit)),
                 Some('\n') | Some('\r') =>
-                    break Err(SyntaxError::new("reached newline while inside of string literal".to_string(), self.pos)),
-                None => break Err(SyntaxError::new("reached EOF while inside of string literal".to_string(), self.pos)),
+                    break Err(SyntaxError::new("reached newline while inside of string literal".to_string(), self.pos.clone())),
+                None => break Err(SyntaxError::new("reached EOF while inside of string literal".to_string(), self.pos.clone())),
                 Some(c) => str_lit.push(c),
             }
         }
@@ -197,7 +198,7 @@ impl<'n> Lexer<'n> {
     ///
     /// # Preconditions
     /// `self.curr` must match the BAREWORD_START_CHARS character class.
-    fn next_bareword(&mut self) -> Result<'n, Token> {
+    fn next_bareword(&mut self) -> Result<Token> {
         assert!(BAREWORD_START_CHARS.is_match(self.curr.expect("precondition failed")), "precondition failed");
         let mut bareword = String::new();
         bareword.push(self.curr.unwrap());
@@ -237,7 +238,7 @@ impl<'n> Lexer<'n> {
     ///
     /// # Preconditions
     /// `self.curr` must be a character from `'0'` to `'9'`.
-    fn next_numeric_token(&mut self) -> Result<'n, Token> {
+    fn next_numeric_token(&mut self) -> Result<Token> {
         assert!({ let c = self.curr.unwrap(); c >= '0' && c <= '9'}, "precondition failed");
         let mut number = String::new();
 
@@ -268,9 +269,9 @@ impl<'n> Lexer<'n> {
         while let Some(c) = self.next {
             if c == '.' {
                 if radix != 10 {
-                    return Err(SyntaxError::new("non-base-ten floating point literals are not supported".to_string(), self.pos));
+                    return Err(SyntaxError::new("non-base-ten floating point literals are not supported".to_string(), self.pos.clone()));
                 } else if is_float {
-                    return Err(SyntaxError::new("second decimal encountered in floating point literal".to_string(), self.pos));
+                    return Err(SyntaxError::new("second decimal encountered in floating point literal".to_string(), self.pos.clone()));
                 } else {
                     number.push('.');
                     is_float = true;
@@ -278,7 +279,7 @@ impl<'n> Lexer<'n> {
             } else if c.is_digit(radix as u32) {
                 number.push(c);
             } else if c.is_alphanumeric() {
-                return Err(SyntaxError::new(format!("unrecognized digit {:?}", c), self.pos));
+                return Err(SyntaxError::new(format!("unrecognized digit {:?}", c), self.pos.clone()));
             } else {
                 break;
             }
@@ -297,16 +298,16 @@ impl<'n> Lexer<'n> {
     ///
     /// # Arguments
     /// `char_class` - the character class that the next character in the stream should be.
-    fn next_char_expect(&mut self, char_class: &CharClass) -> Result<'n, char> {
+    fn next_char_expect(&mut self, char_class: &CharClass) -> Result<char> {
         match self.next_char() {
             Some(c) => {
                 if char_class.is_match(c) {
                     Ok(c)
                 } else {
-                    Err(SyntaxError::new(format!("expected {} char, but got {:?} instead", char_class.name(), c), self.pos))
+                    Err(SyntaxError::new(format!("expected {} char, but got {:?} instead", char_class.name(), c), self.pos.clone()))
                 }
             },
-            None => Err(SyntaxError::new(format!("expected {} char, but got EOF instead", char_class.name()), self.pos)),
+            None => Err(SyntaxError::new(format!("expected {} char, but got EOF instead", char_class.name()), self.pos.clone())),
         }
     }
 
@@ -327,13 +328,13 @@ impl<'n> Lexer<'n> {
     }
 }
 
-impl<'n> Iterator for Lexer<'n> {
-    type Item = Result<'n, RangedToken<'n>>;
+impl<'c> Iterator for Lexer<'c> {
+    type Item = Result<RangedToken>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let start = self.pos;
+        let start = self.pos.clone();
         let token = self.next_token();
-        let end = self.pos;
+        let end = self.pos.clone();
         // next_token returns Option<Result<Token>>, we need O<R<RangedToken>>
         token.map(|r| r.map(|t| RangedToken::new(Range::new(start, end), t)))
     }

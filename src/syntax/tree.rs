@@ -17,26 +17,26 @@ macro_rules! token_is_lookahead {
     }};
 }
 
-pub trait Ast<'n>: Ranged<'n> {
+pub trait Ast: Ranged {
     fn token_is_lookahead(token: &Token) -> bool;
     fn name() -> &'static str;
 }
 
-impl<'n, T> Ast<'n> for RangeWrapper<'n, T>
-    where T: Ast<'n> + Clone + Debug + Ranged<'n>
+impl<T> Ast for RangeWrapper<T>
+    where T: Ast + Clone + Debug + Ranged
 {
     fn token_is_lookahead(token: &Token) -> bool { T::token_is_lookahead(token) }
     fn name() -> &'static str { T::name() }
 }
 
 #[derive(Debug, Clone)]
-pub struct SyntaxTree<'n> {
-    pub stmts: Vec<Stmt<'n>>,
-    pub range: Range<'n>,
+pub struct SyntaxTree {
+    pub stmts: Vec<Stmt>,
+    pub range: Range,
 }
 
-impl<'n> SyntaxTree<'n> {
-    pub fn new(stmts: Vec<Stmt<'n>>, range: Range<'n>) -> Self {
+impl SyntaxTree {
+    pub fn new(stmts: Vec<Stmt>, range: Range) -> Self {
         SyntaxTree {
             stmts,
             range,
@@ -44,7 +44,7 @@ impl<'n> SyntaxTree<'n> {
     }
 }
 
-impl<'n> Ast<'n> for SyntaxTree<'n> {
+impl Ast for SyntaxTree {
     fn token_is_lookahead(token: &Token) -> bool {
         Stmt::token_is_lookahead(token)
     }
@@ -55,24 +55,24 @@ impl<'n> Ast<'n> for SyntaxTree<'n> {
 impl_ranged!(SyntaxTree::range);
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum Stmt<'n> {
-    Fun(Fun<'n>),
-    UserTy(UserTy<'n>),
-    Expr(Expr<'n>),
-    Assign(Expr<'n>, AssignOp, Expr<'n>),
-    While(ConditionBlock<'n>),
-    Loop(Block<'n>),
+pub enum Stmt {
+    Fun(Fun),
+    UserTy(UserTy),
+    Expr(Expr),
+    Assign(Expr, AssignOp, Expr),
+    While(ConditionBlock),
+    Loop(Block),
     If {
-        if_block: ConditionBlock<'n>,
-        elseif_blocks: Vec<ConditionBlock<'n>>,
-        else_block: Option<Block<'n>>,
+        if_block: ConditionBlock,
+        elseif_blocks: Vec<ConditionBlock>,
+        else_block: Option<Block>,
     },
-    Continue(Range<'n>),
-    Break(Range<'n>),
-    Return(Option<Expr<'n>>, Range<'n>),
+    Continue(Range),
+    Break(Range),
+    Return(Option<Expr>, Range),
 }
 
-impl<'n> Ast<'n> for Stmt<'n> {
+impl Ast for Stmt {
     fn token_is_lookahead(token: &Token) -> bool {
         Expr::token_is_lookahead(token) || token_is_lookahead!(token, Token::FunKw, Token::ReturnKw, Token::IfKw)
     }
@@ -80,8 +80,8 @@ impl<'n> Ast<'n> for Stmt<'n> {
     fn name() -> &'static str { "statement" }
 }
 
-impl<'n> Ranged<'n> for Stmt<'n> {
-    fn range(&self) -> Range<'n> {
+impl Ranged for Stmt {
+    fn range(&self) -> Range {
         match self {
             Stmt::Fun(f) => f.range(),
             Stmt::UserTy(u) => u.range(),
@@ -94,28 +94,28 @@ impl<'n> Ranged<'n> for Stmt<'n> {
             }
             | Stmt::Continue(r)
             | Stmt::Break(r)
-            | Stmt::Return(_, r) => *r
+            | Stmt::Return(_, r) => r.clone(),
         }
     }
 }
 
-pub type Block<'n> = RangeWrapper<'n, Vec<Stmt<'n>>>;
+pub type Block = RangeWrapper<Vec<Stmt>>;
 
-impl<'n> AsRef<[Stmt<'n>]> for Block<'n> {
-    fn as_ref(&self) -> &[Stmt<'n>] {
+impl AsRef<[Stmt]> for Block {
+    fn as_ref(&self) -> &[Stmt] {
         &self.1
     }
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct UserTy<'n> {
+pub struct UserTy {
     pub name: String,
     pub parents: Vec<String>,
-    pub functions: Vec<Fun<'n>>,
-    pub range: Range<'n>,
+    pub functions: Vec<Fun>,
+    pub range: Range,
 }
 
-impl<'n> Ast<'n> for UserTy<'n> {
+impl Ast for UserTy {
     fn token_is_lookahead(token: &Token) -> bool {
         token_is_lookahead!(token, Token::TypeKw)
     }
@@ -126,15 +126,15 @@ impl<'n> Ast<'n> for UserTy<'n> {
 impl_ranged!(UserTy::range);
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Fun<'n> {
+pub struct Fun {
     pub name: String,
-    pub params: Vec<FunParam<'n>>,
+    pub params: Vec<FunParam>,
     pub return_ty: Option<String>,
-    pub body: Block<'n>,
-    pub range: Range<'n>,
+    pub body: Block,
+    pub range: Range,
 }
 
-impl<'n> Ast<'n> for Fun<'n> {
+impl Ast for Fun {
     fn token_is_lookahead(token: &Token) -> bool {
         token_is_lookahead!(token, Token::FunKw)
     }
@@ -145,17 +145,17 @@ impl<'n> Ast<'n> for Fun<'n> {
 impl_ranged!(Fun::range);
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum FunParam<'n> {
-    SelfKw(Range<'n>),
+pub enum FunParam {
+    SelfKw(Range),
     Variable {
         name: String,
         ty: Option<String>,
-        default: Option<Expr<'n>>,
-        range: Range<'n>,
+        default: Option<Expr>,
+        range: Range,
     },
 }
 
-impl<'n> Ast<'n> for FunParam<'n> {
+impl Ast for FunParam {
     fn token_is_lookahead(token: &Token) -> bool {
         matches!(token, Token::Variable(_)) || token == &Token::SelfKw
     }
@@ -163,52 +163,52 @@ impl<'n> Ast<'n> for FunParam<'n> {
     fn name() -> &'static str { "function parameter" }
 }
 
-impl<'n> Ranged<'n> for FunParam<'n> {
-    fn range(&self) -> Range<'n> {
+impl Ranged for FunParam {
+    fn range(&self) -> Range {
         match self {
-            FunParam::SelfKw(r) => *r,
-            FunParam::Variable { name: _, ty: _, default: _, range } => *range,
+            FunParam::SelfKw(r) => r.clone(),
+            FunParam::Variable { name: _, ty: _, default: _, range } => range.clone(),
         }
     }
 }
 
 /// A generic block that comes with a (presumably) conditional expression.
 #[derive(Debug, Clone, PartialEq)]
-pub struct ConditionBlock<'n> {
-    pub condition: Expr<'n>,
-    pub block: Block<'n>,
+pub struct ConditionBlock {
+    pub condition: Expr,
+    pub block: Block,
 }
 
-impl<'n> ConditionBlock<'n> {
-    pub fn new(condition: Expr<'n>, block: Block<'n>) -> Self {
+impl ConditionBlock {
+    pub fn new(condition: Expr, block: Block) -> Self {
         ConditionBlock { condition, block, }
     }
 }
 
-impl<'n> Ranged<'n> for ConditionBlock<'n> {
-    fn range(&self) -> Range<'n> {
+impl Ranged for ConditionBlock {
+    fn range(&self) -> Range {
         self.condition.range().union(&self.block.range())
     }
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum Expr<'n> {
+pub enum Expr {
     FunCall {
-        function: Box<Expr<'n>>,
-        args: Vec<Expr<'n>>,
-        range: Range<'n>,
+        function: Box<Expr>,
+        args: Vec<Expr>,
+        range: Range,
     },
     ArrayAccess {
-        array: Box<Expr<'n>>,
-        index: Box<Expr<'n>>,
-        range: Range<'n>,
+        array: Box<Expr>,
+        index: Box<Expr>,
+        range: Range,
     },
-    Atom(RangedToken<'n>),
-    Unary(Op, Box<Expr<'n>>),
-    Binary(Box<Expr<'n>>, Op, Box<Expr<'n>>),
+    Atom(RangedToken),
+    Unary(Op, Box<Expr>),
+    Binary(Box<Expr>, Op, Box<Expr>),
 }
 
-impl<'n> Expr<'n> {
+impl Expr {
     pub fn canonicalize(&self) -> String {
         match self {
             Expr::Binary(lhs, op, rhs) => format!("({} {} {})", lhs.canonicalize(), op, rhs.canonicalize()),
@@ -226,7 +226,7 @@ impl<'n> Expr<'n> {
     }
 }
 
-impl<'n> Ast<'n> for Expr<'n> {
+impl Ast for Expr {
     fn token_is_lookahead(token: &Token) -> bool {
         token_is_lookahead!(
             token,
@@ -243,11 +243,11 @@ impl<'n> Ast<'n> for Expr<'n> {
 }
 
 
-impl<'n> Ranged<'n> for Expr<'n> {
-    fn range(&self) -> Range<'n> {
+impl Ranged for Expr {
+    fn range(&self) -> Range {
         match self {
-            Expr::FunCall { function: _, args: _, range } => *range,
-            Expr::ArrayAccess { array: _, index: _, range } => *range,
+            | Expr::FunCall { function: _, args: _, range }
+            | Expr::ArrayAccess { array: _, index: _, range } => range.clone(),
             Expr::Atom(t) => t.range(),
             Expr::Unary(_, e) => e.range(),
             Expr::Binary(l, _, r) => l.range().union(&r.range()),

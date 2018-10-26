@@ -24,21 +24,21 @@ macro_rules! ranged {
     }};
 }
 
-pub struct Parser<'n> {
-    lexer: Lexer<'n>,
-    curr: Option<RangedToken<'n>>,
-    next: Option<RangedToken<'n>>,
+pub struct Parser<'c> {
+    lexer: Lexer<'c>,
+    curr: Option<RangedToken>,
+    next: Option<RangedToken>,
     stmt_level: usize,
     inside_type: bool,
 }
 
-impl<'n> Parser<'n> {
-    pub fn new(source_name: &'n str, source_text: &'n str) -> Self {
+impl<'c> Parser<'c> {
+    pub fn new(source_name: &str, source_text: &'c str) -> Self {
         let lexer = Lexer::new(source_name, source_text);
         Parser::from_lexer(lexer)
     }
 
-    pub fn from_lexer(lexer: Lexer<'n>) -> Self {
+    pub fn from_lexer(lexer: Lexer<'c>) -> Self {
         Parser {
             lexer,
             curr: None,
@@ -48,13 +48,13 @@ impl<'n> Parser<'n> {
         }
     }
 
-    pub fn into_parse_tree(mut self) -> Result<'n, SyntaxTree<'n>> {
+    pub fn into_parse_tree(mut self) -> Result<SyntaxTree> {
         self.init()?;
         self.next_tree()
     }
 
     /// Readies this parser by filling in the first two tokens.
-    fn init(&mut self) -> Result<'n, ()> {
+    fn init(&mut self) -> Result<()> {
         assert!(self.curr.is_none());
         assert!(self.next.is_none());
         // Option<Result<Token>> -> Option<Token>
@@ -73,7 +73,7 @@ impl<'n> Parser<'n> {
         Ok(())
     }
 
-    fn next_tree(&mut self) -> Result<'n, SyntaxTree<'n>> {
+    fn next_tree(&mut self) -> Result<SyntaxTree> {
         let (range, stmts) = ranged!(self.lexer, {
             let mut stmts = vec![];
             while self.curr.is_some() {
@@ -84,14 +84,14 @@ impl<'n> Parser<'n> {
         Ok(SyntaxTree::new(stmts, range))
     }
     
-    fn skip_whitespace(&mut self) -> Result<'n, ()> {
+    fn skip_whitespace(&mut self) -> Result<()> {
         while self.is_token_match(&Token::LineEnd) || self.is_token_match(&Token::NewLine) || self.is_token_match(&Token::Comment) {
             self.next_token()?;
         }
         Ok(())
     }
 
-    fn next_stmt(&mut self) -> Result<'n, Stmt<'n>> {
+    fn next_stmt(&mut self) -> Result<Stmt> {
         assert_eq!(self.stmt_level, 0);
         self.skip_whitespace()?;
 
@@ -174,7 +174,7 @@ impl<'n> Parser<'n> {
         Ok(stmt)
     }
 
-    fn next_eol_or_eof(&mut self) -> Result<'n, ()> {
+    fn next_eol_or_eof(&mut self) -> Result<()> {
         if self.is_token_match(&Token::LineEnd) || self.is_token_match(&Token::NewLine) || self.is_token_match(&Token::Comment) {
             self.next_token().map(|_| ())
         } else if self.curr.is_none() {
@@ -184,13 +184,13 @@ impl<'n> Parser<'n> {
         }
     }
 
-    fn next_condition_block(&mut self) -> Result<'n, ConditionBlock<'n>> {
+    fn next_condition_block(&mut self) -> Result<ConditionBlock> {
         let condition = self.next_expr()?;
         let block = self.next_block()?;
         Ok(ConditionBlock::new(condition, block))
     }
 
-    fn next_block(&mut self) -> Result<'n, Block<'n>> {
+    fn next_block(&mut self) -> Result<Block> {
         let (range, stmts) = ranged!(self.lexer, {
             self.match_token(Token::LBrace)?;
             let mut stmts = vec![];
@@ -204,7 +204,7 @@ impl<'n> Parser<'n> {
         Ok(RangeWrapper(range, stmts))
     }
 
-    fn next_expr(&mut self) -> Result<'n, Expr<'n>> {
+    fn next_expr(&mut self) -> Result<Expr> {
         let op_queue = VecDeque::from(vec![
             vec![Op::DoublePercent, Op::DoubleEquals, Op::DoubleTilde, Op::NotEquals,
                  Op::LessEquals, Op::GreaterEquals, Op::Less, Op::Greater],
@@ -216,7 +216,7 @@ impl<'n> Parser<'n> {
         self.next_binary_expr(op_queue)
     }
 
-    fn next_binary_expr(&mut self, mut op_queue: VecDeque<Vec<Op>>) -> Result<'n, Expr<'n>> {
+    fn next_binary_expr(&mut self, mut op_queue: VecDeque<Vec<Op>>) -> Result<Expr> {
         if let Some(top) = op_queue.pop_front() {
             let lhs = self.next_binary_expr(op_queue.clone())?;
             let op_matches = self.curr.as_ref()
@@ -240,7 +240,7 @@ impl<'n> Parser<'n> {
     }
 
 
-    fn next_unary_expr(&mut self) -> Result<'n, Expr<'n>> {
+    fn next_unary_expr(&mut self) -> Result<Expr> {
         if self.is_curr_op() {
             let token = self.next_token()?.unwrap();
             if token.is_lookahead::<Expr>() {
@@ -255,7 +255,7 @@ impl<'n> Parser<'n> {
         }
     }
 
-    fn next_atom_expr(&mut self) -> Result<'n, Expr<'n>> {
+    fn next_atom_expr(&mut self) -> Result<Expr> {
         let begin = self.lexer.pos();
         let curr = if let Some(curr) = self.curr.clone() {
             Token::from(curr)
@@ -297,7 +297,7 @@ impl<'n> Parser<'n> {
         if self.is_token_match(&Token::LParen) {
             let args = self.next_funcall_args()?;
             let end = self.lexer.pos();
-            let range = Range::new(begin, end);
+            let range = Range::new(begin.clone(), end);
             expr = Expr::FunCall { function: Box::new(expr), args, range, }
         }
 
@@ -313,7 +313,7 @@ impl<'n> Parser<'n> {
         }
     }
 
-    fn next_function(&mut self) -> Result<'n, Fun<'n>> {
+    fn next_function(&mut self) -> Result<Fun> {
         let begin = self.lexer.pos();
         self.match_token(Token::FunKw)?;
         let name = self.next_bareword()?;
@@ -373,7 +373,7 @@ impl<'n> Parser<'n> {
         })
     }
 
-    fn next_user_type(&mut self) -> Result<'n, UserTy<'n>> {
+    fn next_user_type(&mut self) -> Result<UserTy> {
         let begin = self.lexer.pos();
         let old_inside_type = self.inside_type;
         self.inside_type = true;
@@ -413,7 +413,7 @@ impl<'n> Parser<'n> {
         Ok(UserTy { name, parents, functions, range, })
     }
 
-    fn next_funcall_args(&mut self) -> Result<'n, Vec<Expr<'n>>> {
+    fn next_funcall_args(&mut self) -> Result<Vec<Expr>> {
         self.match_token(Token::LParen)?;
         let mut args = vec![];
         if !self.is_token_match(&Token::RParen) {
@@ -431,7 +431,7 @@ impl<'n> Parser<'n> {
         Ok(args)
     }
 
-    fn next_variable(&mut self) -> Result<'n, String> {
+    fn next_variable(&mut self) -> Result<String> {
         if let Some(token) = self.next_token()? {
             match token.as_inner() {
                 Token::Variable(var) => Ok(var.clone()),
@@ -442,7 +442,7 @@ impl<'n> Parser<'n> {
         }
     }
 
-    fn next_bareword(&mut self) -> Result<'n, String> {
+    fn next_bareword(&mut self) -> Result<String> {
         if let Some(token) = self.next_token()? {
             match token.as_inner() {
                 Token::Bareword(bareword) => Ok(bareword.clone()),
@@ -453,7 +453,7 @@ impl<'n> Parser<'n> {
         }
     }
 
-    fn next_op(&mut self) -> Result<'n, Op> {
+    fn next_op(&mut self) -> Result<Op> {
         let matches = if let Some(&Token::Op(_)) = self.curr.as_ref().map(|r| r.token()) { true }
                       else { false };
         if matches {
@@ -463,7 +463,7 @@ impl<'n> Parser<'n> {
         }
     }
 
-    fn next_assign_op(&mut self) -> Result<'n, AssignOp> {
+    fn next_assign_op(&mut self) -> Result<AssignOp> {
         let matches = matches!(self.curr.as_ref().map(|r| r.token()), Some(&Token::AssignOp(_)));
         if matches {
             Ok(Token::from(self.next_token()?.unwrap()).into_assign_op())
@@ -492,7 +492,7 @@ impl<'n> Parser<'n> {
         }
     }
 
-    fn is_lookahead<A: Ast<'n>>(&mut self) -> bool {
+    fn is_lookahead<A: Ast>(&mut self) -> bool {
         if let Some(ref curr) = self.curr {
             curr.is_lookahead::<A>()
         } else {
@@ -500,7 +500,7 @@ impl<'n> Parser<'n> {
         }
     }
 
-    fn match_token_preserve_newline(&mut self, token: Token) -> Result<'n, RangedToken<'n>> {
+    fn match_token_preserve_newline(&mut self, token: Token) -> Result<RangedToken> {
         if self.curr.as_ref().map(|r| r.token() == &token).unwrap_or(false) {
             self.next_token_or_newline()?
                 .ok_or_else(|| self.err_expected_got_eof(token.to_string()))
@@ -510,7 +510,7 @@ impl<'n> Parser<'n> {
         }
     }
 
-    fn match_token(&mut self, token: Token) -> Result<'n, RangedToken<'n>> {
+    fn match_token(&mut self, token: Token) -> Result<RangedToken> {
         if self.curr.as_ref().map(|r| r.token() == &token).unwrap_or(false) {
             self.next_token()?
                 .ok_or_else(|| self.err_expected_got_eof(token.to_string()))
@@ -524,7 +524,7 @@ impl<'n> Parser<'n> {
     ///
     /// This method will not skip over newlines, and will instead return them as part of the normal
     /// token stream.
-    fn next_token_or_newline(&mut self) -> Result<'n, Option<RangedToken<'n>>> {
+    fn next_token_or_newline(&mut self) -> Result<Option<RangedToken>> {
         let next = if let Some(result) = self.lexer.next() {
             Some(result?)
         } else {
@@ -537,7 +537,7 @@ impl<'n> Parser<'n> {
     ///
     /// This skips over newlines, since, *for the most part*, the language is newline-agnostic.
     /// Only statements are required to be ended with either newlines *or* line-end characters.
-    fn next_token(&mut self) -> Result<'n, Option<RangedToken<'n>>> {
+    fn next_token(&mut self) -> Result<Option<RangedToken>> {
         let mut token = self.next_token_or_newline()?;
         while self.is_token_match(&Token::NewLine) || self.is_token_match(&Token::Comment) {
             token = self.next_token_or_newline()?;
@@ -552,7 +552,7 @@ impl<'n> Parser<'n> {
     /// # Returns
     /// A `SyntaxError` with a synthesized error message based on the `expected` param, with the
     /// `got` message being an EOF.
-    fn err_expected_got_eof(&self, expected: impl AsRef<str>) -> SyntaxError<'n> {
+    fn err_expected_got_eof(&self, expected: impl AsRef<str>) -> SyntaxError {
         let message = format!("expected {}, but got EOF instead", expected.as_ref());
         self.err(message)
     }
@@ -566,7 +566,7 @@ impl<'n> Parser<'n> {
     ///
     /// # Returns
     /// A `SyntaxError` with a synthesized error message based on the `expected` and `got` params.
-    fn err_expected_got<T: ToString>(&self, expected: impl AsRef<str>, got: Option<&T>) -> SyntaxError<'n> {
+    fn err_expected_got<T: ToString>(&self, expected: impl AsRef<str>, got: Option<&T>) -> SyntaxError {
         let message = format!("expected {}, but got {} instead",
                               expected.as_ref(),
                               got.map(|s| s.to_string()).unwrap_or("EOF".to_string()));
@@ -580,7 +580,7 @@ impl<'n> Parser<'n> {
     ///
     /// # Returns
     /// A `SyntaxError` with this parser's current position, as well the specified message.
-    fn err(&self, message: String) -> SyntaxError<'n> {
+    fn err(&self, message: String) -> SyntaxError {
         SyntaxError::new(message, self.lexer.pos())
     }
 }

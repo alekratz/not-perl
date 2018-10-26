@@ -47,13 +47,13 @@ pub struct JumpBlock<'s> {
     state: &'s mut State,
 }
 
-impl<'n, 'r: 'n, 's> JumpBlock<'s> {
+impl<'r, 's> JumpBlock<'s> {
     pub fn new(entry: vm::BlockSymbol, exit: vm::BlockSymbol, state: &'s mut State) -> Self {
         JumpBlock { entry, exit, state, }
     }
 
     /// Attempts to transform a block of IR actions into bytecode.
-    fn try_transform_block(&mut self, block: &'r [ir::Action<'n>]) -> Result<Thunk, Error<'n>> {
+    fn try_transform_block(&mut self, block: &'r [ir::Action]) -> Result<Thunk, Error> {
         let thunks = block.iter().try_fold(vec![], |mut thunks, action| {
             thunks.push(self.try_transform_mut(action)?);
             Ok(thunks)
@@ -62,10 +62,10 @@ impl<'n, 'r: 'n, 's> JumpBlock<'s> {
     }
 }
 
-impl<'n, 'r: 'n, 's> TryTransformMut<'n, &'r ir::Action<'n>> for JumpBlock<'s> {
+impl<'r, 's> TryTransformMut<&'r ir::Action> for JumpBlock<'s> {
     type Out = Thunk;
 
-    fn try_transform_mut(&mut self, action: &'r ir::Action<'n>) -> Result<Thunk, Error<'n>> {
+    fn try_transform_mut(&mut self, action: &'r ir::Action) -> Result<Thunk, Error> {
         use crate::ir::Action;
         match action {
             // Evaluate an IR value
@@ -78,7 +78,7 @@ impl<'n, 'r: 'n, 's> TryTransformMut<'n, &'r ir::Action<'n>> for JumpBlock<'s> {
                 // TODO : remove assignment ops, desugar assignment ops
                 if !lhs.is_assign_candidate() {
                     let range = lhs.range();
-                    return Err(Error::invalid_assign_lhs(range, range.text().to_string()));
+                    return Err(Error::invalid_assign_lhs(range.clone(), range.to_string()));
                 }
 
                 let code = match lhs {

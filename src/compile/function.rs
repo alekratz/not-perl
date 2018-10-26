@@ -61,7 +61,7 @@ pub struct FunStub {
 }
 
 impl FunStub {
-    pub fn from_ir_function<'n>(symbol: vm::FunSymbol, fun: &ir::Fun<'n>) -> Self {
+    pub fn from_ir_function(symbol: vm::FunSymbol, fun: &ir::Fun) -> Self {
         let name = fun.name().to_string();
         let params = fun.params.len();
         let return_ty = fun.return_ty.clone();
@@ -88,10 +88,10 @@ impl<'s> GatherFunStubs<'s> {
     }
 }
 
-impl<'n, 'r: 'n, 's> TryTransform<'n, &'r [ir::Fun<'n>]> for GatherFunStubs<'s> {
+impl<'r, 's> TryTransform<&'r [ir::Fun]> for GatherFunStubs<'s> {
     type Out = ();
 
-    fn try_transform(self, funs: &'r [ir::Fun<'n>]) -> Result<(), Error<'n>> {
+    fn try_transform(self, funs: &'r [ir::Fun]) -> Result<(), Error> {
         for fun in funs {
             let name = fun.name();
             if let Some(f) = self.state.var_scope.get_local_by_name(name) {

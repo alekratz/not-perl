@@ -13,9 +13,9 @@ macro_rules! error_kind_def {
      => ($($display_args:expr),+)
         $body:block
      $($tail:tt)*) => {
-        impl<'n> Error<'n> {
+        impl Error {
             #[allow(dead_code)]
-            pub fn $builder_name (range: Range<'n>, $($argname: $argty),*) -> Error<'n> {
+            pub fn $builder_name (range: Range, $($argname: $argty),*) -> Error {
                 Error::new(range, $body)
             }
         }
@@ -41,7 +41,7 @@ macro_rules! error_kind_def {
     };
 
     ($(@DISPLAY_ARGS $kind:ident ($($argname:ident:$argty:ty),+) ($($display_args:expr),+) )+) => {
-        impl<'n> Display for ErrorKind<'n> {
+        impl Display for ErrorKind {
             fn fmt(&self, fmt: &mut Formatter) -> fmt::Result {
                 use self::ErrorKind::*;
                 match self {
@@ -53,7 +53,7 @@ macro_rules! error_kind_def {
         }
 
         #[derive(Debug)]
-        pub enum ErrorKind<'n> {
+        pub enum ErrorKind {
             $(
                 $kind ( $($argty),+)
             ),+
@@ -69,25 +69,25 @@ error_kind_def! {
     fn unknown_fun(name: String)        -> UnknownFun       => ("unknown function `{}`", name)
     fn unknown_ty(name: String)         -> UnknownTy        => ("unknown type `{}`", name)
     fn invalid_assign_lhs(lhs: String)  -> InvalidAssignLhs => ("invalid left-hand side of assignment: {}", lhs)
-    fn duplicate_fun(first_def: Range<'n>, name: String)
+    fn duplicate_fun(first_def: Range, name: String)
                                         -> DuplicateFun     => ("duplicate function definition: {}", name)
 }
 
 #[derive(Debug)]
-pub struct Error<'n>
-    where ErrorKind<'n>: 'static
+pub struct Error
+    where ErrorKind: 'static
 {
-    range: Range<'n>,
-    kind: Context<ErrorKind<'n>>,
+    range: Range,
+    kind: Context<ErrorKind>,
 }
 
-impl<'n> Error<'n> {
-    pub fn new(range: Range<'n>, kind: ErrorKind<'n>) -> Self {
+impl Error {
+    pub fn new(range: Range, kind: ErrorKind) -> Self {
         Error { range, kind: Context::new(kind) }
     }
 
-    pub fn range(&self) -> Range<'n> {
-        self.range
+    pub fn range(&self) -> Range {
+        self.range.clone()
     }
 
     pub fn kind(&self) -> &ErrorKind {
@@ -95,7 +95,7 @@ impl<'n> Error<'n> {
     }
 }
 
-impl<'n> Fail for Error<'n>
+impl Fail for Error
     where Self: 'static
 {
     fn cause(&self) -> Option<&Fail> {
@@ -107,7 +107,7 @@ impl<'n> Fail for Error<'n>
     }
 }
 
-impl<'n> Display for Error<'n> {
+impl Display for Error {
     fn fmt(&self, fmt: &mut Formatter) -> fmt::Result {
         Display::fmt(&self.kind, fmt)
     }

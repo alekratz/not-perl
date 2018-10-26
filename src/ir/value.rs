@@ -13,7 +13,7 @@ use crate::ir::{Ir, Symbol, RangedSymbol};
 
 pub use crate::common::value::Const;
 
-pub type RangeConst<'n> = RangeWrapper<'n, Const>;
+pub type RangeConst = RangeWrapper<Const>;
 
 impl Const {
     pub fn from_token(other: &Token) -> Self {
@@ -34,20 +34,20 @@ impl Const {
 }
 
 #[derive(Clone, Debug)]
-pub enum Value<'n> {
-    Const(RangeConst<'n>),
-    Symbol(RangedSymbol<'n>),
-    ArrayAccess(Box<Value<'n>>, Box<Value<'n>>),
-    BinaryExpr(Box<Value<'n>>, Op, Box<Value<'n>>),
-    UnaryExpr(Op, Box<Value<'n>>),
-    FunCall(Box<Value<'n>>, Vec<Value<'n>>),
+pub enum Value {
+    Const(RangeConst),
+    Symbol(RangedSymbol),
+    ArrayAccess(Box<Value>, Box<Value>),
+    BinaryExpr(Box<Value>, Op, Box<Value>),
+    UnaryExpr(Op, Box<Value>),
+    FunCall(Box<Value>, Vec<Value>),
 }
 
-impl<'n> Value<'n> {
-    pub fn range(&self) -> Range<'n> {
+impl Value {
+    pub fn range(&self) -> Range {
         match self {
             | Value::Const(RangeWrapper(r, _))
-            | Value::Symbol(RangeWrapper(r, _)) => { *r }
+            | Value::Symbol(RangeWrapper(r, _)) => { r.clone() }
             | Value::ArrayAccess(r1, r2)
             | Value::BinaryExpr(r1, _, r2) => { r1.range().union(&r2.range()) }
             Value::UnaryExpr(_op, value) => { value.range() } // TODO : give ops a range?
@@ -105,8 +105,8 @@ impl<'n> Value<'n> {
     }
 }
 
-impl<'n> Ir<'n, Expr<'n>> for Value<'n> {
-    fn from_syntax(expr: &Expr<'n>) -> Self {
+impl Ir<Expr> for Value {
+    fn from_syntax(expr: &Expr) -> Self {
         match expr {
             // TODO(range) ir::Value range
             Expr::FunCall { function, args, range } => {

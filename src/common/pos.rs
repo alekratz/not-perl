@@ -2,20 +2,21 @@ use std::{
     cmp::Ordering,
     fmt::{self, Formatter, Display, Debug},
     ops::Deref,
+    sync::Arc,
 };
 
 /// A position in a character stream.
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 #[cfg_attr(not(test), derive(PartialEq))]
-pub struct Pos<'n> {
+pub struct Pos {
     pub source: usize,
     pub line: usize,
     pub col: usize,
-    pub source_name: Option<&'n str>,
-    pub source_text: &'n str,
+    pub source_name: Arc<String>,
+    pub source_text: Arc<String>,
 }
 
-impl<'n> Debug for Pos<'n> {
+impl Debug for Pos {
     fn fmt(&self, fmt: &mut Formatter) -> fmt::Result {
         fmt.debug_struct("Pos")
             .field("source", &self.source)
@@ -26,7 +27,7 @@ impl<'n> Debug for Pos<'n> {
     }
 }
 
-impl<'n> Pos<'n> {
+impl Pos {
     /// Increments the source index and the column index.
     pub fn adv(&mut self) {
         self.source += 1;
@@ -39,7 +40,7 @@ impl<'n> Pos<'n> {
         self.col = 0;
     }
 
-    pub fn new(source_name: Option<&'n str>, source_text: &'n str) -> Self {
+    pub fn new(source_name: Arc<String>, source_text: Arc<String>) -> Self {
         Pos {
             source_name,
             source_text,
@@ -47,7 +48,7 @@ impl<'n> Pos<'n> {
         }
     }
 
-    pub fn max(self, other: Pos<'n>) -> Self {
+    pub fn max(self, other: Pos) -> Self {
         match self.line.cmp(&other.line) {
             Ordering::Less => other,
             Ordering::Equal => match self.col.cmp(&other.col) {
@@ -58,7 +59,7 @@ impl<'n> Pos<'n> {
         }
     }
 
-    pub fn min(self, other: Pos<'n>) -> Self {
+    pub fn min(self, other: Pos) -> Self {
         match self.line.cmp(&other.line) {
             Ordering::Greater => other,
             Ordering::Equal => match self.col.cmp(&other.col) {
@@ -70,25 +71,25 @@ impl<'n> Pos<'n> {
     }
 }
 
-impl<'n> Display for Pos<'n> {
+impl Display for Pos {
     fn fmt(&self, fmt: &mut Formatter) -> fmt::Result {
         write!(fmt, "{}:{}", self.line + 1, self.col + 1)
     }
 }
 
-impl<'n> Default for Pos<'n> {
+impl Default for Pos {
     fn default() -> Self {
         Pos {
             source: 0,
             line: 0,
             col: 0,
-            source_name: None,
-            source_text: "",
+            source_name: Arc::new(String::new()),
+            source_text: Arc::new(String::new()),
         }
     }
 }
 
-impl<'n> PartialOrd for Pos<'n> {
+impl PartialOrd for Pos {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         if self.source_name != other.source_name {
             None
@@ -101,45 +102,47 @@ impl<'n> PartialOrd for Pos<'n> {
 
 // Pos is only equal during testing
 #[cfg(test)]
-impl<'n> PartialEq for Pos<'n> {
+impl PartialEq for Pos {
     fn eq(&self, _other: &Self) -> bool { true }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
 #[cfg_attr(not(test), derive(PartialEq))]
-pub struct Range<'n>(Pos<'n>, Pos<'n>);
+pub struct Range(Pos, Pos);
 
-impl<'n> Range<'n> {
-    pub fn new(start: Pos<'n>, end: Pos<'n>) -> Self {
+impl Range {
+    pub fn new(start: Pos, end: Pos) -> Self {
         Range(start, end)
     }
 
-    pub fn start(&self) -> Pos<'n> {
-        self.0
+    pub fn start(&self) -> Pos {
+        self.0.clone()
     }
 
-    pub fn end(&self) -> Pos<'n> {
-        self.1
+    pub fn end(&self) -> Pos {
+        self.1.clone()
     }
 
-    pub fn union(&self, other: &Range<'n>) -> Self {
+    pub fn union(&self, other: &Range) -> Self {
         let start = self.start().min(other.start());
         let end = self.end().max(other.end());
         Range(start, end)
     }
+}
 
-    pub fn text(&self) -> &str {
+impl Display for Range {
+    fn fmt(&self, fmt: &mut Formatter) -> fmt::Result {
         let start_source = self.start().source;
         let end_source = self.end().source;
-        &self.start().source_text[start_source .. end_source]
+        write!(fmt, "{}", &self.start().source_text[start_source .. end_source])
     }
 }
 
 #[derive(Clone, Debug)]
-pub struct RangeWrapper<'n, T>(pub Range<'n>, pub T)
+pub struct RangeWrapper<T>(pub Range, pub T)
     where T: Sized + Clone + Debug;
 
-impl<'n, T> RangeWrapper<'n, T>
+impl<T> RangeWrapper<T>
     where T: Sized + Clone + Debug
 {
     /// Makes a new ranged value.
@@ -147,16 +150,16 @@ impl<'n, T> RangeWrapper<'n, T>
     /// # Arguments
     /// * `range` - the range that the object takes up space in.
     /// * `value` - the wrapped value.
-    pub fn new(range: Range<'n>, value: T) -> Self {
+    pub fn new(range: Range, value: T) -> Self {
         RangeWrapper(range, value)
     }
 
-    pub fn map<Out>(&self, mapfn: impl FnOnce(&T) -> Out) -> RangeWrapper<'n, Out>
+    pub fn map<Out>(&self, mapfn: impl FnOnce(&T) -> Out) -> RangeWrapper<Out>
         where Out: Clone + Debug
     {
         let RangeWrapper(range, ref inner) = self;
         let inner = (mapfn)(inner);
-        RangeWrapper(*range, inner)
+        RangeWrapper(range.clone(), inner)
     }
 
     pub fn into_inner(self) -> T {
@@ -168,7 +171,7 @@ impl<'n, T> RangeWrapper<'n, T>
     }
 }
 
-impl<'n, T> Deref for RangeWrapper<'n, T>
+impl<T> Deref for RangeWrapper<T>
     where T: Sized + Clone + Debug
 {
     type Target = T;
@@ -177,7 +180,7 @@ impl<'n, T> Deref for RangeWrapper<'n, T>
     }
 }
 
-impl<'n, T> PartialEq for RangeWrapper<'n, T>
+impl<T> PartialEq for RangeWrapper<T>
     where T: Sized + Clone + Debug + PartialEq
 {
     fn eq(&self, other: &Self) -> bool {
@@ -185,24 +188,24 @@ impl<'n, T> PartialEq for RangeWrapper<'n, T>
     }
 }
 
-impl<'n, T> Ranged<'n> for RangeWrapper<'n, T>
+impl<T> Ranged for RangeWrapper<T>
     where T: Sized + Clone + Debug
 {
-    fn range(&self) -> Range<'n> {
-        self.0
+    fn range(&self) -> Range {
+        self.0.clone()
     }
 }
 
-pub trait Ranged<'n>: Clone + Debug {
-    fn range(&self) -> Range<'n>;
+pub trait Ranged: Clone + Debug {
+    fn range(&self) -> Range;
 }
 
 #[macro_export]
 macro_rules! impl_ranged {
     ($ty:ident :: $member:tt) => {
-        impl<'n> $crate::common::pos::Ranged<'n> for $ty <'n> {
-            fn range(&self) -> Range<'n> {
-                self.$member
+        impl $crate::common::pos::Ranged for $ty  {
+            fn range(&self) -> Range {
+                self.$member.clone()
             }
         }
     };

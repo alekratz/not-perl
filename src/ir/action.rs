@@ -9,31 +9,31 @@ use crate::syntax::{
 /// This is something that changes the state of the VM (e.g. assign a value, evaluate an
 /// expression, conditionally execute).
 #[derive(Debug)]
-pub enum Action<'n> {
-    Eval(Value<'n>),
-    Assign(Value<'n>, AssignOp, Value<'n>),
-    Loop(Block<'n>),
-    Block(Block<'n>),
+pub enum Action {
+    Eval(Value),
+    Assign(Value, AssignOp, Value),
+    Loop(Block),
+    Block(Block),
     ConditionBlock {
-        if_block: Box<ConditionAction<'n>>,
-        elseif_blocks: Vec<ConditionAction<'n>>,
-        else_block: Option<Box<Action<'n>>>,
+        if_block: Box<ConditionAction>,
+        elseif_blocks: Vec<ConditionAction>,
+        else_block: Option<Box<Action>>,
     },
     Break,
     Continue,
-    Return(Option<Value<'n>>),
+    Return(Option<Value>),
 }
 
-impl<'n> Action<'n> {
-    pub fn from_syntax_block(block: impl AsRef<[Stmt<'n>]>) -> Self {
+impl Action {
+    pub fn from_syntax_block(block: impl AsRef<[Stmt]>) -> Self {
         Action::Block(block.as_ref().iter()
             .map(Action::from_syntax)
             .collect())
     }
 }
 
-impl<'n> Ir<'n, Stmt<'n>> for Action<'n> {
-    fn from_syntax(stmt: &Stmt<'n>) -> Self {
+impl Ir<Stmt> for Action {
+    fn from_syntax(stmt: &Stmt) -> Self {
         match stmt {
             Stmt::UserTy(_) => unreachable!(), // user types are covered as non-action types
             Stmt::Fun(_) => unreachable!(), // functions are covered as non-action types
@@ -82,17 +82,17 @@ impl<'n> Ir<'n, Stmt<'n>> for Action<'n> {
 }
 
 /// A block of actions.
-pub type Block<'n> = Vec<Action<'n>>;
+pub type Block = Vec<Action>;
 
 /// An action that executes as a result of the given condition value.
 #[derive(Debug)]
-pub struct ConditionAction<'n> {
-    pub condition: Value<'n>,
-    pub action: Action<'n>,
+pub struct ConditionAction {
+    pub condition: Value,
+    pub action: Action,
 }
 
-impl<'n> ConditionAction<'n> {
-    pub fn from_condition_block(cond_block: &ConditionBlock<'n>) -> Self {
+impl ConditionAction {
+    pub fn from_condition_block(cond_block: &ConditionBlock) -> Self {
         ConditionAction {
             condition: Value::from_syntax(&cond_block.condition),
             action: Action::from_syntax_block(&cond_block.block),

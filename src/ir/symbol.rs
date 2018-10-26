@@ -41,4 +41,4 @@ impl Symbol {
     }
 }
 
-pub type RangedSymbol<'n> = RangeWrapper<'n, Symbol>;
+pub type RangedSymbol = RangeWrapper<Symbol>;

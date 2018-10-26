@@ -54,10 +54,10 @@ impl<'s> ValueContext<'s> {
     }
 }
 
-impl<'n, 'r: 'n, 's> TryTransform<'n, &'r ir::Value<'n>> for ValueContext<'s> {
+impl<'r, 's> TryTransform<&'r ir::Value> for ValueContext<'s> {
     type Out = Vec<Bc>;
 
-    fn try_transform(self, value: &'r ir::Value<'n>) -> Result<Self::Out, Error<'n>> {
+    fn try_transform(self, value: &'r ir::Value) -> Result<Self::Out, Error> {
         use crate::ir::Value;
         let range = value.range();
         match value {

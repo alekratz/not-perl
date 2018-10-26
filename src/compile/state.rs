@@ -31,7 +31,7 @@ impl State {
     }
 
     /// Compile a single IR tree, updating this state.
-    pub fn update<'n, 'r: 'n>(&mut self, ir_tree: &'r ir::IrTree<'n>) -> Result<(), Error<'n>> {
+    pub fn update<'r>(&mut self, ir_tree: &'r ir::IrTree) -> Result<(), Error> {
         // Gather function stubs
         GatherFunStubs::new(self)
             .try_transform(ir_tree.functions())?;

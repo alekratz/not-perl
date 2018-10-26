@@ -21,14 +21,14 @@ impl Display for TyExpr {
 
 /// An intermediate representation of a user-defined type.
 #[derive(Debug)]
-pub struct UserTy<'n> {
+pub struct UserTy {
     pub name: String,
     pub parents: Vec<String>,
-    pub functions: Vec<Fun<'n>>,
+    pub functions: Vec<Fun>,
 }
 
-impl<'n> Ir<'n, tree::UserTy<'n>> for UserTy<'n> {
-    fn from_syntax(ty: &tree::UserTy<'n>) -> Self {
+impl Ir<tree::UserTy> for UserTy {
+    fn from_syntax(ty: &tree::UserTy) -> Self {
         UserTy {
             name: ty.name.clone(),
             parents: ty.parents.clone(),

@@ -113,7 +113,7 @@ pub enum Token {
 
 impl Token {
     /// Gets whether this token is a lookahead to the given AST type.
-    pub fn is_lookahead<'n, A: Ast<'n>>(&self) -> bool {
+    pub fn is_lookahead<A: Ast>(&self) -> bool {
         A::token_is_lookahead(self)
     }
 
@@ -230,21 +230,21 @@ impl Display for Token {
     }
 }
 
-impl<'n> From<RangedToken<'n>> for Token {
-    fn from(other: RangedToken<'n>) -> Self {
+impl From<RangedToken> for Token {
+    fn from(other: RangedToken) -> Self {
         other.1
     }
 }
 
-impl<'n> Display for RangedToken<'n> {
+impl Display for RangedToken {
     fn fmt(&self, fmt: &mut Formatter) -> fmt::Result {
         (self.1).fmt(fmt)
     }
 }
 
-pub type RangedToken<'n> = RangeWrapper<'n, Token>;
+pub type RangedToken = RangeWrapper<Token>;
 
-impl<'n> RangedToken<'n> {
+impl RangedToken {
     pub fn token(&self) -> &Token {
         &self.1
     }
