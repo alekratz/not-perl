@@ -2,7 +2,7 @@ use std::{
     result,
     fmt::{self, Formatter, Display},
 };
-use crate::syntax::Pos;
+use crate::common::pos::Pos;
 
 #[derive(Debug, Clone)]
 pub struct SyntaxError<'n> {

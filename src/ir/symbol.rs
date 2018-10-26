@@ -1,6 +1,6 @@
+use crate::common::pos::Ranged;
 use crate::syntax::{
     token::Token,
-    Ranged,
 };
 
 /// A symbol which is used to point to a value.

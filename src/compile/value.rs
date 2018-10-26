@@ -4,6 +4,7 @@ use std::{
     },
     ops::{Deref, DerefMut},
 };
+use crate::common::pos::Ranged;
 use crate::compile::{
     Error,
     RegSymbolAlloc,
@@ -13,7 +14,6 @@ use crate::compile::{
     TryTransform,
 };
 use crate::ir;
-use crate::syntax::Ranged;
 use crate::vm::{self, Bc, Ref, Symbolic, Symbol};
 
 #[derive(Debug, Clone)]

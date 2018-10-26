@@ -2,9 +2,11 @@ use std::{
     mem,
     str::Chars,
 };
-use crate::syntax::{
+use crate::common::pos::{
     Pos,
     Range,
+};
+use crate::syntax::{
     Result,
     SyntaxError,
     token::*,

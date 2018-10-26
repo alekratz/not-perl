@@ -1,10 +1,14 @@
 use crate::syntax::{
     token::{Token},
     tree::Expr,
-    Range,
-    Ranged,
 };
-use crate::common::lang::Op;
+use crate::common::{
+    pos::{
+        Range,
+        Ranged,
+    },
+    lang::Op,
+};
 use crate::ir::{Ir, Symbol, RangeSymbol};
 
 pub use crate::common::value::Const;

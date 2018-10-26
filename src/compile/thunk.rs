@@ -6,7 +6,7 @@ use crate::compile::{
     transform::*,
 };
 use crate::ir;
-use crate::syntax::Ranged;
+use crate::common::pos::Ranged;
 use crate::vm::{
     self,
     Bc,

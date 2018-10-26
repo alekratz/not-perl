@@ -1,7 +1,9 @@
 use std::fmt::{self, Formatter, Display};
-use crate::common::lang::Op;
+use crate::common::{
+    lang::Op,
+    pos::Ranged,
+};
 use crate::syntax::{
-    Ranged,
     tree::Ast,
 };
 
