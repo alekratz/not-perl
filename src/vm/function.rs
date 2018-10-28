@@ -25,6 +25,15 @@ impl Fun {
     }
 }
 
+impl Ranged for Fun {
+    fn range(&self) -> Range {
+        match self {
+            Fun::User(u) => u.range.clone(),
+            Fun::Builtin(_, _) => Range::Builtin,
+        }
+    }
+}
+
 impl Symbolic for Fun {
     type Symbol = FunSymbol;
 
@@ -49,6 +58,7 @@ pub struct UserFun {
     pub symbol: FunSymbol,
     pub name: String,
     pub params: usize,
+    pub range: Range,
 }
 
 /// A builtin function.

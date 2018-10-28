@@ -70,7 +70,7 @@ error_kind_def! {
     fn unknown_ty(name: String)         -> UnknownTy        => ("unknown type `{}`", name)
     fn invalid_assign_lhs(lhs: String)  -> InvalidAssignLhs => ("invalid left-hand side of assignment: {}", lhs)
     fn duplicate_fun(first_def: Range, name: String)
-                                        -> DuplicateFun     => ("duplicate function definition: {}", name)
+                                        -> DuplicateFun     => ("duplicate function definition: {} (first definition here: {})", name, first_def)
 }
 
 #[derive(Debug)]

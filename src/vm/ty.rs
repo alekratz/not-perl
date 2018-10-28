@@ -1,6 +1,7 @@
 use std::{
     fmt::{self, Display, Formatter},
 };
+use crate::common::prelude::*;
 use crate::vm::{Symbolic, TySymbol};
 
 #[derive(Debug, Clone)]
@@ -9,10 +10,20 @@ pub enum Ty {
     Builtin(BuiltinTy, TySymbol),
 }
 
+impl Ranged for Ty {
+    fn range(&self) -> Range {
+        match self {
+            Ty::User(u) => u.range.clone(),
+            Ty::Builtin(_, _) => Range::Builtin,
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct UserTy {
     pub name: String,
     pub symbol: TySymbol,
+    pub range: Range,
 }
 
 #[derive(Debug, Clone)]

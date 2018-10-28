@@ -52,12 +52,23 @@ impl Symbolic for Fun {
     }
 }
 
+impl Ranged for Fun {
+    fn range(&self) -> Range {
+        match self {
+            Fun::Stub(s) => s.range.clone(),
+            Fun::Vm(v) => v.range(),
+            Fun::Op(_, o) => o.range(),
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct FunStub {
     pub name: String,
     pub symbol: vm::FunSymbol,
     pub params: usize,
     pub return_ty: ir::TyExpr,
+    pub range: Range,
 }
 
 impl FunStub {
@@ -65,11 +76,13 @@ impl FunStub {
         let name = fun.name().to_string();
         let params = fun.params.len();
         let return_ty = fun.return_ty.clone();
+        let range = fun.range();
         FunStub {
             name,
             symbol,
             params,
             return_ty,
+            range,
         }
     }
 }
@@ -95,8 +108,7 @@ impl<'r, 's> TryTransform<&'r [ir::Fun]> for GatherFunStubs<'s> {
         for fun in funs {
             let name = fun.name();
             if let Some(f) = self.state.fun_scope.get_local_by_name(name) {
-                unimplemented!("TODO(range) : impl Ranged for vm::Fun")
-                //return Err(Error::duplicate_fun(fun.range(), f.range(), name.to_string()));
+                return Err(Error::duplicate_fun(fun.range(), f.range(), name.to_string()));
             }
             let symbol = self.state.fun_scope.reserve_symbol();
             let stub = FunStub::from_ir_function(symbol, fun);
