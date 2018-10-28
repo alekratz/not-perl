@@ -3,10 +3,7 @@ use std::{
     str::Chars,
     sync::Arc,
 };
-use crate::common::pos::{
-    Pos,
-    Range,
-};
+use crate::common::prelude::*;
 use crate::syntax::{
     Result,
     SyntaxError,
@@ -336,7 +333,7 @@ impl<'c> Iterator for Lexer<'c> {
         let token = self.next_token();
         let end = self.pos.clone();
         // next_token returns Option<Result<Token>>, we need O<R<RangedToken>>
-        token.map(|r| r.map(|t| RangedToken::new(Range::new(start, end), t)))
+        token.map(|r| r.map(|t| RangedToken::new(Range::Src(SrcRange::new(start, end)), t)))
     }
 }
 

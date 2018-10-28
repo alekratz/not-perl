@@ -108,14 +108,14 @@ impl PartialEq for Pos {
 
 #[derive(Clone, Debug)]
 #[cfg_attr(not(test), derive(PartialEq))]
-pub struct Range(Pos, Pos);
+pub struct SrcRange(Pos, Pos);
 
-impl Range {
+impl SrcRange {
     pub fn new(start: Pos, end: Pos) -> Self {
         if start < end {
-            Range(start, end)
+            SrcRange(start, end)
         } else {
-            Range(end, start)
+            SrcRange(end, start)
         }
     }
 
@@ -127,13 +127,13 @@ impl Range {
         &self.1
     }
 
-    pub fn union(&self, other: &Range) -> Self {
+    pub fn union(&self, other: &SrcRange) -> Self {
         let start = self.start().min(other.start());
         let end = self.end().max(other.end());
-        Range(start.clone(), end.clone())
+        SrcRange(start.clone(), end.clone())
     }
 
-    pub fn source_text(&self) -> &str{
+    pub fn source_text(&self) -> &str {
         let start_source = self.start().source;
         let end_source = self.end().source;
         let start = &self.0;
@@ -146,12 +146,51 @@ impl Range {
     }
 }
 
-impl Display for Range {
+impl Display for SrcRange {
     fn fmt(&self, fmt: &mut Formatter) -> fmt::Result {
         if self.0.line == self.1.line {
             write!(fmt, "{}:{} - {}", self.0.line, self.0.col, self.1.col)
         } else {
             write!(fmt, "{}:{} - {}:{}", self.0.line, self.0.col, self.1.line, self.1.col)
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum Range {
+    Src(SrcRange),
+    Builtin,
+}
+
+impl Range {
+    pub fn source_text(&self) -> &str {
+        match self {
+            Range::Src(range) => range.source_text(),
+            Range::Builtin => "<builtin>",
+        }
+    }
+
+    pub fn source_name(&self) -> &str {
+        match self {
+            Range::Src(range) => range.source_name(),
+            Range::Builtin => "<builtin>",
+        }
+    }
+
+    pub fn union(&self, other: &Range) -> Self {
+        match (self, other) {
+            | (Range::Builtin, _)
+            | (_, Range::Builtin) => Range::Builtin,
+            (Range::Src(first), Range::Src(second)) => Range::Src(first.union(second)),
+        }
+    }
+}
+
+impl Display for Range {
+    fn fmt(&self, fmt: &mut Formatter) -> fmt::Result {
+        match self {
+            Range::Src(s) => Display::fmt(s, fmt),
+            Range::Builtin => write!(fmt, "<builtin>"),
         }
     }
 }
@@ -223,7 +262,7 @@ pub trait Ranged: Debug {
 macro_rules! impl_ranged {
     ($ty:ident :: $member:tt) => {
         impl $crate::common::pos::Ranged for $ty  {
-            fn range(&self) -> Range {
+            fn range(&self) -> $crate::common::pos::Range {
                 self.$member.clone()
             }
         }

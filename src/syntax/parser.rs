@@ -2,6 +2,7 @@ use std::{
     mem,
     collections::VecDeque
 };
+use crate::common::prelude::*;
 use crate::syntax::{
     Lexer,
     Result,
@@ -9,17 +10,13 @@ use crate::syntax::{
     tree::*,
     token::*,
 };
-use crate::common::{
-    pos::{Ranged, Range, RangeWrapper},
-    lang::Op,
-};
 
 macro_rules! ranged {
     ( $lexer:expr, $block:block ) => {{
         let begin = ($lexer).pos();
         let value = $block;
         let end = ($lexer).pos();
-        let range = Range::new(begin, end);
+        let range = Range::Src(SrcRange::new(begin, end));
         (range, value)
     }};
 }
@@ -297,7 +294,7 @@ impl<'c> Parser<'c> {
         if self.is_token_match(&Token::LParen) {
             let args = self.next_funcall_args()?;
             let end = self.lexer.pos();
-            let range = Range::new(begin.clone(), end);
+            let range = Range::Src(SrcRange::new(begin.clone(), end));
             expr = Expr::FunCall { function: Box::new(expr), args, range, }
         }
 
@@ -306,7 +303,7 @@ impl<'c> Parser<'c> {
             let index = self.next_expr()?;
             self.match_token_preserve_newline(Token::RBracket)?;
             let end = self.lexer.pos();
-            let range = Range::new(begin, end);
+            let range = Range::Src(SrcRange::new(begin.clone(), end));
             Ok(Expr::ArrayAccess{ array: Box::new(expr), index: Box::new(index), range, })
         } else {
             Ok(expr)
@@ -348,7 +345,7 @@ impl<'c> Parser<'c> {
                     default = Some(self.next_expr()?);
                 }
                 let end = self.lexer.pos();
-                let range = Range::new(begin, end);
+                let range = Range::Src(SrcRange::new(begin, end));
                 params.push(FunParam::Variable { name: param_name, ty, default, range } );
 
                 if !self.is_token_match(&Token::RParen) {
@@ -363,7 +360,7 @@ impl<'c> Parser<'c> {
         }
         let body = self.next_block()?;
         let end = self.lexer.pos();
-        let range = Range::new(begin, end);
+        let range = Range::Src(SrcRange::new(begin, end));
         Ok(Fun {
             name,
             params,
@@ -409,7 +406,7 @@ impl<'c> Parser<'c> {
 
         self.inside_type = old_inside_type;
         let end = self.lexer.pos();
-        let range = Range::new(begin, end);
+        let range = Range::Src(SrcRange::new(begin, end));
         Ok(UserTy { name, parents, functions, range, })
     }
 
