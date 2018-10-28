@@ -48,7 +48,7 @@ impl Pos {
         }
     }
 
-    pub fn max(self, other: Pos) -> Self {
+    pub fn max<'n>(&'n self, other: &'n Pos) -> &'n Self {
         match self.line.cmp(&other.line) {
             Ordering::Less => other,
             Ordering::Equal => match self.col.cmp(&other.col) {
@@ -59,7 +59,7 @@ impl Pos {
         }
     }
 
-    pub fn min(self, other: Pos) -> Self {
+    pub fn min<'n>(&'n self, other: &'n Pos) -> &'n Self {
         match self.line.cmp(&other.line) {
             Ordering::Greater => other,
             Ordering::Equal => match self.col.cmp(&other.col) {
@@ -112,29 +112,47 @@ pub struct Range(Pos, Pos);
 
 impl Range {
     pub fn new(start: Pos, end: Pos) -> Self {
-        Range(start, end)
+        if start < end {
+            Range(start, end)
+        } else {
+            Range(end, start)
+        }
     }
 
-    pub fn start(&self) -> Pos {
-        self.0.clone()
+    pub fn start(&self) -> &Pos {
+        &self.0
     }
 
-    pub fn end(&self) -> Pos {
-        self.1.clone()
+    pub fn end(&self) -> &Pos {
+        &self.1
     }
 
     pub fn union(&self, other: &Range) -> Self {
         let start = self.start().min(other.start());
         let end = self.end().max(other.end());
-        Range(start, end)
+        Range(start.clone(), end.clone())
+    }
+
+    pub fn source_text(&self) -> &str{
+        let start_source = self.start().source;
+        let end_source = self.end().source;
+        let start = &self.0;
+        &start.source_text[start_source .. end_source]
+    }
+
+    pub fn source_name(&self) -> &str {
+        let start = &self.0;
+        &start.source_name
     }
 }
 
 impl Display for Range {
     fn fmt(&self, fmt: &mut Formatter) -> fmt::Result {
-        let start_source = self.start().source;
-        let end_source = self.end().source;
-        write!(fmt, "{}", &self.start().source_text[start_source .. end_source])
+        if self.0.line == self.1.line {
+            write!(fmt, "{}:{} - {}", self.0.line, self.0.col, self.1.col)
+        } else {
+            write!(fmt, "{}:{} - {}:{}", self.0.line, self.0.col, self.1.line, self.1.col)
+        }
     }
 }
 
@@ -154,6 +172,7 @@ impl<T> RangeWrapper<T>
         RangeWrapper(range, value)
     }
 
+    /// Maps the wrapped value to another value.
     pub fn map<Out>(&self, mapfn: impl FnOnce(&T) -> Out) -> RangeWrapper<Out>
         where Out: Clone + Debug
     {

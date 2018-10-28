@@ -94,9 +94,9 @@ impl<'r, 's> TryTransform<&'r [ir::Fun]> for GatherFunStubs<'s> {
     fn try_transform(self, funs: &'r [ir::Fun]) -> Result<(), Error> {
         for fun in funs {
             let name = fun.name();
-            if let Some(f) = self.state.var_scope.get_local_by_name(name) {
-                unimplemented!("TODO(rewrite) : duplication function name and function range")
-                //return Err(Error::duplicate_fun(fun.range())) // oops this isn't possible, no good range for function defs
+            if let Some(f) = self.state.fun_scope.get_local_by_name(name) {
+                unimplemented!("TODO(range) : impl Ranged for vm::Fun")
+                //return Err(Error::duplicate_fun(fun.range(), f.range(), name.to_string()));
             }
             let symbol = self.state.fun_scope.reserve_symbol();
             let stub = FunStub::from_ir_function(symbol, fun);

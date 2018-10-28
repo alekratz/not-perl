@@ -79,7 +79,7 @@ impl<'r, 's> TryTransformMut<&'r ir::Action> for JumpBlock<'s> {
                 // TODO : remove assignment ops, desugar assignment ops
                 if !lhs.is_assign_candidate() {
                     let range = lhs.range();
-                    return Err(Error::invalid_assign_lhs(range.clone(), range.to_string()));
+                    return Err(Error::invalid_assign_lhs(range.clone(), range.source_text().to_string()));
                 }
 
                 let RangeWrapper(_, lhs_value) = lhs;
