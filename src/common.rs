@@ -3,6 +3,6 @@ pub mod lang;
 #[macro_use] pub mod pos;
 
 pub mod prelude {
-    pub use lang::*;
-    pub use pos::*;
+    pub use super::lang::*;
+    pub use super::pos::*;
 }
