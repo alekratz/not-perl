@@ -6,7 +6,8 @@ use std::{
 use crate::common::prelude::*;
 use crate::syntax::{
     Result,
-    SyntaxError,
+    Error,
+    ErrorKind,
     token::*,
 };
 
@@ -104,7 +105,7 @@ impl<'c> Lexer<'c> {
                 // recursion is guaranteed to be only one layer deep
                 self.next_token()
             }
-            e => Some(Err(SyntaxError::new(format!("unexpected character: {:?}", e), self.pos.clone()))),
+            e => Some(Err(self.err_unexpected(format!("character {:?}", e)))),
         }
     }
 
@@ -184,8 +185,8 @@ impl<'c> Lexer<'c> {
                 }
                 Some('"') => break Ok(Token::StrLit(str_lit)),
                 Some('\n') | Some('\r') =>
-                    break Err(SyntaxError::new("reached newline while inside of string literal".to_string(), self.pos.clone())),
-                None => break Err(SyntaxError::new("reached EOF while inside of string literal".to_string(), self.pos.clone())),
+                    break Err(self.err(ErrorKind::EarlyStringEnd("newline".to_string()))),
+                None => break Err(self.err(ErrorKind::EarlyStringEnd("EOF".to_string()))),
                 Some(c) => str_lit.push(c),
             }
         }
@@ -266,9 +267,10 @@ impl<'c> Lexer<'c> {
         while let Some(c) = self.next {
             if c == '.' {
                 if radix != 10 {
-                    return Err(SyntaxError::new("non-base-ten floating point literals are not supported".to_string(), self.pos.clone()));
+                    
+                    return Err(self.err_unexpected("non-base-ten floating point literal: not supported"));
                 } else if is_float {
-                    return Err(SyntaxError::new("second decimal encountered in floating point literal".to_string(), self.pos.clone()));
+                    return Err(self.err_unexpected("second decimal in floating point literal"));
                 } else {
                     number.push('.');
                     is_float = true;
@@ -276,7 +278,7 @@ impl<'c> Lexer<'c> {
             } else if c.is_digit(radix as u32) {
                 number.push(c);
             } else if c.is_alphanumeric() {
-                return Err(SyntaxError::new(format!("unrecognized digit {:?}", c), self.pos.clone()));
+                return Err(self.err_unexpected(format!("non-digit {:?}", c)));
             } else {
                 break;
             }
@@ -301,10 +303,11 @@ impl<'c> Lexer<'c> {
                 if char_class.is_match(c) {
                     Ok(c)
                 } else {
-                    Err(SyntaxError::new(format!("expected {} char, but got {:?} instead", char_class.name(), c), self.pos.clone()))
+                    Err(self.err_expected_got(format!("{} char", char_class.name()), format!("{:?}", c)))
                 }
             },
-            None => Err(SyntaxError::new(format!("expected {} char, but got EOF instead", char_class.name()), self.pos.clone())),
+                    
+            None => Err(self.err_expected_got(format!("{} char", char_class.name()), "EOF")),
         }
     }
 
@@ -322,6 +325,18 @@ impl<'c> Lexer<'c> {
             }
         }
         self.curr.clone()
+    }
+
+    fn err_unexpected(&self, what: impl ToString) -> Error {
+        self.err(ErrorKind::Unexpected(what.to_string()))
+    }
+    
+    fn err_expected_got(&self, expected: impl ToString, got: impl ToString) -> Error {
+        self.err(ErrorKind::ExpectedGot(expected.to_string(), got.to_string()))
+    }
+
+    fn err(&self, kind: ErrorKind) -> Error {
+        Error::new(self.pos(), kind)
     }
 }
 

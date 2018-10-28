@@ -236,7 +236,7 @@ impl From<RangedToken> for Token {
     }
 }
 
-impl Display for RangedToken {
+impl Display for RangeWrapper<Token> {
     fn fmt(&self, fmt: &mut Formatter) -> fmt::Result {
         (self.1).fmt(fmt)
     }

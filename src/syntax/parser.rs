@@ -1,12 +1,14 @@
 use std::{
     mem,
-    collections::VecDeque
+    collections::VecDeque,
+    fmt::Display,
 };
 use crate::common::prelude::*;
 use crate::syntax::{
     Lexer,
     Result,
-    SyntaxError,
+    Error,
+    ErrorKind,
     tree::*,
     token::*,
 };
@@ -281,7 +283,7 @@ impl<'c> Parser<'c> {
             }
             _ => {
                 if self.is_token_match(&Token::SelfKw) && !self.inside_type {
-                    return Err(self.err("'self' keyword expression may only appear inside of a type declaration".to_string()));
+                    return Err(self.err_message("'self' keyword expression may only appear inside of a type declaration".to_string()));
                 }
                 if self.stmt_level == 0 {
                     Expr::Atom(self.next_token_or_newline()?.unwrap())
@@ -321,9 +323,9 @@ impl<'c> Parser<'c> {
         while !self.is_token_match(&Token::RParen) {
             if self.is_token_match(&Token::SelfKw) {
                 if !self.inside_type {
-                    return Err(self.err(format!("got 'self' keyword outside of type declaration")));
+                    return Err(self.err_unexpected("'self' keyword outside of type declaration"));
                 } else if params.len() > 0 {
-                    return Err(self.err(format!("'self' parameter is only allowed as the first argument to a function")));
+                    return Err(self.err_message("'self' parameter is only allowed as the first argument to a function"));
                 }
                 let range = self.next_token()?
                     .unwrap()
@@ -542,19 +544,18 @@ impl<'c> Parser<'c> {
         Ok(token)
     }
 
-    /// Creates a new `SyntaxError` using the supplied expected item.
+    /// Creates a new `Error` using the supplied expected item.
     /// # Args
     /// `expected` - the expected item.
     ///
     /// # Returns
-    /// A `SyntaxError` with a synthesized error message based on the `expected` param, with the
+    /// A `Error` with a synthesized error message based on the `expected` param, with the
     /// `got` message being an EOF.
-    fn err_expected_got_eof(&self, expected: impl AsRef<str>) -> SyntaxError {
-        let message = format!("expected {}, but got EOF instead", expected.as_ref());
-        self.err(message)
+    fn err_expected_got_eof<D: Display>(&self, expected: D) -> Error {
+        self.err_expected_got(expected, Option::None::<D>)
     }
 
-    /// Creates a new `SyntaxError` using the supplied expected item and the actual item
+    /// Creates a new `Error` using the supplied expected item and the actual item
     /// encountered.
     ///
     /// # Args
@@ -562,23 +563,30 @@ impl<'c> Parser<'c> {
     /// `got` - the item that was encountered in the parser.
     ///
     /// # Returns
-    /// A `SyntaxError` with a synthesized error message based on the `expected` and `got` params.
-    fn err_expected_got<T: ToString>(&self, expected: impl AsRef<str>, got: Option<&T>) -> SyntaxError {
-        let message = format!("expected {}, but got {} instead",
-                              expected.as_ref(),
-                              got.map(|s| s.to_string()).unwrap_or("EOF".to_string()));
-        self.err(message)
+    /// A `Error` with a synthesized error message based on the `expected` and `got` params.
+    fn err_expected_got(&self, expected: impl Display, got: Option<impl Display>) -> Error {
+        let got = got.map(|d| d.to_string())
+            .unwrap_or_else(|| "EOF".to_string());
+        self.err(ErrorKind::ExpectedGot(expected.to_string(), got))
     }
 
-    /// Creates a new `SyntaxError` using the supplied message.
+    fn err_unexpected(&self, what: impl ToString) -> Error {
+        self.err(ErrorKind::Unexpected(what.to_string()))
+    }
+
+    /// Creates a new `Error` using the supplied message.
     ///
     /// # Args
     /// `message` - detailed error info.
     ///
     /// # Returns
-    /// A `SyntaxError` with this parser's current position, as well the specified message.
-    fn err(&self, message: String) -> SyntaxError {
-        SyntaxError::new(message, self.lexer.pos())
+    /// A `Error` with this parser's current position, as well the specified message.
+    fn err_message(&self, message: impl ToString) -> Error {
+        self.err(ErrorKind::Message(message.to_string()))
+    }
+
+    fn err(&self, kind: ErrorKind) -> Error {
+        Error::new(self.lexer.pos(), kind)
     }
 }
 
