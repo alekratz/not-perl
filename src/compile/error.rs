@@ -33,7 +33,7 @@ macro_rules! error_kind_def {
      ) => {
         error_kind_def! {
             fn $builder_name ( $($argname: $argty),+ ) -> $error_kind => ($($display_args),+) {
-                ErrorKind::$error_kind($($argname),*)
+                ErrorKind::$error_kind { $($argname),* }
             }
 
             $($tail)*
@@ -43,10 +43,9 @@ macro_rules! error_kind_def {
     ($(@DISPLAY_ARGS $kind:ident ($($argname:ident:$argty:ty),+) ($($display_args:expr),+) )+) => {
         impl Display for ErrorKind {
             fn fmt(&self, fmt: &mut Formatter) -> fmt::Result {
-                use self::ErrorKind::*;
                 match self {
                     $(
-                        $kind ( $($argname),+ ) => write!(fmt, $($display_args),+),
+                        ErrorKind::$kind { $($argname),+ } => write!(fmt, $($display_args),+),
                     )+
                 }
             }
@@ -55,7 +54,7 @@ macro_rules! error_kind_def {
         #[derive(Debug)]
         pub enum ErrorKind {
             $(
-                $kind ( $($argty),+)
+                $kind { $($argname: $argty),+ }
             ),+
         }
     };
