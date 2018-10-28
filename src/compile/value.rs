@@ -58,21 +58,21 @@ impl<'r, 's> TryTransform<&'r ir::Value> for ValueContext<'s> {
     type Out = Vec<Bc>;
 
     fn try_transform(self, value: &'r ir::Value) -> Result<Self::Out, Error> {
-        use crate::ir::Value;
-        let range = value.range();
+        use crate::ir::ValueKind;
+        let RangeWrapper(range, value) = value;
         match value {
             // Constant/literal value
-            Value::Const(RangeWrapper(_, c)) => {
+            ValueKind::Const(RangeWrapper(_, c)) => {
                 let value = vm::Value::Const(c.clone());
                 Ok(vec![self.kind.transform(value)])
             }
 
             // User symbol (function, var, or ty)
-            Value::Symbol(RangeWrapper(_, s)) => {
+            ValueKind::Symbol(RangeWrapper(_, s)) => {
                 let ref_value = match s {
                     ir::Symbol::Fun(name) => {
                         let symbol = self.state.fun_scope.get_by_name(name)
-                            .ok_or_else(|| Error::unknown_fun(range, name.clone()))?
+                            .ok_or_else(|| Error::unknown_fun(range.clone(), name.clone()))?
                             .symbol();
                         Ref::Fun(symbol)
                     }
@@ -84,7 +84,7 @@ impl<'r, 's> TryTransform<&'r ir::Value> for ValueContext<'s> {
                     }
                     ir::Symbol::Ty(name) => {
                         let symbol = self.state.ty_scope.get_by_name(name)
-                            .ok_or_else(|| Error::unknown_ty(range, name.clone()))?
+                            .ok_or_else(|| Error::unknown_ty(range.clone(), name.clone()))?
                             .symbol();
                         Ref::Ty(symbol)
                     }
@@ -95,12 +95,12 @@ impl<'r, 's> TryTransform<&'r ir::Value> for ValueContext<'s> {
             }
 
             // Array access
-            Value::ArrayAccess(_array, _index) => { unimplemented!("TODO(array) : array access") }
+            ValueKind::ArrayAccess(_array, _index) => { unimplemented!("TODO(array) : array access") }
 
             // Binary expression
-            Value::BinaryExpr(lhs, op, rhs) => {
+            ValueKind::BinaryExpr(lhs, op, rhs) => {
                 let op_fun = self.state.fun_scope.get_binary_op(op)
-                    .ok_or_else(|| Error::unknown_binary_op(range, op.clone()))?
+                    .ok_or_else(|| Error::unknown_binary_op(range.clone(), op.clone()))?
                     .symbol();
                 let lhs_sym = self.state.var_scope.insert_anonymous_var();
                 let lhs_code = {
@@ -132,9 +132,9 @@ impl<'r, 's> TryTransform<&'r ir::Value> for ValueContext<'s> {
             }
 
             // Unary expression
-            Value::UnaryExpr(op, value) => {
+            ValueKind::UnaryExpr(op, value) => {
                 let _op_fun = self.state.fun_scope.get_unary_op(op)
-                    .ok_or_else(|| Error::unknown_unary_op(range, op.clone()))?
+                    .ok_or_else(|| Error::unknown_unary_op(range.clone(), op.clone()))?
                     .symbol();
                 let value_sym = self.state.var_scope.insert_anonymous_var();
                 let mut value_code = {
@@ -147,12 +147,12 @@ impl<'r, 's> TryTransform<&'r ir::Value> for ValueContext<'s> {
             }
 
             // Fun call
-            Value::FunCall(fun, args) => {
+            ValueKind::FunCall(fun, args) => {
                 let mut code = Vec::new();
                 for arg in args {
                     code.append(&mut ValueContext::new(ValueContextKind::Push, self.state).try_transform(arg)?);
                 }
-                if let Value::Symbol(RangeWrapper(_, ir::Symbol::Fun(name))) = fun.as_ref() {
+                if let RangeWrapper(_, ValueKind::Symbol(RangeWrapper(_, ir::Symbol::Fun(name)))) = fun.as_ref() {
                     let fun = self.state
                         .fun_scope
                         .get_by_name_and_params(name, args.len());
@@ -160,7 +160,7 @@ impl<'r, 's> TryTransform<&'r ir::Value> for ValueContext<'s> {
                         // compile function call like normal
                         code.push(Bc::Call(fun.symbol()));
                     } else {
-                        return Err(Error::unknown_fun(range, name.to_string()));
+                        return Err(Error::unknown_fun(range.clone(), name.to_string()));
                     }
                 } else {
                     // evaluate LHS and try to call it as a function

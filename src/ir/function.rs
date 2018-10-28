@@ -1,3 +1,4 @@
+use crate::common::pos::{Range, Ranged};
 use crate::syntax::tree::{self, Stmt};
 use crate::ir::{
     Ir,
@@ -11,13 +12,17 @@ pub struct Fun {
     pub return_ty: TyExpr,
     pub body: Block,
     pub inner_functions: Vec<Fun>,
+    pub range: Range,
 }
 
 impl Fun {
+    // TODO(range) remove this
+    /*
     pub fn new(symbol: Symbol, params: Vec<FunParam>, return_ty: TyExpr, body: Block,
                inner_functions: Vec<Fun>) -> Self {
         Fun { symbol, params, return_ty, body, inner_functions }
     }
+    */
 
     pub fn name(&self) -> &str { &self.symbol.name() }
 }
@@ -46,28 +51,41 @@ impl Ir<tree::Fun> for Fun {
             .into_iter()
             .map(|s| if let Stmt::Fun(f) = s { Fun::from_syntax(f) } else { unreachable!() })
             .collect();
-        Fun { symbol, params, return_ty, body, inner_functions }
+        Fun { symbol, params, return_ty, body, inner_functions, range: range.clone(), }
     }
 }
 
+impl_ranged!(Fun::range);
+
 #[derive(Debug)]
 pub enum FunParam {
-    SelfKw,
+    SelfKw(Range),
     Variable {
         symbol: Symbol,
         ty: TyExpr,
         default: Option<Value>,
+        range: Range,
     },
 }
 
 impl FunParam {
     pub fn name(&self) -> &str {
         match self {
-            FunParam::SelfKw => "self",
-            FunParam::Variable { symbol, ty: _, default: _ } => symbol.name(),
+            FunParam::SelfKw(_) => "self",
+            FunParam::Variable { symbol, ty: _, default: _, range: _ } => symbol.name(),
         }
     }
 }
+
+impl Ranged for FunParam {
+    fn range(&self) -> Range {
+        match self {
+            | FunParam::SelfKw(range)
+            | FunParam::Variable { symbol: _, ty: _, default: _, range, } => range.clone(),
+        }
+    }
+}
+
 
 impl Ir<tree::FunParam> for FunParam {
     fn from_syntax(param: &tree::FunParam) -> Self {
@@ -82,10 +100,10 @@ impl Ir<tree::FunParam> for FunParam {
                     TyExpr::Any
                 };
                 let default = default.as_ref().map(Value::from_syntax);
-                FunParam::Variable { symbol, ty, default }
+                FunParam::Variable { symbol, ty, default, range: range.clone(), }
             }
             // TODO(range) ir::FunParam range
-            tree::FunParam::SelfKw(range) => FunParam::SelfKw,
+            tree::FunParam::SelfKw(range) => FunParam::SelfKw(range.clone()),
         }
     }
 }

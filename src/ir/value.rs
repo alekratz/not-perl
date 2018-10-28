@@ -5,6 +5,7 @@ use crate::syntax::{
 use crate::common::{
     pos::{
         Range,
+        Ranged,
         RangeWrapper,
     },
     lang::Op,
@@ -34,7 +35,7 @@ impl Const {
 }
 
 #[derive(Clone, Debug)]
-pub enum Value {
+pub enum ValueKind {
     Const(RangeConst),
     Symbol(RangedSymbol),
     ArrayAccess(Box<Value>, Box<Value>),
@@ -43,15 +44,15 @@ pub enum Value {
     FunCall(Box<Value>, Vec<Value>),
 }
 
-impl Value {
+impl ValueKind {
     pub fn range(&self) -> Range {
         match self {
-            | Value::Const(RangeWrapper(r, _))
-            | Value::Symbol(RangeWrapper(r, _)) => { r.clone() }
-            | Value::ArrayAccess(r1, r2)
-            | Value::BinaryExpr(r1, _, r2) => { r1.range().union(&r2.range()) }
-            Value::UnaryExpr(_op, value) => { value.range() } // TODO : give ops a range?
-            Value::FunCall(fun, args) => {
+            | ValueKind::Const(RangeWrapper(r, _))
+            | ValueKind::Symbol(RangeWrapper(r, _)) => { r.clone() }
+            | ValueKind::ArrayAccess(r1, r2)
+            | ValueKind::BinaryExpr(r1, _, r2) => { r1.range().union(&r2.range()) }
+            ValueKind::UnaryExpr(_op, value) => { value.range() } // TODO : give ops a range?
+            ValueKind::FunCall(fun, args) => {
                 if let Some(last) = args.last() {
                     fun.range().union(&last.range())
                 } else {
@@ -64,12 +65,12 @@ impl Value {
     /// Gets whether this value consists of only constant values.
     pub fn is_constant(&self) -> bool {
         match self {
-            Value::Const(_) => true,
-            Value::BinaryExpr(lhs, _, rhs) => lhs.is_constant() && rhs.is_constant(),
-            Value::UnaryExpr(_, expr) => expr.is_constant(),
-            | Value::ArrayAccess(_, _)
-            | Value::FunCall(_, _)
-            | Value::Symbol(_) => false,
+            ValueKind::Const(_) => true,
+            ValueKind::BinaryExpr(lhs, _, rhs) => lhs.is_constant() && rhs.is_constant(),
+            ValueKind::UnaryExpr(_, expr) => expr.is_constant(),
+            | ValueKind::ArrayAccess(_, _)
+            | ValueKind::FunCall(_, _)
+            | ValueKind::Symbol(_) => false,
         }
     }
 
@@ -77,8 +78,8 @@ impl Value {
     pub fn is_immediate(&self) -> bool {
         match self {
             // constants and symbols can immediately be accessed
-            | Value::Const(_)
-            | Value::Symbol(_) => true,
+            | ValueKind::Const(_)
+            | ValueKind::Symbol(_) => true,
             // arrays, binary exprs, unary exprs, and function calls must be evaluated
             _ => false,
         }
@@ -90,16 +91,16 @@ impl Value {
         if self.is_constant() { return false; }
 
         match self {
-            Value::Const(_) => false,
+            ValueKind::Const(_) => false,
             // binary expressions are valid LHS candidates if at least one of its sides is an LHS
             // candidate
-            Value::BinaryExpr(l, _, r) => l.is_assign_candidate() || r.is_assign_candidate(),
+            ValueKind::BinaryExpr(l, _, r) => l.is_assign_candidate() || r.is_assign_candidate(),
             // unary expressions pass the value's LHS candidacy through
-            Value::UnaryExpr(_, u) => u.is_assign_candidate(),
+            ValueKind::UnaryExpr(_, u) => u.is_assign_candidate(),
             // symbols, array accesses, and function calls are always valid LHS candidates
-            | Value::Symbol(RangeWrapper(_, Symbol::Variable(_)))
-            | Value::ArrayAccess(_, _)
-            | Value::FunCall(_, _) => true,
+            | ValueKind::Symbol(RangeWrapper(_, Symbol::Variable(_)))
+            | ValueKind::ArrayAccess(_, _)
+            | ValueKind::FunCall(_, _) => true,
             _ => false,
         }
     }
@@ -107,36 +108,39 @@ impl Value {
 
 impl Ir<Expr> for Value {
     fn from_syntax(expr: &Expr) -> Self {
-        match expr {
-            // TODO(range) ir::Value range
+        let kind = match expr {
+            // TODO(range) ir::ValueKind range
             Expr::FunCall { function, args, range } => {
                 let function = Value::from_syntax(function);
                 let mut fun_args = vec![];
                 for arg in args.iter() {
                     fun_args.push(Value::from_syntax(arg));
                 }
-                Value::FunCall(Box::new(function), fun_args)
+                ValueKind::FunCall(Box::new(function), fun_args)
             }
-            // TODO(range) ir::Value range
+            // TODO(range) ir::ValueKind range
             Expr::ArrayAccess { array, index, range } => {
                 let array = Value::from_syntax(array);
                 let index = Value::from_syntax(index);
-                Value::ArrayAccess(Box::new(array), Box::new(index))
+                ValueKind::ArrayAccess(Box::new(array), Box::new(index))
             }
             Expr::Atom(ref token) => match token.token() {
                 | Token::Variable(_)
-                | Token::Bareword(_) => Value::Symbol(token.map(Symbol::from_token)),
-                _ => Value::Const(token.map(Const::from_token))
+                | Token::Bareword(_) => ValueKind::Symbol(token.map(Symbol::from_token)),
+                _ => ValueKind::Const(token.map(Const::from_token))
             },
             Expr::Binary(ref lhs, ref op, ref rhs) => {
                 let lhs = Value::from_syntax(lhs);
                 let rhs = Value::from_syntax(rhs);
-                Value::BinaryExpr(Box::new(lhs), op.clone(), Box::new(rhs))
+                ValueKind::BinaryExpr(Box::new(lhs), op.clone(), Box::new(rhs))
             }
             Expr::Unary(ref op, ref expr) => {
                 let expr = Value::from_syntax(expr);
-                Value::UnaryExpr(op.clone(), Box::new(expr))
+                ValueKind::UnaryExpr(op.clone(), Box::new(expr))
             }
-        }
+        };
+        Value::new(expr.range(), kind)
     }
 }
+
+pub type Value = RangeWrapper<ValueKind>;

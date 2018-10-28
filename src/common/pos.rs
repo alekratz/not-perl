@@ -196,7 +196,7 @@ impl<T> Ranged for RangeWrapper<T>
     }
 }
 
-pub trait Ranged: Clone + Debug {
+pub trait Ranged: Debug {
     fn range(&self) -> Range;
 }
 

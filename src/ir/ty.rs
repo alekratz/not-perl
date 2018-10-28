@@ -1,4 +1,5 @@
 use std::fmt::{self, Display, Formatter};
+use crate::common::pos::{Range, Ranged};
 use crate::syntax::tree;
 use crate::ir::{Fun, Ir};
 
@@ -25,6 +26,7 @@ pub struct UserTy {
     pub name: String,
     pub parents: Vec<String>,
     pub functions: Vec<Fun>,
+    pub range: Range,
 }
 
 impl Ir<tree::UserTy> for UserTy {
@@ -36,6 +38,13 @@ impl Ir<tree::UserTy> for UserTy {
                 .iter()
                 .map(Fun::from_syntax)
                 .collect(),
+            range: ty.range(),
         }
+    }
+}
+
+impl Ranged for UserTy {
+    fn range(&self) -> Range {
+        self.range.clone()
     }
 }

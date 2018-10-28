@@ -1,3 +1,4 @@
+use crate::common::pos::{Ranged, Range};
 use crate::syntax::tree::{Ast, SyntaxTree, Stmt};
 
 mod ty;
@@ -12,9 +13,8 @@ pub use self::action::*;
 pub use self::symbol::*;
 pub use self::value::*;
 
-pub trait Ir<A>
+pub trait Ir<A>: Sized + Ranged
     where A: Ast + Sized,
-          Self: Sized,
 {
     fn from_syntax(ast: &A) -> Self;
 }
@@ -24,6 +24,7 @@ pub struct IrTree {
     actions: Vec<Action>,
     functions: Vec<Fun>,
     user_types: Vec<UserTy>,
+    range: Range,
 }
 
 impl IrTree {
@@ -58,7 +59,9 @@ impl Ir<SyntaxTree> for IrTree {
             actions,
             functions,
             user_types,
+            range: ast.range(),
         }
     }
 }
 
+impl_ranged!(IrTree::range);

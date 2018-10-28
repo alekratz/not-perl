@@ -66,35 +66,37 @@ impl<'r, 's> TryTransformMut<&'r ir::Action> for JumpBlock<'s> {
     type Out = Thunk;
 
     fn try_transform_mut(&mut self, action: &'r ir::Action) -> Result<Thunk, Error> {
-        use crate::ir::Action;
+        use crate::ir::ActionKind;
+        let RangeWrapper(range, action) = action;
         match action {
             // Evaluate an IR value
-            Action::Eval(val) => {
+            ActionKind::Eval(val) => {
                 let ctx = ValueContext::new(ValueContextKind::Push, self.state);
                 ctx.try_transform(val).map(Thunk::Code)
             },
             // Assign a value to a place in memory
-            Action::Assign(lhs, _op, rhs) => {
+            ActionKind::Assign(lhs, _op, rhs) => {
                 // TODO : remove assignment ops, desugar assignment ops
                 if !lhs.is_assign_candidate() {
                     let range = lhs.range();
                     return Err(Error::invalid_assign_lhs(range.clone(), range.to_string()));
                 }
 
-                let code = match lhs {
+                let RangeWrapper(_, lhs_value) = lhs;
+                let code = match lhs_value {
                     // unreachable since is_assign_candidate excludes constants
-                    ir::Value::Const(_) => unreachable!(),
-                    ir::Value::Symbol(RangeWrapper(_, ir::Symbol::Variable(varname))) => {
-                        let lhs_store = Ref::Reg(self.state.var_scope.get_or_insert(varname));
+                    ir::ValueKind::Const(_) => unreachable!(),
+                    ir::ValueKind::Symbol(RangeWrapper(_, ir::Symbol::Variable(varname))) => {
+                        let lhs_store = Ref::Reg(self.state.var_scope.get_or_insert(&varname));
                         ValueContext::new(ValueContextKind::Store(lhs_store), self.state)
                             .try_transform(rhs)?
                     },
                     // unreachable since is_assign_candidate excludes non-variable symbol
-                    ir::Value::Symbol(RangeWrapper(_, _)) => unreachable!(),
-                    ir::Value::ArrayAccess(_, _) => unimplemented!("TODO(array) : array assign"),
-                    | ir::Value::FunCall(_, _)
-                    | ir::Value::UnaryExpr(_, _)
-                    | ir::Value::BinaryExpr(_, _, _) => {
+                    ir::ValueKind::Symbol(RangeWrapper(_, _)) => unreachable!(),
+                    ir::ValueKind::ArrayAccess(_, _) => unimplemented!("TODO(array) : array assign"),
+                    | ir::ValueKind::FunCall(_, _)
+                    | ir::ValueKind::UnaryExpr(_, _)
+                    | ir::ValueKind::BinaryExpr(_, _, _) => {
                         // Unary/binary expressions and funcalls are all just function calls.
                         //
                         // Function calls may return a reference.
@@ -124,7 +126,7 @@ impl<'r, 's> TryTransformMut<&'r ir::Action> for JumpBlock<'s> {
                 Ok(Thunk::Code(code))
             },
             // Loop over a block
-            Action::Loop(block) => {
+            ActionKind::Loop(block) => {
                 let entry = self.state.label_scope.reserve_symbol();
                 let exit = self.state.label_scope.reserve_symbol();
                 // translate block
@@ -134,9 +136,9 @@ impl<'r, 's> TryTransformMut<&'r ir::Action> for JumpBlock<'s> {
                 Ok(Thunk::Labeled { entry, code: Box::new(code), exit })
             },
             // Add a block of actions
-            Action::Block(block) => self.try_transform_block(block),
+            ActionKind::Block(block) => self.try_transform_block(block),
             // Execute conditional blocks
-            Action::ConditionBlock { if_block, elseif_blocks, else_block, } => {
+            ActionKind::ConditionBlock { if_block, elseif_blocks, else_block, } => {
                 // entry and exit symbols for the entire statement
                 let cond_entry = self.state.label_scope.reserve_symbol();
                 let cond_exit = self.state.label_scope.reserve_symbol();
@@ -200,11 +202,11 @@ impl<'r, 's> TryTransformMut<&'r ir::Action> for JumpBlock<'s> {
                 Ok(Thunk::Labeled { entry: cond_entry, code: Box::new(condition_thunk), exit: cond_exit })
             },
             // Break out of the current block loop
-            Action::Break => Ok(Thunk::Code(vec![Bc::JumpSymbol(self.exit, JumpCond::Always)])),
+            ActionKind::Break => Ok(Thunk::Code(vec![Bc::JumpSymbol(self.exit, JumpCond::Always)])),
             // Continue to the top of this loop
-            Action::Continue => Ok(Thunk::Code(vec![Bc::JumpSymbol(self.entry, JumpCond::Always)])),
+            ActionKind::Continue => Ok(Thunk::Code(vec![Bc::JumpSymbol(self.entry, JumpCond::Always)])),
             // Return from the current function
-            Action::Return(val) => {
+            ActionKind::Return(val) => {
                 val.as_ref().map(|val| {
                     let ctx = ValueContext::new(ValueContextKind::Ret, self.state);
                     ctx.try_transform(val)
