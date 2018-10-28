@@ -11,7 +11,7 @@ pub mod syntax;
 pub mod ir;
 pub mod vm;
 pub mod compile;
-pub mod repl;
+//pub mod repl;
 
 use std::{
     //io::{self, Write},
