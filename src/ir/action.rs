@@ -77,12 +77,9 @@ impl Ir<Stmt> for Action {
                 ActionKind::Loop(loop_block)
             }
             Stmt::Loop(block) => ActionKind::Loop(block.iter().map(Action::from_syntax).collect()),
-            // TODO(range) : ActionKind::Break range
-            Stmt::Return(expr, range) => ActionKind::Return(expr.as_ref().map(Value::from_syntax)),
-            // TODO(range) : ActionKind::Break range
-            Stmt::Break(range) => ActionKind::Break,
-            // TODO(range) : ActionKind::Continue range
-            Stmt::Continue(range) => ActionKind::Continue,
+            Stmt::Return(expr, _) => ActionKind::Return(expr.as_ref().map(Value::from_syntax)),
+            Stmt::Break(_) => ActionKind::Break,
+            Stmt::Continue(_) => ActionKind::Continue,
         };
         Action::new(stmt.range(), action_kind)
     }

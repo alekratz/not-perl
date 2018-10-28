@@ -1,7 +1,7 @@
 use std::{
     ops::{Deref, DerefMut},
 };
-use crate::common::lang::Op;
+use crate::common::prelude::*;
 use crate::compile::{
     Error,
     FunSymbolAlloc,

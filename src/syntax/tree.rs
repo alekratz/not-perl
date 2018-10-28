@@ -89,9 +89,14 @@ impl Ranged for Stmt {
             Stmt::Assign(lhs, _, rhs) => lhs.range().union(&rhs.range()),
             Stmt::While(c) => c.range(),
             Stmt::Loop(b) => b.range(),
-            Stmt::If { if_block, elseif_blocks, else_block } => {
-                unimplemented!()
-            }
+            Stmt::If { if_block, elseif_blocks, else_block } =>
+                if let Some(else_block) = else_block {
+                    if_block.range().union(&else_block.range())
+                } else if let Some(elseif_block) = elseif_blocks.last() {
+                    if_block.range().union(&elseif_block.range())
+                } else {
+                    if_block.range()
+                }
             | Stmt::Continue(r)
             | Stmt::Break(r)
             | Stmt::Return(_, r) => r.clone(),

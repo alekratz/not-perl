@@ -109,8 +109,7 @@ impl ValueKind {
 impl Ir<Expr> for Value {
     fn from_syntax(expr: &Expr) -> Self {
         let kind = match expr {
-            // TODO(range) ir::ValueKind range
-            Expr::FunCall { function, args, range } => {
+            Expr::FunCall { function, args, range: _} => {
                 let function = Value::from_syntax(function);
                 let mut fun_args = vec![];
                 for arg in args.iter() {
@@ -118,8 +117,7 @@ impl Ir<Expr> for Value {
                 }
                 ValueKind::FunCall(Box::new(function), fun_args)
             }
-            // TODO(range) ir::ValueKind range
-            Expr::ArrayAccess { array, index, range } => {
+            Expr::ArrayAccess { array, index, range: _ } => {
                 let array = Value::from_syntax(array);
                 let index = Value::from_syntax(index);
                 ValueKind::ArrayAccess(Box::new(array), Box::new(index))

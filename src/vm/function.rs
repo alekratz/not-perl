@@ -1,7 +1,7 @@
 use std::{
     fmt::{self, Debug, Formatter},
 };
-use crate::common::lang::Op;
+use crate::common::prelude::*;
 use crate::vm::{
     symbol::*,
     storage::*,
