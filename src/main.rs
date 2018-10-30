@@ -6,22 +6,24 @@ extern crate failure;
 //#[macro_use] extern crate galvanic_test;
 
 #[macro_use] pub mod common;
-mod util;
 pub mod syntax;
 pub mod ir;
 pub mod vm;
 pub mod compile;
-//pub mod repl;
+pub mod util;
 
 use std::{
-    //io::{self, Write},
     env::{self, Args},
     process,
 };
-//use crate::util::read_file;
 
-fn exec(_args: Args) -> Result<(), String> {
-    unimplemented!()
+fn exec(mut args: Args) -> Result<(), common::ProcessError> {
+    args.next().expect("exec() must be called with at least 2 args");
+    let path = args.next()
+        .expect("exec() must be called with at least 2 args");
+    let args: Vec<_> = args.collect();
+    let mut compile = compile::Compile::new();
+    compile.compile_from_path(&path)
 }
 
 fn repl() {

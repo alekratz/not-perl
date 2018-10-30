@@ -30,7 +30,6 @@ impl Fun {
             Fun::Stub(s) => s.params,
             | Fun::Vm(b)
             | Fun::Op(_, b) => b.params(),
-                
         }
     }
 }

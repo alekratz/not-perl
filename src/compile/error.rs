@@ -63,8 +63,8 @@ macro_rules! error_kind_def {
 }
 
 error_kind_def! {
-    fn unknown_unary_op(op: Op)         -> UnknownUnaryOp   => ("unknown binary operator {}", op)
-    fn unknown_binary_op(op: Op)        -> UnknownBinaryOp  => ("unknown unary operator {}", op)
+    fn unknown_unary_op(op: Op)         -> UnknownUnaryOp   => ("unknown unary operator {}", op)
+    fn unknown_binary_op(op: Op)        -> UnknownBinaryOp  => ("unknown binary operator {}", op)
     fn unknown_fun(name: String)        -> UnknownFun       => ("unknown function `{}`", name)
     fn unknown_ty(name: String)         -> UnknownTy        => ("unknown type `{}`", name)
     fn invalid_assign_lhs(lhs: String)  -> InvalidAssignLhs => ("invalid left-hand side of assignment: {}", lhs)

@@ -59,7 +59,7 @@ pub struct Lexer<'c> {
 
 impl<'c> Lexer<'c> {
     /// Creates a new lexer with the specified input and source name.
-    pub fn new(source_name: &str, source_text: &'c str) -> Self {
+    pub fn new(source_name: impl ToString, source_text: &'c str) -> Self {
         let mut input = source_text.chars();
         let next = input.next();
         Lexer {

@@ -1,5 +1,13 @@
-use crate::common::pos::{Ranged, Range};
-use crate::syntax::tree::{Ast, SyntaxTree, Stmt};
+use std::path::Path;
+use crate::common::{
+    ProcessError,
+    pos::{Ranged, Range},
+};
+use crate::syntax::{
+    self,
+    tree::{Ast, SyntaxTree, Stmt}
+};
+use crate::util;
 
 mod ty;
 mod function;
@@ -38,6 +46,20 @@ impl IrTree {
 
     pub fn user_types(&self) -> &[UserTy] {
         &self.user_types
+    }
+
+    pub fn from_path(path: impl AsRef<Path>) -> Result<Self, ProcessError> {
+        let path = path.as_ref();
+        let contents = match util::read_file(path) {
+            Ok(c) => c,
+            Err(e) => return Err(ProcessError::Io(e)),
+        };
+
+        let lexer = syntax::Lexer::new(path.display(), &contents);
+        let parse_tree = syntax::Parser::from_lexer(lexer)
+            .into_parse_tree()?;
+
+        Ok(IrTree::from_syntax(&parse_tree))
     }
 }
 

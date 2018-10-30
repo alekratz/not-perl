@@ -36,6 +36,10 @@ impl Error {
     pub fn kind(&self) -> &ErrorKind {
         self.kind.get_context()
     }
+
+    pub fn pos(&self) -> Pos {
+        self.pos.clone()
+    }
 }
 
 impl Fail for Error

@@ -32,7 +32,7 @@ pub struct Parser<'c> {
 }
 
 impl<'c> Parser<'c> {
-    pub fn new(source_name: &str, source_text: &'c str) -> Self {
+    pub fn new(source_name: impl ToString, source_text: &'c str) -> Self {
         let lexer = Lexer::new(source_name, source_text);
         Parser::from_lexer(lexer)
     }
