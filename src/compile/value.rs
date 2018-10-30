@@ -54,10 +54,10 @@ impl<'s> ValueContext<'s> {
     }
 }
 
-impl<'r, 's> TryTransform<&'r ir::Value> for ValueContext<'s> {
+impl<'r, 's> TryTransform<ir::Value> for ValueContext<'s> {
     type Out = Vec<Bc>;
 
-    fn try_transform(self, value: &'r ir::Value) -> Result<Self::Out, Error> {
+    fn try_transform(self, value: ir::Value) -> Result<Self::Out, Error> {
         use crate::ir::ValueKind;
         let RangeWrapper(range, value) = value;
         match value {
@@ -71,19 +71,19 @@ impl<'r, 's> TryTransform<&'r ir::Value> for ValueContext<'s> {
             ValueKind::Symbol(RangeWrapper(_, s)) => {
                 let ref_value = match s {
                     ir::Symbol::Fun(name) => {
-                        let symbol = self.state.fun_scope.get_by_name(name)
+                        let symbol = self.state.fun_scope.get_by_name(&name)
                             .ok_or_else(|| Error::unknown_fun(range.clone(), name.clone()))?
                             .symbol();
                         Ref::Fun(symbol)
                     }
                     ir::Symbol::Variable(name) => {
-                        let symbol = self.state.var_scope.get_by_name(name)
+                        let symbol = self.state.var_scope.get_by_name(&name)
                             .expect("variable does not exist in this scope")
                             .symbol();
                         Ref::Reg(symbol)
                     }
                     ir::Symbol::Ty(name) => {
-                        let symbol = self.state.ty_scope.get_by_name(name)
+                        let symbol = self.state.ty_scope.get_by_name(&name)
                             .ok_or_else(|| Error::unknown_ty(range.clone(), name.clone()))?
                             .symbol();
                         Ref::Ty(symbol)
@@ -99,19 +99,19 @@ impl<'r, 's> TryTransform<&'r ir::Value> for ValueContext<'s> {
 
             // Binary expression
             ValueKind::BinaryExpr(lhs, op, rhs) => {
-                let op_fun = self.state.fun_scope.get_binary_op(op)
+                let op_fun = self.state.fun_scope.get_binary_op(&op)
                     .ok_or_else(|| Error::unknown_binary_op(range.clone(), op.clone()))?
                     .symbol();
                 let lhs_sym = self.state.var_scope.insert_anonymous_var();
                 let lhs_code = {
                     let lhs_ctx = ValueContext::new(ValueContextKind::Store(Ref::Reg(lhs_sym)), self.state);
-                    lhs_ctx.try_transform(lhs)?
+                    lhs_ctx.try_transform(*lhs)?
                 };
 
                 let rhs_sym = self.state.var_scope.insert_anonymous_var();
                 let rhs_code = {
                     let rhs_ctx = ValueContext::new(ValueContextKind::Store(Ref::Reg(rhs_sym)), self.state);
-                    rhs_ctx.try_transform(rhs)?
+                    rhs_ctx.try_transform(*rhs)?
                 };
                 
                 let mut code: Vec<_> = lhs_code.into_iter()
@@ -133,13 +133,13 @@ impl<'r, 's> TryTransform<&'r ir::Value> for ValueContext<'s> {
 
             // Unary expression
             ValueKind::UnaryExpr(op, value) => {
-                let _op_fun = self.state.fun_scope.get_unary_op(op)
+                let _op_fun = self.state.fun_scope.get_unary_op(&op)
                     .ok_or_else(|| Error::unknown_unary_op(range.clone(), op.clone()))?
                     .symbol();
                 let value_sym = self.state.var_scope.insert_anonymous_var();
                 let mut value_code = {
                     let value_ctx = ValueContext::new(ValueContextKind::Store(Ref::Reg(value_sym)), self.state);
-                    value_ctx.try_transform(value)?
+                    value_ctx.try_transform(*value)?
                 };
                 value_code.push(self.kind.transform(vm::Value::Ref(Ref::Reg(value_sym))));
                 self.state.var_scope.free_anonymous_var(value_sym);
@@ -149,13 +149,14 @@ impl<'r, 's> TryTransform<&'r ir::Value> for ValueContext<'s> {
             // Fun call
             ValueKind::FunCall(fun, args) => {
                 let mut code = Vec::new();
+                let param_count = args.len();
                 for arg in args {
                     code.append(&mut ValueContext::new(ValueContextKind::Push, self.state).try_transform(arg)?);
                 }
                 if let RangeWrapper(_, ValueKind::Symbol(RangeWrapper(_, ir::Symbol::Fun(name)))) = fun.as_ref() {
                     let fun = self.state
                         .fun_scope
-                        .get_by_name_and_params(name, args.len());
+                        .get_by_name_and_params(name, param_count);
                     if let Some(fun) = fun {
                         // compile function call like normal
                         code.push(Bc::Call(fun.symbol()));
@@ -164,7 +165,7 @@ impl<'r, 's> TryTransform<&'r ir::Value> for ValueContext<'s> {
                     }
                 } else {
                     // evaluate LHS and try to call it as a function
-                    code.append(&mut ValueContext::new(ValueContextKind::Push, self.state).try_transform(fun)?);
+                    code.append(&mut ValueContext::new(ValueContextKind::Push, self.state).try_transform(*fun)?);
                     code.push(Bc::PopCall);
                 }
 

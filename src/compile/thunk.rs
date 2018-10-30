@@ -72,7 +72,7 @@ impl<'r, 's> TryTransformMut<ir::Action> for JumpBlock<'s> {
             // Evaluate an IR value
             ActionKind::Eval(val) => {
                 let ctx = ValueContext::new(ValueContextKind::Push, self.state);
-                ctx.try_transform(&val).map(Thunk::Code)
+                ctx.try_transform(val).map(Thunk::Code)
             },
             // Assign a value to a place in memory
             ActionKind::Assign(lhs, _op, rhs) => {
@@ -89,7 +89,7 @@ impl<'r, 's> TryTransformMut<ir::Action> for JumpBlock<'s> {
                     ir::ValueKind::Symbol(RangeWrapper(_, ir::Symbol::Variable(varname))) => {
                         let lhs_store = Ref::Reg(self.state.var_scope.get_or_insert(&varname));
                         ValueContext::new(ValueContextKind::Store(lhs_store), self.state)
-                            .try_transform(&rhs)?
+                            .try_transform(rhs)?
                     },
                     // unreachable since is_assign_candidate excludes non-variable symbol
                     ir::ValueKind::Symbol(RangeWrapper(_, _)) => unreachable!(),
@@ -106,12 +106,12 @@ impl<'r, 's> TryTransformMut<ir::Action> for JumpBlock<'s> {
                         let lhs_store = self.state.var_scope.insert_anonymous_var();
                         let lhs_code = {
                             let lhs_ctx = ValueContext::new(ValueContextKind::Store(Ref::Reg(lhs_store)), self.state);
-                            lhs_ctx.try_transform(&lhs)?
+                            lhs_ctx.try_transform(lhs)?
                         };
                         let rhs_store = self.state.var_scope.insert_anonymous_var();
                         let rhs_code = {
                             let rhs_ctx = ValueContext::new(ValueContextKind::Store(Ref::Reg(rhs_store)), self.state);
-                            rhs_ctx.try_transform(&rhs)?
+                            rhs_ctx.try_transform(rhs)?
                         };
 
                         self.state.var_scope.free_anonymous_var(lhs_store);
@@ -154,7 +154,7 @@ impl<'r, 's> TryTransformMut<ir::Action> for JumpBlock<'s> {
                 // if block
                 let if_thunk = {
                     let mut cond_code = ValueContext::new(ValueContextKind::Push, self.state)
-                        .try_transform(&if_block.condition)?;
+                        .try_transform(if_block.condition)?;
                     cond_code.push(Bc::PopTest);
                     cond_code.push(Bc::JumpSymbol(if_exit, JumpCond::CondFalse));
                     let mut block_code = self.try_transform_mut(if_block.action)?;
@@ -172,7 +172,7 @@ impl<'r, 's> TryTransformMut<ir::Action> for JumpBlock<'s> {
                     let last_index = elseif_blocks.len() - 1;
                     for (idx, elif) in elseif_blocks.into_iter().enumerate() {
                         let mut cond_code = ValueContext::new(ValueContextKind::Push, self.state)
-                            .try_transform(&elif.condition)?;
+                            .try_transform(elif.condition)?;
                         cond_code.push(Bc::PopTest);
                         cond_code.push(Bc::JumpSymbol(elif_exit, JumpCond::CondFalse));
 
@@ -208,7 +208,7 @@ impl<'r, 's> TryTransformMut<ir::Action> for JumpBlock<'s> {
             ActionKind::Continue => Ok(Thunk::Code(vec![Bc::JumpSymbol(self.entry, JumpCond::Always)])),
             // Return from the current function
             ActionKind::Return(val) => {
-                val.as_ref().map(|val| {
+                val.map(|val| {
                     let ctx = ValueContext::new(ValueContextKind::Ret, self.state);
                     ctx.try_transform(val)
                         .map(Thunk::Code)
