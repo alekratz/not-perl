@@ -53,8 +53,8 @@ impl<'r, 's> JumpBlock<'s> {
     }
 
     /// Attempts to transform a block of IR actions into bytecode.
-    fn try_transform_block(&mut self, block: &'r [ir::Action]) -> Result<Thunk, Error> {
-        let thunks = block.iter().try_fold(vec![], |mut thunks, action| {
+    fn try_transform_block(&mut self, block: Vec<ir::Action>) -> Result<Thunk, Error> {
+        let thunks = block.into_iter().try_fold(vec![], |mut thunks, action| {
             thunks.push(self.try_transform_mut(action)?);
             Ok(thunks)
         })?;
@@ -62,17 +62,17 @@ impl<'r, 's> JumpBlock<'s> {
     }
 }
 
-impl<'r, 's> TryTransformMut<&'r ir::Action> for JumpBlock<'s> {
+impl<'r, 's> TryTransformMut<ir::Action> for JumpBlock<'s> {
     type Out = Thunk;
 
-    fn try_transform_mut(&mut self, action: &'r ir::Action) -> Result<Thunk, Error> {
+    fn try_transform_mut(&mut self, action: ir::Action) -> Result<Thunk, Error> {
         use crate::ir::ActionKind;
         let RangeWrapper(range, action) = action;
         match action {
             // Evaluate an IR value
             ActionKind::Eval(val) => {
                 let ctx = ValueContext::new(ValueContextKind::Push, self.state);
-                ctx.try_transform(val).map(Thunk::Code)
+                ctx.try_transform(&val).map(Thunk::Code)
             },
             // Assign a value to a place in memory
             ActionKind::Assign(lhs, _op, rhs) => {
@@ -82,14 +82,14 @@ impl<'r, 's> TryTransformMut<&'r ir::Action> for JumpBlock<'s> {
                     return Err(Error::invalid_assign_lhs(range.clone(), range.source_text().to_string()));
                 }
 
-                let RangeWrapper(_, lhs_value) = lhs;
+                let RangeWrapper(_, ref lhs_value) = lhs;
                 let code = match lhs_value {
                     // unreachable since is_assign_candidate excludes constants
                     ir::ValueKind::Const(_) => unreachable!(),
                     ir::ValueKind::Symbol(RangeWrapper(_, ir::Symbol::Variable(varname))) => {
                         let lhs_store = Ref::Reg(self.state.var_scope.get_or_insert(&varname));
                         ValueContext::new(ValueContextKind::Store(lhs_store), self.state)
-                            .try_transform(rhs)?
+                            .try_transform(&rhs)?
                     },
                     // unreachable since is_assign_candidate excludes non-variable symbol
                     ir::ValueKind::Symbol(RangeWrapper(_, _)) => unreachable!(),
@@ -106,12 +106,12 @@ impl<'r, 's> TryTransformMut<&'r ir::Action> for JumpBlock<'s> {
                         let lhs_store = self.state.var_scope.insert_anonymous_var();
                         let lhs_code = {
                             let lhs_ctx = ValueContext::new(ValueContextKind::Store(Ref::Reg(lhs_store)), self.state);
-                            lhs_ctx.try_transform(lhs)?
+                            lhs_ctx.try_transform(&lhs)?
                         };
                         let rhs_store = self.state.var_scope.insert_anonymous_var();
                         let rhs_code = {
                             let rhs_ctx = ValueContext::new(ValueContextKind::Store(Ref::Reg(rhs_store)), self.state);
-                            rhs_ctx.try_transform(rhs)?
+                            rhs_ctx.try_transform(&rhs)?
                         };
 
                         self.state.var_scope.free_anonymous_var(lhs_store);
@@ -157,7 +157,7 @@ impl<'r, 's> TryTransformMut<&'r ir::Action> for JumpBlock<'s> {
                         .try_transform(&if_block.condition)?;
                     cond_code.push(Bc::PopTest);
                     cond_code.push(Bc::JumpSymbol(if_exit, JumpCond::CondFalse));
-                    let mut block_code = self.try_transform_mut(&if_block.action)?;
+                    let mut block_code = self.try_transform_mut(if_block.action)?;
                     block_code.push(Bc::JumpSymbol(cond_exit, JumpCond::Always));
                     Thunk::Labeled { entry: if_entry, code: Box::new(block_code), exit: if_exit }
                 };
@@ -169,18 +169,19 @@ impl<'r, 's> TryTransformMut<&'r ir::Action> for JumpBlock<'s> {
                     let mut elif_entry = if_exit;
                     let mut elif_exit = self.state.label_scope.reserve_symbol();
                     let mut thunks = Vec::new();
-                    for (idx, elif) in elseif_blocks.iter().enumerate() {
+                    let last_index = elseif_blocks.len() - 1;
+                    for (idx, elif) in elseif_blocks.into_iter().enumerate() {
                         let mut cond_code = ValueContext::new(ValueContextKind::Push, self.state)
                             .try_transform(&elif.condition)?;
                         cond_code.push(Bc::PopTest);
                         cond_code.push(Bc::JumpSymbol(elif_exit, JumpCond::CondFalse));
 
-                        let mut block_code = self.try_transform_mut(&elif.action)?;
+                        let mut block_code = self.try_transform_mut(elif.action)?;
                         block_code.push(Bc::JumpSymbol(cond_exit, JumpCond::Always));
                         thunks.push(Thunk::Labeled { entry: elif_entry, code: Box::new(block_code), exit: elif_exit });
 
                         // update entry and exit symbols if we're not on the last element
-                        if idx != elseif_blocks.len() - 1 {
+                        if idx != last_index {
                             elif_entry = elif_exit;
                             elif_exit = self.state.label_scope.reserve_symbol();
                         }
@@ -191,7 +192,7 @@ impl<'r, 's> TryTransformMut<&'r ir::Action> for JumpBlock<'s> {
                 };
 
                 let else_thunk = if let Some(else_block) = else_block {
-                    let block_code = self.try_transform_mut(&else_block)?;
+                    let block_code = self.try_transform_mut(*else_block)?;
                     Thunk::Labeled { entry: else_entry, code: Box::new(block_code), exit: else_exit }
                 } else {
                     Thunk::Empty
