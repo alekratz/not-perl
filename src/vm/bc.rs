@@ -3,9 +3,11 @@ use crate::vm::{
     Value,
     FunSymbol,
     BlockSymbol,
+    TySymbol,
 };
 
 /// A condition for when a jump should be taken.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum JumpCond {
     /// This jump should always be taken.
     Always,
@@ -17,6 +19,7 @@ pub enum JumpCond {
     CondFalse,
 }
 
+#[derive(Debug, Clone)]
 pub enum Bc {
     /// Pushes the given value to the value stack.
     Push(Value),
@@ -52,12 +55,23 @@ pub enum Bc {
     /// Pushes the given value to the top of the stack and exits the current function.
     PushRet(Value),
 
-    /// Jumps to the given instruction address in the current function.
+    /// Jumps to the given instruction address in the current function, checking the jump condition
+    /// against the VM's condition flag.
     JumpAbs(usize, JumpCond),
 
-    /// Jumps to the given block symbol in the current function.
+    /// Jumps to the given block symbol in the current function, checking the jump condition
+    /// against the VM's condition flag.
     JumpSymbol(BlockSymbol, JumpCond),
 
-    /// Pops the top value off of the stack and checks if it is true or not.
+    /// Pops the top value off of the stack and checks if it is true or not, setting the VM
+    /// condition flag appropriately.
     PopTest,
+
+    /// Checks the given value against a given type predicate, setting the VM condition flag
+    /// appropriately.
+    Check(Value, TySymbol),
+
+    /// Peeks at the top value of the stack, and checks it against the given type predicate,
+    /// setting the VM condition flag appropriately.
+    PeekCheck(TySymbol),
 }

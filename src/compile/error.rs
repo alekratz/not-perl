@@ -8,7 +8,7 @@ use crate::common::{
 };
 
 macro_rules! error_kind_def {
-    (fn $builder_name:ident ( $($argname:ident : $argty:ty ),+ )
+    (fn $builder_name:ident ( $($argname:ident : $argty:ty ),* )
      -> $error_kind:ident
      => ($($display_args:expr),+)
         $body:block
@@ -22,17 +22,17 @@ macro_rules! error_kind_def {
 
         error_kind_def! {
             $($tail)*
-            @DISPLAY_ARGS $error_kind ($($argname:$argty),+) ($($display_args),+)
+            @DISPLAY_ARGS $error_kind ($($argname:$argty),*) ($($display_args),+)
         }
     };
 
-    (fn $builder_name:ident ( $($argname:ident : $argty:ty),+ )
+    (fn $builder_name:ident ( $($argname:ident : $argty:ty),* )
      -> $error_kind:ident
      => ($($display_args:expr),+)
      $($tail:tt)*
      ) => {
         error_kind_def! {
-            fn $builder_name ( $($argname: $argty),+ ) -> $error_kind => ($($display_args),+) {
+            fn $builder_name ( $($argname: $argty),* ) -> $error_kind => ($($display_args),+) {
                 ErrorKind::$error_kind { $($argname),* }
             }
 
@@ -40,12 +40,12 @@ macro_rules! error_kind_def {
         }
     };
 
-    ($(@DISPLAY_ARGS $kind:ident ($($argname:ident:$argty:ty),+) ($($display_args:expr),+) )+) => {
+    ($(@DISPLAY_ARGS $kind:ident ($($argname:ident:$argty:ty),*) ($($display_args:expr),+) )+) => {
         impl Display for ErrorKind {
             fn fmt(&self, fmt: &mut Formatter) -> fmt::Result {
                 match self {
                     $(
-                        ErrorKind::$kind { $($argname),+ } => write!(fmt, $($display_args),+),
+                        ErrorKind::$kind { $($argname),* } => write!(fmt, $($display_args),+),
                     )+
                 }
             }
@@ -54,7 +54,7 @@ macro_rules! error_kind_def {
         #[derive(Debug)]
         pub enum ErrorKind {
             $(
-                $kind { $($argname: $argty),+ }
+                $kind { $($argname: $argty),* }
             ),+
         }
     };
@@ -70,6 +70,10 @@ error_kind_def! {
     fn invalid_assign_lhs(lhs: String)  -> InvalidAssignLhs => ("invalid left-hand side of assignment: {}", lhs)
     fn duplicate_fun(first_def: Range, name: String)
                                         -> DuplicateFun     => ("duplicate function definition: {} (first definition here: {})", name, first_def)
+    fn break_outside_of_loop()          -> BreakOutsideOfLoop
+                                                            => ("break statement defined outside of loop")
+    fn continue_outside_of_loop()       -> ContinueOutsideOfLoop
+                                                            => ("continue statement used outside of loop")
 }
 
 #[derive(Debug)]

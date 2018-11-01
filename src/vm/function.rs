@@ -3,6 +3,7 @@ use std::{
 };
 use crate::common::prelude::*;
 use crate::vm::{
+    Bc,
     symbol::*,
     storage::*,
     ty::BuiltinTy,
@@ -58,7 +59,14 @@ pub struct UserFun {
     pub symbol: FunSymbol,
     pub name: String,
     pub params: usize,
+    pub body: Vec<Bc>,
     pub range: Range,
+}
+
+impl UserFun {
+    pub fn new(symbol: FunSymbol, name: String, params: usize, body: Vec<Bc>, range: Range) -> Self {
+        UserFun { symbol, name, params, body, range, }
+    }
 }
 
 /// A builtin function.
@@ -144,6 +152,14 @@ mod builtins {
         // TODO(builtin) : read from a file descriptor
     }
 
+    pub fn print(_storage: &mut Storage) {
+        // TODO(builtin) : print to stdout
+    }
+    
+    pub fn println(_storage: &mut Storage) {
+        // TODO(builtin) : print to stdout
+    }
+
     pub fn plus_binop(_storage: &mut Storage) {
         // TODO(builtin) : + operator
     }
@@ -169,6 +185,8 @@ lazy_static! {
     pub static ref builtin_functions: Vec<BuiltinFun> = vec![
         builtin_fun!(writef = writef ( 2 ) -> BuiltinTy::Int),
         builtin_fun!(readf = readf ( 1 ) -> BuiltinTy::Str),
+        builtin_fun!(print = print ( 1 ) -> BuiltinTy::None),
+        builtin_fun!(println = println ( 1 ) -> BuiltinTy::None),
     ];
     
     pub static ref builtin_ops: Vec<BuiltinOp> = vec![

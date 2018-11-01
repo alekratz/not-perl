@@ -29,10 +29,10 @@ pub trait Ir<A>: Sized + Ranged
 
 #[derive(Debug)]
 pub struct IrTree {
-    actions: Vec<Action>,
-    functions: Vec<Fun>,
-    user_types: Vec<UserTy>,
-    range: Range,
+    pub actions: Vec<Action>,
+    pub functions: Vec<Fun>,
+    pub user_types: Vec<UserTy>,
+    pub range: Range,
 }
 
 impl IrTree {

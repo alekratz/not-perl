@@ -2,7 +2,7 @@ use std::path::Path;
 use crate::common::ProcessError;
 use crate::compile::{
     self,
-    GatherFunStubs,
+    CompileFuns,
     FunScope,
     VarScope,
     LabelScope,
@@ -29,6 +29,15 @@ impl State {
         }
     }
 
+    /// Pops a layer off of all compile scopes.
+    pub fn pop_scope(&mut self) {
+        self.ty_scope.pop_scope();
+        self.var_scope.pop_scope();
+        self.fun_scope.pop_scope();
+        self.label_scope.pop_scope();
+    }
+
+    /// Pushes an empty layer onto all compile scopes.
     pub fn push_empty_scope(&mut self) {
         self.ty_scope.push_empty_scope();
         self.var_scope.push_empty_scope();
@@ -36,6 +45,9 @@ impl State {
         self.label_scope.push_empty_scope();
     }
 
+    /// Inserts builtin types, functions, and operators.
+    ///
+    /// An empty function scope layer and type scope layer are pushed before inserting builtins.
     pub fn insert_builtins(&mut self) {
         self.fun_scope.push_empty_scope();
         self.fun_scope.insert_builtin_functions();
@@ -43,18 +55,25 @@ impl State {
     }
 
     /// Compile a single IR tree, updating this state.
-    pub fn update<'r>(&mut self, ir_tree: &'r ir::IrTree) -> Result<(), compile::Error> {
-        // Gather function stubs
-        GatherFunStubs::new(self)
-            .try_transform(ir_tree.functions())?;
-        // Compile functions
-        //ir_tree.functions()
+    pub fn update<'r>(&mut self, ir_tree: ir::IrTree) -> Result<(), compile::Error> {
+        let ir::IrTree {
+            actions,
+            functions,
+            user_types,
+            range,
+        } = ir_tree;
+
+        // Compile all functions
+        CompileFuns(self).try_transform(functions)?;
+
+        // Create main function
+
         Ok(())
     }
 
     pub fn update_from_path(&mut self, path: impl AsRef<Path>) -> Result<(), ProcessError> {
         let ir_tree = ir::IrTree::from_path(path)?;
-        self.update(&ir_tree)
+        self.update(ir_tree)
             .map_err(|e| e.into())
     }
 }
