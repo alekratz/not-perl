@@ -29,25 +29,11 @@ pub trait Ir<A>: Sized + Ranged
 
 #[derive(Debug)]
 pub struct IrTree {
-    pub actions: Vec<Action>,
-    pub functions: Vec<Fun>,
-    pub user_types: Vec<UserTy>,
+    pub body: Fun,
     pub range: Range,
 }
 
 impl IrTree {
-    pub fn actions(&self) -> &[Action] {
-        &self.actions
-    }
-
-    pub fn functions(&self) -> &[Fun] {
-        &self.functions
-    }
-
-    pub fn user_types(&self) -> &[UserTy] {
-        &self.user_types
-    }
-
     pub fn from_path(path: impl AsRef<Path>) -> Result<Self, ProcessError> {
         let path = path.as_ref();
         let contents = match util::read_file(path) {
@@ -76,14 +62,26 @@ impl Ir<SyntaxTree> for IrTree {
                 _ => actions.push(Action::from_syntax(stmt)),
             }
         }
+        let main = Fun {
+            symbol: Symbol::Fun("#main".to_string()),
+            params: Vec::new(),
+            return_ty: TyExpr::None,
+            body: actions,
+            inner_types: user_types,
+            inner_functions: functions,
+            range: ast.range(),
+        };
 
         IrTree {
-            actions,
-            functions,
-            user_types,
+            body: main,
             range: ast.range(),
         }
     }
 }
 
-impl_ranged!(IrTree::range);
+impl Ranged for IrTree {
+    fn range(&self) -> Range {
+        self.body.range()
+    }
+}
+

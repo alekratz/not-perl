@@ -78,7 +78,7 @@ impl<'r, 's> TryTransform<ir::Value> for ValueContext<'s> {
                     }
                     ir::Symbol::Variable(name) => {
                         let symbol = self.state.var_scope.get_by_name(&name)
-                            .expect("variable does not exist in this scope")
+                            .expect(&format!("variable does not exist in this scope: {}", name))
                             .symbol();
                         Ref::Reg(symbol)
                     }

@@ -5,6 +5,7 @@ use crate::common::{
 };
 use crate::compile::{
     Error,
+    Var,
     Fun,
     FunStub,
     State,
@@ -31,16 +32,12 @@ impl Compile {
     /// Compile a single IR tree, updating this state.
     pub fn update<'r>(&mut self, ir_tree: ir::IrTree) -> Result<(), Error> {
         let ir::IrTree {
-            actions: _actions,
-            functions,
-            user_types,
+            body,
             range: _range,
         } = ir_tree;
 
-        // Gather and compile all types
-        GatherCompile(&mut self.state).try_transform((user_types, functions))?;
-
-        // Create main function
+        // Gather and compile the main function (body)
+        GatherCompile(&mut self.state).try_transform((vec![], vec![body]))?;
 
         Ok(())
     }
@@ -189,6 +186,20 @@ impl<'s> TryTransformMut<ir::Fun> for CompileFuns<'s> {
         } else {
             unreachable!();
         };
+
+        // Add parameters to the variable scope
+        for param in params.iter() {
+            match param {
+                ir::FunParam::SelfKw(_) => unimplemented!("TODO : self keyword param"),
+                ir::FunParam::Variable { symbol: ir::Symbol::Variable(symbol), ty: _, default: _, range: _ } => {
+                    let var = Var::new(symbol.to_string(), self.0.var_scope.reserve_symbol());
+                    self.0.var_scope.insert(var);
+                }
+                ir::FunParam::Variable { symbol, ty: _, default: _, range: _ } =>
+                    panic!("bad symbol for function param: {:?}", symbol),
+
+            }
+        }
 
         GatherCompile(self.0).try_transform((inner_types, inner_functions))?;
 
