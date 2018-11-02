@@ -2,7 +2,7 @@ use crate::common::pos::{Range, Ranged};
 use crate::syntax::tree::{self, Stmt};
 use crate::ir::{
     Ir,
-    Action, Symbol, TyExpr, Value, Block,
+    Action, Symbol, TyExpr, Value, Block, UserTy,
 };
 
 #[derive(Debug)]
@@ -11,19 +11,12 @@ pub struct Fun {
     pub params: Vec<FunParam>,
     pub return_ty: TyExpr,
     pub body: Block,
+    pub inner_types: Vec<UserTy>,
     pub inner_functions: Vec<Fun>,
     pub range: Range,
 }
 
 impl Fun {
-    // TODO(range) remove this
-    /*
-    pub fn new(symbol: Symbol, params: Vec<FunParam>, return_ty: TyExpr, body: Block,
-               inner_functions: Vec<Fun>) -> Self {
-        Fun { symbol, params, return_ty, body, inner_functions }
-    }
-    */
-
     pub fn name(&self) -> &str { &self.symbol.name() }
 }
 
@@ -35,23 +28,26 @@ impl Ir<tree::Fun> for Fun {
             .collect();
         let return_ty = if let Some(return_ty) = return_ty {
             TyExpr::Definite(return_ty.to_string())
-        } else if body.iter().any(|stmt| matches!(stmt, Stmt::Return(Some(_), _))) {
-            // search for at least one return statement that has a value
-            TyExpr::Any
         } else {
             TyExpr::None
         };
         let (inner_functions, syntax_body): (Vec<_>, Vec<_>) = body.iter()
             .partition(|s| matches!(s, Stmt::Fun(_)));
+        let (inner_types, syntax_body): (Vec<_>, Vec<_>) = syntax_body.iter()
+            .partition(|s| matches!(s, Stmt::UserTy(_)));
         let body = syntax_body
             .into_iter()
             .map(Action::from_syntax)
+            .collect();
+        let inner_types = inner_types
+            .into_iter()
+            .map(|s| if let Stmt::UserTy(t) = s { UserTy::from_syntax(t) } else { unreachable!() })
             .collect();
         let inner_functions = inner_functions
             .into_iter()
             .map(|s| if let Stmt::Fun(f) = s { Fun::from_syntax(f) } else { unreachable!() })
             .collect();
-        Fun { symbol, params, return_ty, body, inner_functions, range: range.clone(), }
+        Fun { symbol, params, return_ty, body, inner_types, inner_functions, range: range.clone(), }
     }
 }
 
@@ -96,8 +92,7 @@ impl Ir<tree::FunParam> for FunParam {
                 let ty = if let Some(ty) = ty {
                     TyExpr::Definite(ty.to_string())
                 } else {
-                    // variables, by default, have a type of "any"
-                    TyExpr::Any
+                    TyExpr::None
                 };
                 let default = default.as_ref().map(Value::from_syntax);
                 FunParam::Variable { symbol, ty, default, range: range.clone(), }

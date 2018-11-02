@@ -1,3 +1,4 @@
+use crate::common::prelude::*;
 use crate::vm::{self, Symbolic};
 
 /// A compile-time type.
@@ -27,8 +28,24 @@ impl Symbolic for Ty {
     }
 }
 
+impl Ranged for Ty {
+    fn range(&self) -> Range {
+        match self {
+            Ty::Stub(s) => s.range(),
+            Ty::Vm(v) => v.range(),
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct TyStub {
     pub name: String,
     pub symbol: vm::TySymbol,
+    pub range: Range,
+}
+
+impl Ranged for TyStub {
+    fn range(&self) -> Range {
+        self.range.clone()
+    }
 }

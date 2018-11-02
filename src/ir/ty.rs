@@ -5,7 +5,6 @@ use crate::ir::{Fun, Ir};
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum TyExpr {
-    Any,
     Definite(String),
     None,
 }
@@ -13,7 +12,6 @@ pub enum TyExpr {
 impl Display for TyExpr {
     fn fmt(&self, fmt: &mut Formatter) -> fmt::Result {
         match self {
-            TyExpr::Any => write!(fmt, "Any"),
             TyExpr::Definite(t) => write!(fmt, "{}", t),
             TyExpr::None => write!(fmt, "None"),
         }

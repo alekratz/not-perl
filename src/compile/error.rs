@@ -70,6 +70,8 @@ error_kind_def! {
     fn invalid_assign_lhs(lhs: String)  -> InvalidAssignLhs => ("invalid left-hand side of assignment: {}", lhs)
     fn duplicate_fun(first_def: Range, name: String)
                                         -> DuplicateFun     => ("duplicate function definition: {} (first definition here: {})", name, first_def)
+    fn duplicate_ty(first_def: Range, name: String)
+                                        -> DuplicateTy      => ("duplicate type definition: {} (first definition here: {})", name, first_def)
     fn break_outside_of_loop()          -> BreakOutsideOfLoop
                                                             => ("break statement defined outside of loop")
     fn continue_outside_of_loop()       -> ContinueOutsideOfLoop

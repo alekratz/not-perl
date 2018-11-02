@@ -23,7 +23,7 @@ fn exec(mut args: Args) -> Result<(), common::ProcessError> {
         .expect("exec() must be called with at least 2 args");
     let args: Vec<_> = args.collect();
     let mut compile = compile::Compile::new();
-    compile.compile_from_path(&path)
+    compile.update_from_path(&path)
 }
 
 fn repl() {

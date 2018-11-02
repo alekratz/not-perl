@@ -111,18 +111,6 @@ impl FunScope {
         }
     }
 
-    /// Replaces the first function to match this predicate.
-    ///
-    /// # Preconditions
-    /// The function to replace must be registered. It does not necessarily need to be visible in
-    /// the current scope.
-    pub fn replace(&mut self, value: Fun) -> Fun {
-        assert!(self.all.contains_key(&value.symbol()),
-            format!("tried to replace unregistered function, symbol: {:?} name: {:?}", value.symbol(), value.name()));
-        self.all.insert(value.symbol(), value)
-            .unwrap()
-    }
-
     /// Gets a function based on its name and parameter count.
     pub fn get_by_name_and_params(&self, name: &str, params: usize) -> Option<&Fun> {
         self.get_by(|f| f.name() == name && f.params() == params)
