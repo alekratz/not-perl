@@ -28,7 +28,6 @@ pub struct Parser<'c> {
     curr: Option<RangedToken>,
     next: Option<RangedToken>,
     stmt_level: usize,
-    inside_type: bool,
 }
 
 impl<'c> Parser<'c> {
@@ -43,7 +42,6 @@ impl<'c> Parser<'c> {
             curr: None,
             next: None,
             stmt_level: 0,
-            inside_type: false,
         }
     }
 
@@ -282,9 +280,6 @@ impl<'c> Parser<'c> {
                 inner
             }
             _ => {
-                if self.is_token_match(&Token::SelfKw) && !self.inside_type {
-                    return Err(self.err_message("'self' keyword expression may only appear inside of a type declaration".to_string()));
-                }
                 if self.stmt_level == 0 {
                     Expr::Atom(self.next_token_or_newline()?.unwrap())
                 } else {
@@ -321,38 +316,26 @@ impl<'c> Parser<'c> {
         let mut defaults = false;
         self.match_token(Token::LParen)?;
         while !self.is_token_match(&Token::RParen) {
-            if self.is_token_match(&Token::SelfKw) {
-                if !self.inside_type {
-                    return Err(self.err_unexpected("'self' keyword outside of type declaration"));
-                } else if params.len() > 0 {
-                    return Err(self.err_message("'self' parameter is only allowed as the first argument to a function"));
-                }
-                let range = self.next_token()?
-                    .unwrap()
-                    .range();
-                params.push(FunParam::SelfKw(range));
-            } else {
-                let begin = self.lexer.pos();
-                let param_name = self.next_variable()?;
-                let mut ty = None;
-                let mut default = None;
-                if self.is_token_match(&Token::Colon) {
-                    self.match_token(Token::Colon)?;
-                    ty = Some(self.next_bareword()?);
-                }
+            let begin = self.lexer.pos();
+            let param_name = self.next_variable()?;
+            let mut ty = None;
+            let mut default = None;
+            if self.is_token_match(&Token::Colon) {
+                self.match_token(Token::Colon)?;
+                ty = Some(self.next_bareword()?);
+            }
 
-                if defaults || self.is_token_match(&Token::AssignOp(AssignOp::Equals)) {
-                    defaults = true;
-                    self.match_token(Token::AssignOp(AssignOp::Equals))?;
-                    default = Some(self.next_expr()?);
-                }
-                let end = self.lexer.pos();
-                let range = Range::Src(SrcRange::new(begin, end));
-                params.push(FunParam::Variable { name: param_name, ty, default, range } );
+            if defaults || self.is_token_match(&Token::AssignOp(AssignOp::Equals)) {
+                defaults = true;
+                self.match_token(Token::AssignOp(AssignOp::Equals))?;
+                default = Some(self.next_expr()?);
+            }
+            let end = self.lexer.pos();
+            let range = Range::Src(SrcRange::new(begin, end));
+            params.push(FunParam::new(param_name, ty, default, range));
 
-                if !self.is_token_match(&Token::RParen) {
-                    self.match_token(Token::Comma)?;
-                }
+            if !self.is_token_match(&Token::RParen) {
+                self.match_token(Token::Comma)?;
             }
         }
         self.match_token(Token::RParen)?;
@@ -374,8 +357,6 @@ impl<'c> Parser<'c> {
 
     fn next_user_type(&mut self) -> Result<UserTy> {
         let begin = self.lexer.pos();
-        let old_inside_type = self.inside_type;
-        self.inside_type = true;
 
         self.match_token(Token::TypeKw)?;
         let name = self.next_bareword()?;
@@ -406,7 +387,6 @@ impl<'c> Parser<'c> {
         }
         self.match_token_preserve_newline(Token::RBrace)?;
 
-        self.inside_type = old_inside_type;
         let end = self.lexer.pos();
         let range = Range::Src(SrcRange::new(begin, end));
         Ok(UserTy { name, parents, functions, range, })
@@ -570,6 +550,9 @@ impl<'c> Parser<'c> {
         self.err(ErrorKind::ExpectedGot(expected.to_string(), got))
     }
 
+    /*
+     * these two were only used for the self keyword which has been removed. I want to keep these
+     * around just in case things change.
     fn err_unexpected(&self, what: impl ToString) -> Error {
         self.err(ErrorKind::Unexpected(what.to_string()))
     }
@@ -584,6 +567,7 @@ impl<'c> Parser<'c> {
     fn err_message(&self, message: impl ToString) -> Error {
         self.err(ErrorKind::Message(message.to_string()))
     }
+    */
 
     fn err(&self, kind: ErrorKind) -> Error {
         Error::new(self.lexer.pos(), kind)

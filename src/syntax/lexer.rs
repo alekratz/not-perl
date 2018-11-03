@@ -227,7 +227,6 @@ impl<'c> Lexer<'c> {
             "fun" => Ok(Token::FunKw),
             "return" => Ok(Token::ReturnKw),
             "type" => Ok(Token::TypeKw),
-            "self" => Ok(Token::SelfKw),
             _ => Ok(Token::Bareword(bareword))
         }
     }

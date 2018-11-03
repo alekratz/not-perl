@@ -54,51 +54,43 @@ impl Ir<tree::Fun> for Fun {
 impl_ranged!(Fun::range);
 
 #[derive(Debug)]
-pub enum FunParam {
-    SelfKw(Range),
-    Variable {
-        symbol: Symbol,
-        ty: TyExpr,
-        default: Option<Value>,
-        range: Range,
-    },
+pub struct FunParam {
+    pub symbol: Symbol,
+    pub ty: TyExpr,
+    pub default: Option<Value>,
+    pub range: Range,
+}
+
+impl FunParam {
+    pub fn new(symbol: Symbol, ty: TyExpr, default: Option<Value>, range: Range) -> Self {
+        FunParam { symbol, ty, default, range }
+    }
 }
 
 impl FunParam {
     pub fn name(&self) -> &str {
-        match self {
-            FunParam::SelfKw(_) => "self",
-            FunParam::Variable { symbol, ty: _, default: _, range: _ } => symbol.name(),
-        }
+        self.symbol.name()
     }
 }
 
 impl Ranged for FunParam {
     fn range(&self) -> Range {
-        match self {
-            | FunParam::SelfKw(range)
-            | FunParam::Variable { symbol: _, ty: _, default: _, range, } => range.clone(),
-        }
+        self.range.clone()
     }
 }
 
 
 impl Ir<tree::FunParam> for FunParam {
     fn from_syntax(param: &tree::FunParam) -> Self {
-        match param {
-            // TODO(range) ir::FunParam range
-            tree::FunParam::Variable { name, ty, default, range, } => {
-                let symbol = Symbol::Variable(name.to_string());
-                let ty = if let Some(ty) = ty {
-                    TyExpr::Definite(ty.to_string())
-                } else {
-                    TyExpr::None
-                };
-                let default = default.as_ref().map(Value::from_syntax);
-                FunParam::Variable { symbol, ty, default, range: range.clone(), }
-            }
-            // TODO(range) ir::FunParam range
-            tree::FunParam::SelfKw(range) => FunParam::SelfKw(range.clone()),
-        }
+        let symbol = Symbol::Variable(param.name.to_string());
+        let ty = if let Some(ty) = &param.ty {
+            TyExpr::Definite(ty.to_string())
+        } else {
+            TyExpr::None
+        };
+        let default = param.default
+            .as_ref()
+            .map(Value::from_syntax);
+        FunParam::new(symbol, ty, default, param.range.clone())
     }
 }

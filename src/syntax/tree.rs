@@ -150,32 +150,30 @@ impl Ast for Fun {
 impl_ranged!(Fun::range);
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum FunParam {
-    SelfKw(Range),
-    Variable {
-        name: String,
-        ty: Option<String>,
-        default: Option<Expr>,
-        range: Range,
-    },
+pub struct FunParam {
+    pub name: String,
+    pub ty: Option<String>,
+    pub default: Option<Expr>,
+    pub range: Range,
+}
+
+impl FunParam {
+    pub fn new(name: String, ty: Option<String>, default: Option<Expr>, range: Range) -> Self {
+        FunParam {
+            name, ty, default, range
+        }
+    }
 }
 
 impl Ast for FunParam {
     fn token_is_lookahead(token: &Token) -> bool {
-        matches!(token, Token::Variable(_)) || token == &Token::SelfKw
+        matches!(token, Token::Variable(_))
     }
 
     fn name() -> &'static str { "function parameter" }
 }
 
-impl Ranged for FunParam {
-    fn range(&self) -> Range {
-        match self {
-            FunParam::SelfKw(r) => r.clone(),
-            FunParam::Variable { name: _, ty: _, default: _, range } => range.clone(),
-        }
-    }
-}
+impl_ranged!(FunParam::range);
 
 /// A generic block that comes with a (presumably) conditional expression.
 #[derive(Debug, Clone, PartialEq)]
@@ -226,7 +224,7 @@ impl Expr {
         token_is_lookahead!(
             token,
             Token::StrLit(_), Token::IntLit(_, _), Token::FloatLit(_),
-            Token::Variable(_), Token::Bareword(_), Token::SelfKw
+            Token::Variable(_), Token::Bareword(_)
         )
     }
 }
@@ -240,7 +238,7 @@ impl Ast for Expr {
             Token::Op(Op::Plus),
             Token::Op(Op::Minus),
             Token::Op(Op::Bang),
-            Token::LParen, Token::SelfKw
+            Token::LParen
         )
     }
 

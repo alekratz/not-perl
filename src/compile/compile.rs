@@ -189,16 +189,9 @@ impl<'s> TryTransformMut<ir::Fun> for CompileFuns<'s> {
 
         // Add parameters to the variable scope
         for param in params.iter() {
-            match param {
-                ir::FunParam::SelfKw(_) => unimplemented!("TODO : self keyword param"),
-                ir::FunParam::Variable { symbol: ir::Symbol::Variable(symbol), ty: _, default: _, range: _ } => {
-                    let var = Var::new(symbol.to_string(), self.0.var_scope.reserve_symbol());
-                    self.0.var_scope.insert(var);
-                }
-                ir::FunParam::Variable { symbol, ty: _, default: _, range: _ } =>
-                    panic!("bad symbol for function param: {:?}", symbol),
-
-            }
+            assert_matches!(&param.symbol, ir::Symbol::Variable(_));
+            let var = Var::new(param.symbol.name().to_string(), self.0.var_scope.reserve_symbol());
+            self.0.var_scope.insert(var);
         }
 
         GatherCompile(self.0).try_transform((inner_types, inner_functions))?;
