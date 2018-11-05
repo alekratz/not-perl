@@ -574,23 +574,28 @@ impl<'c> Parser<'c> {
     }
 }
 
-/*
 #[cfg(test)]
 mod test {
-    use syntax::*;
-    use syntax::token::*;
-    use syntax::tree::*;
+    use crate::syntax::*;
+    use crate::syntax::token::*;
+    use crate::syntax::tree::*;
+    use crate::common::pos::*;
+    use crate::common::lang::*;
 
     macro_rules! test_parser {
         ($input:expr) => {{
-            let mut parser = Parser::new($input.chars(), "test");
+            let mut parser = Parser::new("test", $input);
             parser.init().unwrap();
             parser
         }};
     }
 
     macro_rules! token {
-        ($($token:tt)+) => { RangedToken::new(Range::new(Pos::default(), Pos::default()), $($token)+) }
+        ($($token:tt)+) => {
+            RangedToken::new(
+                Range::Src(SrcRange::new(Pos::default(),Pos::default())),
+                $($token)+)
+            }
     }
 
     #[test]
@@ -599,11 +604,12 @@ mod test {
         let expr = parser.next_expr().unwrap();
         assert_eq!(expr,
                    Expr::Binary(
-                       Box::new(Expr::Atom(token!(Token::IntLit("1".to_string(), 10)))),
+                       Box::new(Expr::Atom(
+                           token!(Token::IntLit("1".to_string(), 10)))),
                        Op::Plus,
-                       Box::new(Expr::Atom(token!(Token::IntLit("2".to_string(), 10))))
-                       )
-                  );
+                       Box::new(Expr::Atom(
+                           token!(Token::IntLit("2".to_string(), 10))))
+                   ));
     }
 
     #[test]
@@ -616,4 +622,4 @@ mod test {
         parser.match_token(Token::RParen).unwrap();
     }
 }
-*/
+
