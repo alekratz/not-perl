@@ -316,8 +316,6 @@ impl Default for VarScope {
 
 #[cfg(test)]
 mod tests {
-    use crate::ir;
-    use crate::compile::{FunStub, self};
     use crate::vm::*;
     use super::*;
 

@@ -86,7 +86,7 @@ impl<'s> TryTransformMut<ir::UserTy> for CompileTys<'s> {
     fn try_transform_mut(&mut self, ty: ir::UserTy) -> Result<vm::UserTy, Error> {
         let ir::UserTy {
             name,
-            parents, // TODO: implement type parent behavior
+            parents: _, // TODO: implement type parent behavior
             functions,
             range,
         } = ty;
@@ -173,7 +173,7 @@ impl<'s> TryTransformMut<ir::Fun> for CompileFuns<'s> {
         let ir::Fun {
             symbol,
             params,
-            return_ty, // TODO: implement return type checking
+            return_ty: _, // TODO: implement return type checking
             body,
             inner_types,
             inner_functions,

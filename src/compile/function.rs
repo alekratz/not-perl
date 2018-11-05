@@ -200,6 +200,7 @@ mod tests {
             name: "a".to_string(),
             symbol: stub_a_sym,
             params: 2,
+            range: Range::Builtin,
             return_ty: ir::TyExpr::None,
         });
 
@@ -215,6 +216,7 @@ mod tests {
             name: "a".to_string(),
             symbol: new_stub_a_sym,
             params: 2,
+            range: Range::Builtin,
             return_ty: ir::TyExpr::None,
         });
         fun_scope.insert(stub_a);
@@ -234,6 +236,7 @@ mod tests {
             name: "a".to_string(),
             symbol: params_stub_a_sym,
             params: 3,
+            range: Range::Builtin,
             return_ty: ir::TyExpr::None,
         });
         fun_scope.insert(stub_a);
@@ -262,6 +265,7 @@ mod tests {
             name: "b".to_string(),
             symbol: stub_a_sym,
             params: 2,
+            range: Range::Builtin,
             return_ty: ir::TyExpr::None,
         });
         let stub_a = fun_scope.replace(stub_b);

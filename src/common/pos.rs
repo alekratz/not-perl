@@ -106,8 +106,7 @@ impl PartialEq for Pos {
     fn eq(&self, _other: &Self) -> bool { true }
 }
 
-#[derive(Clone, Debug)]
-#[cfg_attr(not(test), derive(PartialEq))]
+#[derive(Clone, Debug, PartialEq)]
 pub struct SrcRange(Pos, Pos);
 
 impl SrcRange {
