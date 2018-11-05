@@ -351,14 +351,13 @@ impl<'c> Iterator for Lexer<'c> {
     }
 }
 
-/*
 #[cfg(test)]
 mod test {
     use super::*;
 
     /// Creates a new lexer with the given input string with a source name of "testing".
     macro_rules! test_lexer {
-        ($input:expr) => {{ Lexer::new($input.chars(), "testing") }};
+        ($input:expr) => {{ Lexer::new("testing", $input) }};
     }
 
     /// Gets the first token from the given string.
@@ -483,4 +482,3 @@ mod test {
         first_token!("\"unclosed string");
     }
 }
-*/
