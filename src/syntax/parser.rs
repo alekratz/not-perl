@@ -193,7 +193,7 @@ impl<'c> Parser<'c> {
             // EOF
             Ok(())
         } else {
-            Err(self.err_expected_got("end-of-line (newline or `;`) or EOF", self.curr.as_ref()))
+            Err(self.err_expected_got("end-of-line (`;`) or EOF", self.curr.as_ref()))
         }
     }
 
