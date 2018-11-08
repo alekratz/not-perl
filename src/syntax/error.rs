@@ -10,8 +10,8 @@ pub enum ErrorKind {
     #[fail(display = "unexpected {}", _0)]
     Unexpected(String),
 
-    #[fail(display = "expected {}; got {}", _0, _1)]
-    ExpectedGot(String, String),
+    #[fail(display = "expected {}; got {} at {}", _0, _1, _2)]
+    ExpectedGot(String, String, Pos),
 
     #[fail(display = "reached {} while insode of string literal", _0)]
     EarlyStringEnd(String),

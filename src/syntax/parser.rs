@@ -82,7 +82,8 @@ impl<'c> Parser<'c> {
     }
     
     fn skip_whitespace(&mut self) -> Result<()> {
-        while self.is_token_match(&Token::LineEnd) || self.is_token_match(&Token::NewLine) || self.is_token_match(&Token::Comment) {
+        while self.is_token_match(&Token::LineEnd) ||
+            self.is_token_match(&Token::Comment) {
             self.next_token()?;
         }
         Ok(())
@@ -167,14 +168,29 @@ impl<'c> Parser<'c> {
             }
             _ => return Err(self.err_expected_got("statement", self.curr.as_ref())),
         };
-        self.next_eol_or_eof()?;
+        let is_newline_needed = match stmt {
+            Stmt::Fun(_) => true,
+            Stmt::While(_) => true,
+            Stmt::If {
+                if_block: _,
+                elseif_blocks: _,
+                else_block: _,
+            } => true,
+            _ => false,
+        };
+
+        if is_newline_needed {
+            self.next_eol_or_eof()?;
+        }
         Ok(stmt)
     }
 
     fn next_eol_or_eof(&mut self) -> Result<()> {
-        if self.is_token_match(&Token::LineEnd) || self.is_token_match(&Token::NewLine) || self.is_token_match(&Token::Comment) {
+        if self.is_token_match(&Token::LineEnd)
+            || self.is_token_match(&Token::Comment) {
             self.next_token().map(|_| ())
         } else if self.curr.is_none() {
+            // EOF
             Ok(())
         } else {
             Err(self.err_expected_got("end-of-line (newline or `;`) or EOF", self.curr.as_ref()))
@@ -190,12 +206,12 @@ impl<'c> Parser<'c> {
     fn next_block(&mut self) -> Result<Block> {
         let (range, stmts) = ranged!(self.lexer, {
             self.match_token(Token::LBrace)?;
-            let mut stmts = vec![];
+            let mut stmts = Vec::new();
             while !self.is_token_match(&Token::RBrace) {
                 let stmt = self.next_stmt()?;
                 stmts.push(stmt);
             }
-            self.match_token_preserve_newline(Token::RBrace)?;
+            self.match_token(Token::RBrace)?;
             stmts
         });
         Ok(RangeWrapper(range, stmts))
@@ -380,8 +396,7 @@ impl<'c> Parser<'c> {
             let function = self.next_function()?;
             functions.push(function);
 
-            // skip newlines; next_function preserves them
-            while self.is_token_match(&Token::NewLine) || self.is_token_match(&Token::Comment) {
+            while self.is_token_match(&Token::Comment) {
                 self.next_token()?;
             }
         }
@@ -518,7 +533,7 @@ impl<'c> Parser<'c> {
     /// Only statements are required to be ended with either newlines *or* line-end characters.
     fn next_token(&mut self) -> Result<Option<RangedToken>> {
         let mut token = self.next_token_or_newline()?;
-        while self.is_token_match(&Token::NewLine) || self.is_token_match(&Token::Comment) {
+        while self.is_token_match(&Token::Comment) {
             token = self.next_token_or_newline()?;
         }
         Ok(token)
@@ -547,7 +562,7 @@ impl<'c> Parser<'c> {
     fn err_expected_got(&self, expected: impl Display, got: Option<impl Display>) -> Error {
         let got = got.map(|d| d.to_string())
             .unwrap_or_else(|| "EOF".to_string());
-        self.err(ErrorKind::ExpectedGot(expected.to_string(), got))
+        self.err(ErrorKind::ExpectedGot(expected.to_string(), got, self.lexer.pos()))
     }
 
     /*

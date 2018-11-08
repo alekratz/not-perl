@@ -107,7 +107,6 @@ pub enum Token {
     // Control tokens
     //
     LineEnd,
-    NewLine,
 }
 
 impl Token {
@@ -186,7 +185,6 @@ impl Token {
             LBracket => "[".to_string(),
             RBracket => "]".to_string(),
             LineEnd => ";".to_string(),
-            NewLine => "\n".to_string(),
         }
     }
 }
@@ -222,7 +220,7 @@ impl Display for Token {
             RBrace => write!(fmt, "right brace"),
             LBracket => write!(fmt, "left bracket"),
             RBracket => write!(fmt, "right bracket"),
-            NewLine | LineEnd => write!(fmt, "end-of-line"),
+            LineEnd => write!(fmt, "end-of-line"),
         }
     }
 }

@@ -74,7 +74,8 @@ pub enum Stmt {
 
 impl Ast for Stmt {
     fn token_is_lookahead(token: &Token) -> bool {
-        Expr::token_is_lookahead(token) || token_is_lookahead!(token, Token::FunKw, Token::ReturnKw, Token::IfKw)
+        Expr::token_is_lookahead(token) ||
+            token_is_lookahead!(token, Token::FunKw, Token::ReturnKw, Token::IfKw)
     }
 
     fn name() -> &'static str { "statement" }

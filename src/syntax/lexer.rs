@@ -89,7 +89,6 @@ impl<'c> Lexer<'c> {
             '[' => Some(Ok(Token::LBracket)),
             ']' => Some(Ok(Token::RBracket)),
             ';' => Some(Ok(Token::LineEnd)),
-            '\n' => Some(Ok(Token::NewLine)),
             ',' => Some(Ok(Token::Comma)),
             ':' => Some(Ok(Token::Colon)),
             '0' ... '9' => Some(self.next_numeric_token()),
@@ -316,7 +315,9 @@ impl<'c> Lexer<'c> {
     /// # Returns
     /// The previous "current character" that has just been replaced.
     fn next_char(&mut self) -> Option<char> {
-        let old = mem::replace(&mut self.curr, mem::replace(&mut self.next, self.input.next()));
+        let old = mem::replace(&mut self.curr,
+                               mem::replace(&mut self.next,
+                                            self.input.next()));
         if let Some(c) = old {
             self.pos.adv();
             if c == '\n' {
@@ -331,7 +332,7 @@ impl<'c> Lexer<'c> {
     }
     
     fn err_expected_got(&self, expected: impl ToString, got: impl ToString) -> Error {
-        self.err(ErrorKind::ExpectedGot(expected.to_string(), got.to_string()))
+        self.err(ErrorKind::ExpectedGot(expected.to_string(), got.to_string(), self.pos()))
     }
 
     fn err(&self, kind: ErrorKind) -> Error {

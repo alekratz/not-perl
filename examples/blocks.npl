@@ -1,52 +1,53 @@
 fun prompt-line($prompt = "> ", $empty-ok = false): Str {
     loop {
-        println($prompt) # TODO: rename to print, once that's implemented
+        # TODO: rename to print, once that's implemented
+        println($prompt);
         $user-line = readln();
         if $user-line || $empty-ok {
-            return $user-line
+            return $user-line;
         }
     }
 }
 
 fun prompt-yes-no($prompt, $default = false): Bool {
     if $default == "y" {
-        $prompt ~= " [Y/n] "
+        $prompt ~= " [Y/n] ";
     } else if $default == false {
-        $prompt ~= " [y/n] "
+        $prompt ~= " [y/n] ";
     } else {
-        $prompt ~= " [y/N] "
+        $prompt ~= " [y/N] ";
     }
 
     loop {
-        $user-line = prompt-line($prompt, false)[0]
+        $user-line = prompt-line($prompt, false)[0];
         if $user-line ~~ "y" {
-            return true
+            return true;
         } else if $user-line ~~ "n" {
-            return false
+            return false;
         } else if $default != false {
-            return $default == "y"
+            return $default == "y";
         }
     }
 }
 
-$continue = true
+$continue = true;
 
 loop {
-    $user-line = prompt-line("Collatz sequence of which number?")
+    $user-line = prompt-line("Collatz sequence of which number?");
     if !$user-number ~~ int {
-        println("That doesn't look like a number.")
-        continue
+        println("That doesn't look like a number.");
+        continue;
     }
 
     while $user-number > 1 {
         if $user-number %% 2 {
-            $user-number /= 2
+            $user-number /= 2;
         } else {
-            $user-number += 1
-            $user-number *= 3
+            $user-number += 1;
+            $user-number *= 3;
         }
-        println($user-number)
+        println($user-number);
     }
 
-    $continue = prompt-yes-no("Another one?")
+    $continue = prompt-yes-no("Another one?");
 }
