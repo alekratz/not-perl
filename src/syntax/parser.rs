@@ -169,14 +169,15 @@ impl<'c> Parser<'c> {
             _ => return Err(self.err_expected_got("statement", self.curr.as_ref())),
         };
         let is_newline_needed = match stmt {
-            Stmt::Fun(_) => true,
-            Stmt::While(_) => true,
+            Stmt::Fun(_) => false,
+            Stmt::While(_) => false,
             Stmt::If {
                 if_block: _,
                 elseif_blocks: _,
                 else_block: _,
-            } => true,
-            _ => false,
+            } => false,
+            Stmt::Loop(_) => false,
+            _ => true,
         };
 
         if is_newline_needed {
