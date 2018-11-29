@@ -160,6 +160,10 @@ mod builtins {
         // TODO(builtin) : print to stdout
     }
 
+    pub fn readln(_storage: &mut Storage) {
+        // TODO(builtin) : read from stdin
+    }
+
     pub fn plus_binop(_storage: &mut Storage) {
         // TODO(builtin) : + operator
     }
@@ -187,6 +191,7 @@ lazy_static! {
         builtin_fun!(readf = readf ( 1 ) -> BuiltinTy::Str),
         builtin_fun!(print = print ( 1 ) -> BuiltinTy::None),
         builtin_fun!(println = println ( 1 ) -> BuiltinTy::None),
+        builtin_fun!(readln = readln ( 1 ) -> BuiltinTy::Str),
     ];
     
     pub static ref builtin_ops: Vec<BuiltinOp> = vec![
