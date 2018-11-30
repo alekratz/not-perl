@@ -1,0 +1,71 @@
+#!/usr/bin/env npl
+# service.npl
+# 
+# Defines a service that is run.
+use sh;
+use file;
+
+# Things that you should set up
+$user-name = "setup";
+# User's default group is set
+#$user-group = "setup"
+$command = !{logrotate -c /etc/logrotate.cfg};
+# !{ ... } is for planning a command
+
+# Things that probably don't need to be changed
+$service-name = ARGV[0];
+$run-file = "/var/run/${service-name}.pid";
+
+#| Start the service
+#|
+#| usage:
+#| $0 start
+fun start() {
+    if is-running {
+        println("Service is running.");
+    } else {
+        # |> is being used here for a redirection
+        # & is a suffix operator, used to send a job to the background, returning a Job object
+        # parens for $command are required since it's a reference
+        $job = sh.nohup sh.sudo($command(), $user-name)() |> $run-file &;
+    }
+}
+
+# Stop the service.
+fun stop() {
+    if !is-running {
+        println "Service is stopped." ;
+    } else {
+        sh.kill(sh.SIGINT, pid());
+    }
+}
+
+# Stops, and subsequently starts the server.
+fun restart() {
+    $max-tries = 5;
+    $try = 0;
+    stop;
+    while is-running() && $try < $max-tries {
+        $try += 1;
+        print "." ;
+        sh.sleep 1;
+    }
+    if is-running() {
+        println "Error: could not stop process.";
+    } else {
+        start;
+    }
+}
+
+fun pid() {
+    if file.exists($run-file) {
+        return file.read $run-file;
+    } else {
+        return -1;
+    }
+}
+
+fun is-running() {
+    return pid ~~ sh.ps;
+}
+

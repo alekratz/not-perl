@@ -1,0 +1,18 @@
+# This is an idea for "composite types".
+
+type Measurement {
+    fun Float($self) = Float.fuzzy;
+
+    fun unit($self): Str {
+        # unit of measurement here with regex
+    }
+}
+
+comp Measurement {
+    $value: Float;
+    $unit: Str;
+
+    fun Float($self) = $value
+    
+    # ... etc
+}

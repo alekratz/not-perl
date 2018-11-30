@@ -1,0 +1,14 @@
+# An example type, used for parsing out inch-values
+type Inches {
+    # Checks if the given $v value is a value in inches
+    fun is? ($self) {
+        # TODO : $self ~~ r"regex pattern"
+        # TODO : raw strings (what char?)
+        return matches($self, "\\d+(\\.\\d+)?\\s*in(ch(es)?)?");
+    }
+
+    # Converts this value to a Float.
+    fun Float ($self): Float {
+        return $self;
+    }
+}

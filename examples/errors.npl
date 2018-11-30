@@ -1,0 +1,18 @@
+# don't care if it doesn't write - we have bigger problems if it doesn't
+try {
+    $crash-log |> "";
+}
+
+try {
+    $config <| "filename.config";
+} catch $err: OsError {
+    # Catch OS error specifically
+    print "couldn't read the config file: " ~ $err;
+    # throw it up the chain
+    throw;
+} catch $err {
+    # $err.what, $err.why
+    print "couldn't read the config file: " ~ $err;
+    # panic, because this is not an error we handled (or something)
+    panic;
+}

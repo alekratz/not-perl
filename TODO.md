@@ -64,3 +64,10 @@ These are all located in `vm::function` (in src/vm/function.rs).
 # Compiler facilities
 
 * REPL
+
+# Documentation
+
+* Special READMEs
+    * examples/README.md
+* Full inline source documentation (hah!)
+* Project layout

@@ -1,0 +1,14 @@
+fun outer() {
+    fun inner() {
+        println("inner function!");
+    }
+    println("outer function!");
+    return inner;
+}
+
+$inner = outer();
+$inner();
+
+$bad = 5;
+# uncomment to break:
+# $bad();

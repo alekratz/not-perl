@@ -1,0 +1,8 @@
+fun function-with-args($a: MyTy, $b: Int) {
+    println("Got these args:");
+    println($a);
+    println($b);
+}
+
+function-with-args("butt", "sex");
+function-with-args("cocks", "dicks");
