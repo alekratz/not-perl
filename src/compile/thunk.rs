@@ -50,19 +50,19 @@ impl Thunk {
     ///
     /// `Thunk::Labeled` is the "hard case", where we need to worry about creating jump
     /// instructions and entry/exit points, as well as registering physical label addresses.
-    pub fn collapse<'s>(self, state: &'s mut State) -> Vec<Bc> {
-        self.collapse_range(0, state)
+    pub fn flatten<'s>(self, state: &'s mut State) -> Vec<Bc> {
+        self.flatten_range(0, state)
     }
 
-    /// Actual collapse implementation, the previous definition is just a pretty poster put up in
+    /// Actual flatten implementation, the previous definition is just a pretty poster put up in
     /// front of this so we have the correct start address.
-    fn collapse_range<'s>(self, mut addr: usize, state: &'s mut State) -> Vec<Bc> {
+    fn flatten_range<'s>(self, mut addr: usize, state: &'s mut State) -> Vec<Bc> {
         match self {
             Thunk::Empty => Vec::new(),
             Thunk::Code(c) => c,
             Thunk::Nested(thunks) => thunks.into_iter()
                 .flat_map(|thunk| {
-                    let code = thunk.collapse_range(addr, state);
+                    let code = thunk.flatten_range(addr, state);
                     // update start position based on every thunk's length
                     addr += code.len();
                     code
@@ -74,7 +74,7 @@ impl Thunk {
                     let entry_label = Label::new(entry, addr);
                     state.label_scope.insert(entry_label);
                 }
-                let body = code.collapse_range(addr, state);
+                let body = code.flatten_range(addr, state);
                 addr += body.len();
                 if state.label_scope.get_by_symbol(exit).is_none() {
                     let exit_label = Label::new(exit, addr);

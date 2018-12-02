@@ -37,6 +37,9 @@ impl Compile {
         } = ir_tree;
 
         // Gather and compile the main function (body)
+        //
+        // no types are passed because "body" is actually a function, and it will have its own
+        // inner types that get passed to further GatherCompile transforms
         GatherCompile(&mut self.state).try_transform((vec![], vec![body]))?;
 
         Ok(())
@@ -203,7 +206,7 @@ impl<'s> TryTransformMut<ir::Fun> for CompileFuns<'s> {
         // TODO : Pop function parameters and check their predicates where applicable
         // TODO : Or, let the VM handle it? Don't worry about inserting instructions here, maybe?
 
-        let body = thunk_list.collapse(self.0);
+        let body = thunk_list.flatten(self.0);
         self.0.pop_scope();
 
         let symbol = self.0.fun_scope.get_local_by_name_and_params(&name, params.len())

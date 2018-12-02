@@ -1,11 +1,19 @@
-//use compile::State;
+use crate::{
+    compile::State,
+    vm::Fun,
+};
 
 /// A final or in-progress compile-unit.
-pub struct Unit;
+pub struct Unit {
+    main_function: Fun,
+    functions: Vec<Fun>,
+}
 
 impl Unit {
-    /*
-    pub fn absorb_state(&mut self, state: State) {
+    /// Absorbs the given state into this compilation unit.
+    ///
+    /// The main function will be overwritten and discarded.
+    pub fn update(&mut self, state: State) {
+        
     }
-    */
 }
