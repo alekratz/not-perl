@@ -4,7 +4,6 @@ use std::{
 use crate::common::prelude::*;
 use crate::compile::{
     FunSymbolAlloc,
-    Scope,
 };
 use crate::ir;
 use crate::vm::{self, Symbolic};
@@ -85,7 +84,7 @@ impl FunStub {
 
 #[derive(Debug)]
 pub struct FunScope {
-    scope: Scope<Fun, FunSymbolAlloc>,
+    scope: AllocScope<Fun, FunSymbolAlloc>,
 }
 
 impl FunScope {
@@ -137,28 +136,28 @@ impl FunScope {
     }
 }
 
-impl From<Scope<Fun, FunSymbolAlloc>> for FunScope {
-    fn from(scope: Scope<Fun, FunSymbolAlloc>) -> Self { FunScope { scope } }
+impl From<AllocScope<Fun, FunSymbolAlloc>> for FunScope {
+    fn from(scope: AllocScope<Fun, FunSymbolAlloc>) -> Self { FunScope { scope } }
 }
 
-impl From<FunScope> for Scope<Fun, FunSymbolAlloc> {
+impl From<FunScope> for AllocScope<Fun, FunSymbolAlloc> {
     fn from(scope: FunScope) -> Self { scope.scope }
 }
 
 impl Deref for FunScope {
-    type Target = Scope<Fun, FunSymbolAlloc>;
+    type Target = AllocScope<Fun, FunSymbolAlloc>;
 
-    fn deref(&self) -> &Scope<Fun, FunSymbolAlloc> { &self.scope }
+    fn deref(&self) -> &AllocScope<Fun, FunSymbolAlloc> { &self.scope }
 }
 
 impl DerefMut for FunScope {
-    fn deref_mut(&mut self) -> &mut Scope<Fun, FunSymbolAlloc> { &mut self.scope }
+    fn deref_mut(&mut self) -> &mut AllocScope<Fun, FunSymbolAlloc> { &mut self.scope }
 }
 
 impl Default for FunScope {
     fn default() -> Self {
         FunScope {
-            scope: Scope::default(),
+            scope: AllocScope::default(),
         }
     }
 }

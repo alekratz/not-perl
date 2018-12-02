@@ -2,6 +2,7 @@ use std::io;
 use failure::Fail;
 use crate::{compile, syntax};
 
+pub mod scope;
 pub mod strings;
 pub mod value;
 pub mod lang;
@@ -10,6 +11,7 @@ pub mod lang;
 pub mod prelude {
     pub use super::lang::*;
     pub use super::pos::*;
+    pub use super::scope::*;
 }
 
 /// An error type that occurs as a result of processing a piece of code.

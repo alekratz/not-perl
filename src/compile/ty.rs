@@ -1,5 +1,10 @@
-use crate::common::prelude::*;
-use crate::vm::{self, Symbolic};
+use crate::{
+    common::prelude::*,
+    compile::{
+        TySymbolAlloc,
+    },
+    vm::{self, Symbolic},
+};
 
 /// A compile-time type.
 ///
@@ -49,3 +54,5 @@ impl Ranged for TyStub {
         self.range.clone()
     }
 }
+
+pub type TyScope = AllocScope<Ty, TySymbolAlloc>;

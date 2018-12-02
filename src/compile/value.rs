@@ -4,17 +4,21 @@ use std::{
     },
     ops::{Deref, DerefMut},
 };
-use crate::common::pos::RangeWrapper;
-use crate::compile::{
-    Error,
-    RegSymbolAlloc,
-    Scope,
-    State,
-    Transform,
-    TryTransform,
+use crate::{
+    common::{
+        scope::*,
+        pos::RangeWrapper,
+    },
+    compile::{
+        Error,
+        RegSymbolAlloc,
+        State,
+        Transform,
+        TryTransform,
+    },
+    ir,
+    vm::{self, Bc, Ref, Symbolic, Symbol},
 };
-use crate::ir;
-use crate::vm::{self, Bc, Ref, Symbolic, Symbol};
 
 #[derive(Debug, Clone)]
 pub struct Var {
@@ -210,7 +214,7 @@ impl Transform<vm::Value> for ValueContextKind {
 
 #[derive(Debug)]
 pub struct VarScope {
-    scope: Scope<Var, RegSymbolAlloc>,
+    scope: AllocScope<Var, RegSymbolAlloc>,
 
     /// A stack of all unused anonymous variables.
     unused_anon: Vec<BTreeSet<vm::RegSymbol>>,
@@ -282,8 +286,8 @@ impl VarScope {
     }
 }
 
-impl From<Scope<Var, RegSymbolAlloc>> for VarScope {
-    fn from(scope: Scope<Var, RegSymbolAlloc>) -> Self {
+impl From<AllocScope<Var, RegSymbolAlloc>> for VarScope {
+    fn from(scope: AllocScope<Var, RegSymbolAlloc>) -> Self {
         let depth = scope.scope_stack.len();
         VarScope {
             scope, unused_anon: vec!(BTreeSet::new(); depth)
@@ -291,12 +295,12 @@ impl From<Scope<Var, RegSymbolAlloc>> for VarScope {
     }
 }
 
-impl From<VarScope> for Scope<Var, RegSymbolAlloc> {
+impl From<VarScope> for AllocScope<Var, RegSymbolAlloc> {
     fn from(scope: VarScope) -> Self { scope.scope }
 }
 
 impl Deref for VarScope {
-    type Target = Scope<Var, RegSymbolAlloc>;
+    type Target = AllocScope<Var, RegSymbolAlloc>;
 
     fn deref(&self) -> &Self::Target { &self.scope }
 }
@@ -308,7 +312,7 @@ impl DerefMut for VarScope {
 impl Default for VarScope {
     fn default() -> Self {
         VarScope {
-            scope: Scope::default(),
+            scope: AllocScope::default(),
             unused_anon: Vec::new(),
         }
     }
