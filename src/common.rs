@@ -2,6 +2,7 @@ use std::io;
 use failure::Fail;
 use crate::{compile, syntax};
 
+pub mod strings;
 pub mod value;
 pub mod lang;
 #[macro_use] pub mod pos;

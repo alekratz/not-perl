@@ -63,7 +63,7 @@ impl Ir<SyntaxTree> for IrTree {
             }
         }
         let main = Fun {
-            symbol: Symbol::Fun("#main".to_string()),
+            symbol: Symbol::Fun(crate::common::strings::MAIN_FUN_NAME.to_string()),
             params: Vec::new(),
             return_ty: TyExpr::None,
             body: actions,
