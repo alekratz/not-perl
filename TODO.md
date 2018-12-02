@@ -8,6 +8,7 @@ fleshed out as well.
 
 ## Backend rewrite
 
+* Run rustfmt once this is about to be merged into master
 * VM
     * VM pieces need ranges and positions like IR has
     * Implementations needed:
@@ -21,9 +22,19 @@ fleshed out as well.
 * Logging for debug, warning, verbose, etc
     * `slog` crate may be too complicated, `env_logger` with terminal may be all we need for this
 
+# Cleanup
+
+* Update the `ir` module to have more consistent naming
+    * Might be small - I don't remember too much about it.
+    * `IrTree` should be renamed to `Tree` and put in its own file like `tree.rs`
+
 # Language
 
 * Language spec would be a wise move at this point
+    * Define syntax
+    * Define object system
+    * Specify expected and implementation-specific behavior
+        * Do we want to even try to make it compatible with Windows at this point?
 * Arrays
 * Internal memory model
     * How are strings allocated?
@@ -37,6 +48,7 @@ fleshed out as well.
 ## Syntax
 
 * Allow calling functions without parens
+    * Flesh this out better - I have ideas for this but I haven't written them down formally
 * Varargs + kwargs
     * Function varargs + kwargs declaration
     * Varargs and kwargs spread operators

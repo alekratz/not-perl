@@ -20,7 +20,12 @@ This has a sister document, TODO.md, which lists more concrete ideas that need t
 ## Syntax
 
 * Allow for string prefixes/suffixes
+    * `r"foo"` for raw strings
+    * `x"fo{2}"` for regex literals
+        * Can specify flags with suffixes! `x"^fo{2}$"i`
+    * custom definitions allowed, of course
 * Regex literals(?)
+    * Consider string literal for regex above
     * If they start with a / it may be tough to do with known prefixes.
     * However, the parser is LL(1) with a single lookahead, and we can make the parser LL(k) if
       necessary. This may be possible with LL(2).
