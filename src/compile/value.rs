@@ -5,11 +5,9 @@ use std::{
     ops::{Deref, DerefMut},
 };
 use crate::{
-    common::{
-        scope::*,
-        pos::RangeWrapper,
-    },
+    common::pos::RangeWrapper,
     compile::{
+        AllocScope,
         Error,
         RegSymbolAlloc,
         State,

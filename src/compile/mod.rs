@@ -1,22 +1,22 @@
-mod alloc;
 mod error;
 mod function;
 mod state;
 mod unit;
 mod value;
 mod scope;
+mod symbol;
 mod transform;
 mod thunk;
 mod ty;
 mod compile;
 
-pub use self::alloc::*;
 pub use self::error::*;
 pub use self::function::*;
 pub use self::state::*;
 pub use self::unit::*;
 pub (in self) use self::value::*;
 pub use self::scope::*;
+pub use self::symbol::*;
 pub (in self) use self::transform::*;
 pub use self::thunk::*;
 pub use self::ty::*;

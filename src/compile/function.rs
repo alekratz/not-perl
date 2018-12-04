@@ -1,12 +1,15 @@
 use std::{
     ops::{Deref, DerefMut},
 };
-use crate::common::prelude::*;
-use crate::compile::{
-    FunSymbolAlloc,
+use crate::{
+    common::prelude::*,
+    compile::{
+        AllocScope,
+        FunSymbolAlloc,
+    },
+    ir,
+    vm::{self, Symbolic},
 };
-use crate::ir;
-use crate::vm::{self, Symbolic};
 
 #[derive(Debug, Clone)]
 pub enum Fun {
