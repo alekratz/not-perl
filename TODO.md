@@ -21,6 +21,7 @@ fleshed out as well.
 * Vim syntax highlighting
 * Logging for debug, warning, verbose, etc
     * `slog` crate may be too complicated, `env_logger` with terminal may be all we need for this
+* Rename "scope" to "namespace" or something similar - better reflects what it does
 
 # Cleanup
 
