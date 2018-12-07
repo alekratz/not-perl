@@ -1,7 +1,6 @@
 mod error;
 mod function;
 mod state;
-mod unit;
 mod value;
 mod scope;
 mod symbol;
@@ -13,7 +12,6 @@ mod compile;
 pub use self::error::*;
 pub use self::function::*;
 pub use self::state::*;
-pub use self::unit::*;
 pub (in self) use self::value::*;
 pub use self::scope::*;
 pub use self::symbol::*;

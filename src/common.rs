@@ -1,6 +1,6 @@
 use std::io;
 use failure::Fail;
-use crate::{compile, syntax};
+use crate::{compile, syntax, vm};
 
 pub mod scope;
 pub mod strings;
@@ -25,6 +25,8 @@ pub enum ProcessError {
     Compile(#[cause] compile::Error),
     #[fail(display = "{}", _0)]
     Syntax(#[cause] syntax::Error),
+    #[fail(display = "{}", _0)]
+    Vm(#[cause] vm::Error),
 }
 
 impl From<io::Error> for ProcessError {
@@ -37,5 +39,9 @@ impl From<compile::Error> for ProcessError {
 
 impl From<syntax::Error> for ProcessError {
     fn from(other: syntax::Error) -> Self { ProcessError::Syntax(other) }
+}
+
+impl From<vm::Error> for ProcessError {
+    fn from(other: vm::Error) -> Self { ProcessError::Vm(other) }
 }
 

@@ -7,10 +7,10 @@ use crate::compile::{
 
 #[derive(Debug)]
 pub struct State {
-    pub (in super) var_scope: VarScope,
-    pub (in super) fun_scope: FunScope,
-    pub (in super) ty_scope: TyScope,
-    pub (in super) label_scope: LabelScope,
+    pub var_scope: VarScope,
+    pub fun_scope: FunScope,
+    pub ty_scope: TyScope,
+    pub label_scope: LabelScope,
 }
 
 impl State {

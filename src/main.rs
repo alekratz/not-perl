@@ -22,7 +22,10 @@ fn exec(mut args: Args) -> Result<(), common::ProcessError> {
     let path = args.next()
         .expect("exec() must be called with at least 2 args");
     let mut compile = compile::Compile::new();
-    compile.update_from_path(&path)
+    compile.update_from_path(&path)?;
+
+    let mut vm_state = vm::State::from(compile);
+    Ok(())
 }
 
 fn repl() {

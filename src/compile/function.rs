@@ -147,6 +147,10 @@ impl From<FunScope> for AllocScope<Fun, FunSymbolAlloc> {
     fn from(scope: FunScope) -> Self { scope.scope }
 }
 
+impl From<FunScope> for ReadOnlyScope<Fun> {
+    fn from(scope: FunScope) -> Self { ReadOnlyScope::from(scope.scope) }
+}
+
 impl Deref for FunScope {
     type Target = AllocScope<Fun, FunSymbolAlloc>;
 

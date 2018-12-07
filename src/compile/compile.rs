@@ -52,6 +52,12 @@ impl Compile {
     }
 }
 
+impl From<Compile> for vm::State {
+    fn from(other: Compile) -> Self {
+        Self::from(other.state)
+    }
+}
+
 struct GatherCompile<'s>(&'s mut State);
 
 impl<'s> TryTransform<(Vec<ir::UserTy>, Vec<ir::Fun>)> for GatherCompile<'s> {

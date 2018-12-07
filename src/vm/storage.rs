@@ -1,4 +1,6 @@
-use crate::vm::Value;
+use crate::vm::{
+    Value,
+};
 
 /// Storage for the VM.
 ///
@@ -10,6 +12,8 @@ pub struct Storage {
 }
 
 impl Storage {
+    pub fn new() -> Self { Self::default() }
+
     pub fn push_stack(&mut self, value: Value) {
         self.stack.push(value);
     }
@@ -20,5 +24,13 @@ impl Storage {
 
     pub fn peek_stack(&mut self) -> Option<&Value> {
         self.stack.last()
+    }
+}
+
+impl Default for Storage {
+    fn default() -> Self {
+        Storage {
+            stack: Vec::default(),
+        }
     }
 }

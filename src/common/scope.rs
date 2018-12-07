@@ -112,7 +112,7 @@ impl<T> ReadOnlyScope<T>
     /// current scope.
     pub fn replace(&mut self, value: T) -> T {
         assert!(self.all.contains_key(&value.symbol()),
-            format!("tried to replace unregistered function, symbol: {:?} name: {:?}", value.symbol(), value.name()));
+            "tried to replace unregistered function, symbol: {:?} name: {:?}", value.symbol(), value.name());
         self.all.insert(value.symbol(), value)
             .unwrap()
     }
@@ -128,4 +128,3 @@ impl<T> Default for ReadOnlyScope<T>
         }
     }
 }
-

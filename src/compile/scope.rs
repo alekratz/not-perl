@@ -93,4 +93,12 @@ impl<T, A> DerefMut for AllocScope<T, A>
     fn deref_mut(&mut self) -> &mut Self::Target { &mut self.scope }
 }
 
+impl<T, A> From<AllocScope<T, A>> for ReadOnlyScope<T>
+    where T: Symbolic,
+          T::Symbol: Debug,
+          A: Alloc<T::Symbol>,
+{
+    fn from(other: AllocScope<T, A>) -> Self { other.scope }
+}
+
 pub type LabelScope = AllocScope<Label, BlockSymbolAlloc>;
