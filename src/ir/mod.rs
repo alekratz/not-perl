@@ -1,28 +1,29 @@
-use std::path::Path;
 use crate::common::{
+    pos::{Range, Ranged},
     ProcessError,
-    pos::{Ranged, Range},
 };
 use crate::syntax::{
     self,
-    tree::{Ast, SyntaxTree, Stmt}
+    tree::{Ast, Stmt, SyntaxTree},
 };
 use crate::util;
+use std::path::Path;
 
-mod ty;
-mod function;
 mod action;
+mod function;
 mod symbol;
+mod ty;
 mod value;
 
-pub use self::ty::*;
-pub use self::function::*;
 pub use self::action::*;
+pub use self::function::*;
 pub use self::symbol::*;
+pub use self::ty::*;
 pub use self::value::*;
 
 pub trait Ir<A>: Sized + Ranged
-    where A: Ast + Sized,
+where
+    A: Ast + Sized,
 {
     fn from_syntax(ast: &A) -> Self;
 }
@@ -42,8 +43,7 @@ impl IrTree {
         };
 
         let lexer = syntax::Lexer::new(path.display(), &contents);
-        let parse_tree = syntax::Parser::from_lexer(lexer)
-            .into_parse_tree()?;
+        let parse_tree = syntax::Parser::from_lexer(lexer).into_parse_tree()?;
 
         Ok(IrTree::from_syntax(&parse_tree))
     }
@@ -84,4 +84,3 @@ impl Ranged for IrTree {
         self.body.range()
     }
 }
-

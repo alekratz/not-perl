@@ -1,7 +1,7 @@
 use std::{
+    fs::File,
     io::{self, Read},
     path::Path,
-    fs::File,
 };
 
 pub fn read_file(path: impl AsRef<Path>) -> io::Result<String> {

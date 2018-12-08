@@ -1,9 +1,9 @@
-use std::fmt::Debug;
 use crate::common::{
-    pos::{Range, Ranged, RangeWrapper},
     lang::Op,
+    pos::{Range, RangeWrapper, Ranged},
 };
 use crate::syntax::token::*;
+use std::fmt::Debug;
 
 macro_rules! token_is_lookahead {
     ($token:expr, $head:pat $(, $tail:pat)*) => {{
@@ -23,10 +23,15 @@ pub trait Ast: Ranged {
 }
 
 impl<T> Ast for RangeWrapper<T>
-    where T: Ast + Clone + Debug + Ranged
+where
+    T: Ast + Clone + Debug + Ranged,
 {
-    fn token_is_lookahead(token: &Token) -> bool { T::token_is_lookahead(token) }
-    fn name() -> &'static str { T::name() }
+    fn token_is_lookahead(token: &Token) -> bool {
+        T::token_is_lookahead(token)
+    }
+    fn name() -> &'static str {
+        T::name()
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -37,10 +42,7 @@ pub struct SyntaxTree {
 
 impl SyntaxTree {
     pub fn new(stmts: Vec<Stmt>, range: Range) -> Self {
-        SyntaxTree {
-            stmts,
-            range,
-        }
+        SyntaxTree { stmts, range }
     }
 }
 
@@ -49,7 +51,9 @@ impl Ast for SyntaxTree {
         Stmt::token_is_lookahead(token)
     }
 
-    fn name() -> &'static str { "syntax tree" }
+    fn name() -> &'static str {
+        "syntax tree"
+    }
 }
 
 impl_ranged!(SyntaxTree::range);
@@ -74,11 +78,13 @@ pub enum Stmt {
 
 impl Ast for Stmt {
     fn token_is_lookahead(token: &Token) -> bool {
-        Expr::token_is_lookahead(token) ||
-            token_is_lookahead!(token, Token::FunKw, Token::ReturnKw, Token::IfKw)
+        Expr::token_is_lookahead(token)
+            || token_is_lookahead!(token, Token::FunKw, Token::ReturnKw, Token::IfKw)
     }
 
-    fn name() -> &'static str { "statement" }
+    fn name() -> &'static str {
+        "statement"
+    }
 }
 
 impl Ranged for Stmt {
@@ -90,7 +96,11 @@ impl Ranged for Stmt {
             Stmt::Assign(lhs, _, rhs) => lhs.range().union(&rhs.range()),
             Stmt::While(c) => c.range(),
             Stmt::Loop(b) => b.range(),
-            Stmt::If { if_block, elseif_blocks, else_block } =>
+            Stmt::If {
+                if_block,
+                elseif_blocks,
+                else_block,
+            } => {
                 if let Some(else_block) = else_block {
                     if_block.range().union(&else_block.range())
                 } else if let Some(elseif_block) = elseif_blocks.last() {
@@ -98,9 +108,8 @@ impl Ranged for Stmt {
                 } else {
                     if_block.range()
                 }
-            | Stmt::Continue(r)
-            | Stmt::Break(r)
-            | Stmt::Return(_, r) => r.clone(),
+            }
+            Stmt::Continue(r) | Stmt::Break(r) | Stmt::Return(_, r) => r.clone(),
         }
     }
 }
@@ -126,7 +135,9 @@ impl Ast for UserTy {
         token_is_lookahead!(token, Token::TypeKw)
     }
 
-    fn name() -> &'static str { "type definition" }
+    fn name() -> &'static str {
+        "type definition"
+    }
 }
 
 impl_ranged!(UserTy::range);
@@ -145,7 +156,9 @@ impl Ast for Fun {
         token_is_lookahead!(token, Token::FunKw)
     }
 
-    fn name() -> &'static str { "function definition" }
+    fn name() -> &'static str {
+        "function definition"
+    }
 }
 
 impl_ranged!(Fun::range);
@@ -161,7 +174,10 @@ pub struct FunParam {
 impl FunParam {
     pub fn new(name: String, ty: Option<String>, default: Option<Expr>, range: Range) -> Self {
         FunParam {
-            name, ty, default, range
+            name,
+            ty,
+            default,
+            range,
         }
     }
 }
@@ -171,7 +187,9 @@ impl Ast for FunParam {
         matches!(token, Token::Variable(_))
     }
 
-    fn name() -> &'static str { "function parameter" }
+    fn name() -> &'static str {
+        "function parameter"
+    }
 }
 
 impl_ranged!(FunParam::range);
@@ -185,7 +203,7 @@ pub struct ConditionBlock {
 
 impl ConditionBlock {
     pub fn new(condition: Expr, block: Block) -> Self {
-        ConditionBlock { condition, block, }
+        ConditionBlock { condition, block }
     }
 }
 
@@ -215,17 +233,22 @@ pub enum Expr {
 impl Expr {
     pub fn canonicalize(&self) -> String {
         match self {
-            Expr::Binary(lhs, op, rhs) => format!("({} {} {})", lhs.canonicalize(), op, rhs.canonicalize()),
+            Expr::Binary(lhs, op, rhs) => {
+                format!("({} {} {})", lhs.canonicalize(), op, rhs.canonicalize())
+            }
             Expr::Atom(e) => format!("{}", e.token()),
-            _ => unreachable!()
+            _ => unreachable!(),
         }
     }
 
     pub fn token_is_atom_lookahead(token: &Token) -> bool {
         token_is_lookahead!(
             token,
-            Token::StrLit(_), Token::IntLit(_, _), Token::FloatLit(_),
-            Token::Variable(_), Token::Bareword(_)
+            Token::StrLit(_),
+            Token::IntLit(_, _),
+            Token::FloatLit(_),
+            Token::Variable(_),
+            Token::Bareword(_)
         )
     }
 }
@@ -234,8 +257,13 @@ impl Ast for Expr {
     fn token_is_lookahead(token: &Token) -> bool {
         token_is_lookahead!(
             token,
-            Token::StrLit(_), Token::IntLit(_, _), Token::FloatLit(_), Token::TrueKw, Token::FalseKw,
-            Token::Variable(_), Token::Bareword(_),
+            Token::StrLit(_),
+            Token::IntLit(_, _),
+            Token::FloatLit(_),
+            Token::TrueKw,
+            Token::FalseKw,
+            Token::Variable(_),
+            Token::Bareword(_),
             Token::Op(Op::Plus),
             Token::Op(Op::Minus),
             Token::Op(Op::Bang),
@@ -243,15 +271,24 @@ impl Ast for Expr {
         )
     }
 
-    fn name() -> &'static str { "expression" }
+    fn name() -> &'static str {
+        "expression"
+    }
 }
-
 
 impl Ranged for Expr {
     fn range(&self) -> Range {
         match self {
-            | Expr::FunCall { function: _, args: _, range }
-            | Expr::ArrayAccess { array: _, index: _, range } => range.clone(),
+            Expr::FunCall {
+                function: _,
+                args: _,
+                range,
+            }
+            | Expr::ArrayAccess {
+                array: _,
+                index: _,
+                range,
+            } => range.clone(),
             Expr::Atom(t) => t.range(),
             Expr::Unary(_, e) => e.range(),
             Expr::Binary(l, _, r) => l.range().union(&r.range()),

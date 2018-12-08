@@ -1,12 +1,13 @@
-use std::io;
-use failure::Fail;
 use crate::{compile, syntax, vm};
+use failure::Fail;
+use std::io;
 
+pub mod lang;
 pub mod scope;
 pub mod strings;
 pub mod value;
-pub mod lang;
-#[macro_use] pub mod pos;
+#[macro_use]
+pub mod pos;
 
 pub mod prelude {
     pub use super::lang::*;
@@ -30,18 +31,25 @@ pub enum ProcessError {
 }
 
 impl From<io::Error> for ProcessError {
-    fn from(other: io::Error) -> Self { ProcessError::Io(other) }
+    fn from(other: io::Error) -> Self {
+        ProcessError::Io(other)
+    }
 }
 
 impl From<compile::Error> for ProcessError {
-    fn from(other: compile::Error) -> Self { ProcessError::Compile(other) }
+    fn from(other: compile::Error) -> Self {
+        ProcessError::Compile(other)
+    }
 }
 
 impl From<syntax::Error> for ProcessError {
-    fn from(other: syntax::Error) -> Self { ProcessError::Syntax(other) }
+    fn from(other: syntax::Error) -> Self {
+        ProcessError::Syntax(other)
+    }
 }
 
 impl From<vm::Error> for ProcessError {
-    fn from(other: vm::Error) -> Self { ProcessError::Vm(other) }
+    fn from(other: vm::Error) -> Self {
+        ProcessError::Vm(other)
+    }
 }
-

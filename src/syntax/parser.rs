@@ -1,17 +1,6 @@
-use std::{
-    mem,
-    collections::VecDeque,
-    fmt::Display,
-};
 use crate::common::prelude::*;
-use crate::syntax::{
-    Lexer,
-    Result,
-    Error,
-    ErrorKind,
-    tree::*,
-    token::*,
-};
+use crate::syntax::{token::*, tree::*, Error, ErrorKind, Lexer, Result};
+use std::{collections::VecDeque, fmt::Display, mem};
 
 macro_rules! ranged {
     ( $lexer:expr, $block:block ) => {{
@@ -80,10 +69,9 @@ impl<'c> Parser<'c> {
         });
         Ok(SyntaxTree::new(stmts, range))
     }
-    
+
     fn skip_whitespace(&mut self) -> Result<()> {
-        while self.is_token_match(&Token::LineEnd) ||
-            self.is_token_match(&Token::Comment) {
+        while self.is_token_match(&Token::LineEnd) || self.is_token_match(&Token::Comment) {
             self.next_token()?;
         }
         Ok(())
@@ -111,13 +99,11 @@ impl<'c> Parser<'c> {
                 Stmt::Return(stmt, range)
             }
             Token::ContinueKw => {
-                let token = self.next_token_or_newline()?
-                    .unwrap();
+                let token = self.next_token_or_newline()?.unwrap();
                 Stmt::Continue(token.range())
             }
             Token::BreakKw => {
-                let token = self.next_token_or_newline()?
-                    .unwrap();
+                let token = self.next_token_or_newline()?.unwrap();
                 Stmt::Break(token.range())
             }
             Token::WhileKw => {
@@ -187,8 +173,7 @@ impl<'c> Parser<'c> {
     }
 
     fn next_eol_or_eof(&mut self) -> Result<()> {
-        if self.is_token_match(&Token::LineEnd)
-            || self.is_token_match(&Token::Comment) {
+        if self.is_token_match(&Token::LineEnd) || self.is_token_match(&Token::Comment) {
             self.next_token().map(|_| ())
         } else if self.curr.is_none() {
             // EOF
@@ -220,24 +205,37 @@ impl<'c> Parser<'c> {
 
     fn next_expr(&mut self) -> Result<Expr> {
         let op_queue = VecDeque::from(vec![
-            vec![Op::DoublePercent, Op::DoubleEquals, Op::DoubleTilde, Op::NotEquals,
-                 Op::LessEquals, Op::GreaterEquals, Op::Less, Op::Greater],
+            vec![
+                Op::DoublePercent,
+                Op::DoubleEquals,
+                Op::DoubleTilde,
+                Op::NotEquals,
+                Op::LessEquals,
+                Op::GreaterEquals,
+                Op::Less,
+                Op::Greater,
+            ],
             vec![Op::Or],
             vec![Op::And],
             vec![Op::Tilde],
             vec![Op::Plus, Op::Minus],
-            vec![Op::Splat, Op::FSlash], ]);
+            vec![Op::Splat, Op::FSlash],
+        ]);
         self.next_binary_expr(op_queue)
     }
 
     fn next_binary_expr(&mut self, mut op_queue: VecDeque<Vec<Op>>) -> Result<Expr> {
         if let Some(top) = op_queue.pop_front() {
             let lhs = self.next_binary_expr(op_queue.clone())?;
-            let op_matches = self.curr.as_ref()
-                .map(|t| if let &Token::Op(ref op) = t.token() {
-                    top.contains(op)
-                } else {
-                    false
+            let op_matches = self
+                .curr
+                .as_ref()
+                .map(|t| {
+                    if let &Token::Op(ref op) = t.token() {
+                        top.contains(op)
+                    } else {
+                        false
+                    }
                 })
                 .unwrap_or(false);
             if op_matches {
@@ -252,7 +250,6 @@ impl<'c> Parser<'c> {
             self.next_unary_expr()
         }
     }
-
 
     fn next_unary_expr(&mut self) -> Result<Expr> {
         if self.is_curr_op() {
@@ -309,7 +306,11 @@ impl<'c> Parser<'c> {
             let args = self.next_funcall_args()?;
             let end = self.lexer.pos();
             let range = Range::Src(SrcRange::new(begin.clone(), end));
-            expr = Expr::FunCall { function: Box::new(expr), args, range, }
+            expr = Expr::FunCall {
+                function: Box::new(expr),
+                args,
+                range,
+            }
         }
 
         if self.is_token_match(&Token::LBracket) {
@@ -318,7 +319,11 @@ impl<'c> Parser<'c> {
             self.match_token_preserve_newline(Token::RBracket)?;
             let end = self.lexer.pos();
             let range = Range::Src(SrcRange::new(begin.clone(), end));
-            Ok(Expr::ArrayAccess{ array: Box::new(expr), index: Box::new(index), range, })
+            Ok(Expr::ArrayAccess {
+                array: Box::new(expr),
+                index: Box::new(index),
+                range,
+            })
         } else {
             Ok(expr)
         }
@@ -405,7 +410,12 @@ impl<'c> Parser<'c> {
 
         let end = self.lexer.pos();
         let range = Range::Src(SrcRange::new(begin, end));
-        Ok(UserTy { name, parents, functions, range, })
+        Ok(UserTy {
+            name,
+            parents,
+            functions,
+            range,
+        })
     }
 
     fn next_funcall_args(&mut self) -> Result<Vec<Expr>> {
@@ -430,7 +440,7 @@ impl<'c> Parser<'c> {
         if let Some(token) = self.next_token()? {
             match token.as_inner() {
                 Token::Variable(var) => Ok(var.clone()),
-                _ => Err(self.err_expected_got("variable", Some(&token)))
+                _ => Err(self.err_expected_got("variable", Some(&token))),
             }
         } else {
             Err(self.err_expected_got_eof("variable"))
@@ -441,7 +451,7 @@ impl<'c> Parser<'c> {
         if let Some(token) = self.next_token()? {
             match token.as_inner() {
                 Token::Bareword(bareword) => Ok(bareword.clone()),
-                _ => Err(self.err_expected_got("bareword", Some(&token)))
+                _ => Err(self.err_expected_got("bareword", Some(&token))),
             }
         } else {
             Err(self.err_expected_got_eof("bareword"))
@@ -449,8 +459,11 @@ impl<'c> Parser<'c> {
     }
 
     fn next_op(&mut self) -> Result<Op> {
-        let matches = if let Some(&Token::Op(_)) = self.curr.as_ref().map(|r| r.token()) { true }
-                      else { false };
+        let matches = if let Some(&Token::Op(_)) = self.curr.as_ref().map(|r| r.token()) {
+            true
+        } else {
+            false
+        };
         if matches {
             Ok(Token::from(self.next_token()?.unwrap()).into_op())
         } else {
@@ -459,7 +472,10 @@ impl<'c> Parser<'c> {
     }
 
     fn next_assign_op(&mut self) -> Result<AssignOp> {
-        let matches = matches!(self.curr.as_ref().map(|r| r.token()), Some(&Token::AssignOp(_)));
+        let matches = matches!(
+            self.curr.as_ref().map(|r| r.token()),
+            Some(&Token::AssignOp(_))
+        );
         if matches {
             Ok(Token::from(self.next_token()?.unwrap()).into_assign_op())
         } else {
@@ -468,13 +484,15 @@ impl<'c> Parser<'c> {
     }
 
     fn is_curr_op(&self) -> bool {
-        self.curr.as_ref()
+        self.curr
+            .as_ref()
             .map(|t| matches!(t.token(), &Token::Op(_)))
             .unwrap_or(false)
     }
 
     fn is_curr_assign_op(&self) -> bool {
-        self.curr.as_ref()
+        self.curr
+            .as_ref()
             .map(|t| matches!(t.token(), &Token::AssignOp(_)))
             .unwrap_or(false)
     }
@@ -496,7 +514,12 @@ impl<'c> Parser<'c> {
     }
 
     fn match_token_preserve_newline(&mut self, token: Token) -> Result<RangedToken> {
-        if self.curr.as_ref().map(|r| r.token() == &token).unwrap_or(false) {
+        if self
+            .curr
+            .as_ref()
+            .map(|r| r.token() == &token)
+            .unwrap_or(false)
+        {
             self.next_token_or_newline()?
                 .ok_or_else(|| self.err_expected_got_eof(token.to_string()))
         } else {
@@ -506,7 +529,12 @@ impl<'c> Parser<'c> {
     }
 
     fn match_token(&mut self, token: Token) -> Result<RangedToken> {
-        if self.curr.as_ref().map(|r| r.token() == &token).unwrap_or(false) {
+        if self
+            .curr
+            .as_ref()
+            .map(|r| r.token() == &token)
+            .unwrap_or(false)
+        {
             self.next_token()?
                 .ok_or_else(|| self.err_expected_got_eof(token.to_string()))
         } else {
@@ -525,7 +553,10 @@ impl<'c> Parser<'c> {
         } else {
             None
         };
-        Ok(mem::replace(&mut self.curr, mem::replace(&mut self.next, next)))
+        Ok(mem::replace(
+            &mut self.curr,
+            mem::replace(&mut self.next, next),
+        ))
     }
 
     /// Advances the lexer by one token, skipping over any comments and newlines as necessary.
@@ -561,9 +592,14 @@ impl<'c> Parser<'c> {
     /// # Returns
     /// A `Error` with a synthesized error message based on the `expected` and `got` params.
     fn err_expected_got(&self, expected: impl Display, got: Option<impl Display>) -> Error {
-        let got = got.map(|d| d.to_string())
+        let got = got
+            .map(|d| d.to_string())
             .unwrap_or_else(|| "EOF".to_string());
-        self.err(ErrorKind::ExpectedGot(expected.to_string(), got, self.lexer.pos()))
+        self.err(ErrorKind::ExpectedGot(
+            expected.to_string(),
+            got,
+            self.lexer.pos(),
+        ))
     }
 
     /*
@@ -592,11 +628,11 @@ impl<'c> Parser<'c> {
 
 #[cfg(test)]
 mod test {
-    use crate::syntax::*;
+    use crate::common::lang::*;
+    use crate::common::pos::*;
     use crate::syntax::token::*;
     use crate::syntax::tree::*;
-    use crate::common::pos::*;
-    use crate::common::lang::*;
+    use crate::syntax::*;
 
     macro_rules! test_parser {
         ($input:expr) => {{
@@ -618,24 +654,27 @@ mod test {
     fn test_parser_expr() {
         let mut parser = test_parser!("(1 + 2)");
         let expr = parser.next_expr().unwrap();
-        assert_eq!(expr,
-                   Expr::Binary(
-                       Box::new(Expr::Atom(
-                           token!(Token::IntLit("1".to_string(), 10)))),
-                       Op::Plus,
-                       Box::new(Expr::Atom(
-                           token!(Token::IntLit("2".to_string(), 10))))
-                   ));
+        assert_eq!(
+            expr,
+            Expr::Binary(
+                Box::new(Expr::Atom(token!(Token::IntLit("1".to_string(), 10)))),
+                Op::Plus,
+                Box::new(Expr::Atom(token!(Token::IntLit("2".to_string(), 10))))
+            )
+        );
     }
 
     #[test]
     fn test_parser_match_token() {
         let mut parser = test_parser!("(1 + 2)");
         parser.match_token(Token::LParen).unwrap();
-        parser.match_token(Token::IntLit("1".to_string(), 10)).unwrap();
+        parser
+            .match_token(Token::IntLit("1".to_string(), 10))
+            .unwrap();
         parser.match_token(Token::Op(Op::Plus)).unwrap();
-        parser.match_token(Token::IntLit("2".to_string(), 10)).unwrap();
+        parser
+            .match_token(Token::IntLit("2".to_string(), 10))
+            .unwrap();
         parser.match_token(Token::RParen).unwrap();
     }
 }
-

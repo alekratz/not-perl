@@ -1,27 +1,18 @@
-use std::ops::{Deref, DerefMut};
-use crate::compile::{
-    State,
-    Error,
-    ValueContext,
-    ValueContextKind,
-    transform::*,
-};
-use crate::ir;
 use crate::common::pos::RangeWrapper;
-use crate::vm::{
-    self,
-    Bc,
-    Ref,
-    Value,
-    JumpCond,
-    Label,
-};
+use crate::compile::{transform::*, Error, State, ValueContext, ValueContextKind};
+use crate::ir;
+use crate::vm::{self, Bc, JumpCond, Label, Ref, Value};
+use std::ops::{Deref, DerefMut};
 
 pub enum Thunk {
     Empty,
     Code(Vec<Bc>),
     Nested(Vec<Thunk>),
-    Labeled { entry: vm::BlockSymbol, code: Box<Thunk>, exit: vm::BlockSymbol, }
+    Labeled {
+        entry: vm::BlockSymbol,
+        code: Box<Thunk>,
+        exit: vm::BlockSymbol,
+    },
 }
 
 impl Thunk {
@@ -30,15 +21,18 @@ impl Thunk {
         match self {
             Thunk::Empty => *self = Thunk::Code(vec![bc]),
             Thunk::Code(c) => c.push(bc),
-            Thunk::Nested(thunks) => if thunks.is_empty() {
-                thunks.push(Thunk::Code(vec![bc]));
-            } else {
-                thunks.last_mut()
-                    .unwrap()
-                    .push(bc);
-            },
-            Thunk::Labeled { entry: _, code, exit: _, } => code.push(bc),
-
+            Thunk::Nested(thunks) => {
+                if thunks.is_empty() {
+                    thunks.push(Thunk::Code(vec![bc]));
+                } else {
+                    thunks.last_mut().unwrap().push(bc);
+                }
+            }
+            Thunk::Labeled {
+                entry: _,
+                code,
+                exit: _,
+            } => code.push(bc),
         }
     }
 
@@ -60,7 +54,8 @@ impl Thunk {
         match self {
             Thunk::Empty => Vec::new(),
             Thunk::Code(c) => c,
-            Thunk::Nested(thunks) => thunks.into_iter()
+            Thunk::Nested(thunks) => thunks
+                .into_iter()
                 .flat_map(|thunk| {
                     let code = thunk.flatten_range(addr, state);
                     // update start position based on every thunk's length
@@ -86,7 +81,7 @@ impl Thunk {
     }
 }
 
-pub struct RootBlock<'s>(pub (in super) &'s mut State);
+pub struct RootBlock<'s>(pub(super) &'s mut State);
 
 impl<'s> RootBlock<'s> {
     /// Attempts to transform a block of IR actions into bytecode.
@@ -110,13 +105,16 @@ impl<'r, 's> TryTransformMut<ir::Action> for RootBlock<'s> {
             ActionKind::Eval(val) => {
                 let ctx = ValueContext::new(ValueContextKind::Push, self.0);
                 ctx.try_transform(val).map(Thunk::Code)
-            },
+            }
             // Assign a value to a place in memory
             ActionKind::Assign(lhs, _op, rhs) => {
                 // TODO : remove assignment ops, desugar assignment ops
                 if !lhs.is_assign_candidate() {
                     let range = lhs.range();
-                    return Err(Error::invalid_assign_lhs(range.clone(), range.source_text().to_string()));
+                    return Err(Error::invalid_assign_lhs(
+                        range.clone(),
+                        range.source_text().to_string(),
+                    ));
                 }
 
                 let RangeWrapper(_, ref lhs_value) = lhs;
@@ -127,11 +125,13 @@ impl<'r, 's> TryTransformMut<ir::Action> for RootBlock<'s> {
                         let lhs_store = Ref::Reg(self.0.var_scope.get_or_insert(&varname));
                         ValueContext::new(ValueContextKind::Store(lhs_store), self.0)
                             .try_transform(rhs)?
-                    },
+                    }
                     // unreachable since is_assign_candidate excludes non-variable symbol
                     ir::ValueKind::Symbol(RangeWrapper(_, _)) => unreachable!(),
-                    ir::ValueKind::ArrayAccess(_, _) => unimplemented!("TODO(array) : array assign"),
-                    | ir::ValueKind::FunCall(_, _)
+                    ir::ValueKind::ArrayAccess(_, _) => {
+                        unimplemented!("TODO(array) : array assign")
+                    }
+                    ir::ValueKind::FunCall(_, _)
                     | ir::ValueKind::UnaryExpr(_, _)
                     | ir::ValueKind::BinaryExpr(_, _, _) => {
                         // Unary/binary expressions and funcalls are all just function calls.
@@ -142,26 +142,39 @@ impl<'r, 's> TryTransformMut<ir::Action> for RootBlock<'s> {
                         // an assignment should be evaluated.
                         let lhs_store = self.0.var_scope.insert_anonymous_var();
                         let lhs_code = {
-                            let lhs_ctx = ValueContext::new(ValueContextKind::Store(Ref::Reg(lhs_store)), self.0);
+                            let lhs_ctx = ValueContext::new(
+                                ValueContextKind::Store(Ref::Reg(lhs_store)),
+                                self.0,
+                            );
                             lhs_ctx.try_transform(lhs)?
                         };
                         let rhs_store = self.0.var_scope.insert_anonymous_var();
                         let rhs_code = {
-                            let rhs_ctx = ValueContext::new(ValueContextKind::Store(Ref::Reg(rhs_store)), self.0);
+                            let rhs_ctx = ValueContext::new(
+                                ValueContextKind::Store(Ref::Reg(rhs_store)),
+                                self.0,
+                            );
                             rhs_ctx.try_transform(rhs)?
                         };
 
                         self.0.var_scope.free_anonymous_var(lhs_store);
                         self.0.var_scope.free_anonymous_var(rhs_store);
-                        lhs_code.into_iter()
+                        lhs_code
+                            .into_iter()
                             .chain(rhs_code.into_iter())
                             // TODO : deref RHS?
-                            .chain(vec![Bc::DerefPush(Ref::Reg(lhs_store)), Bc::PopDerefStore(Value::Ref(Ref::Reg(rhs_store)))].into_iter())
+                            .chain(
+                                vec![
+                                    Bc::DerefPush(Ref::Reg(lhs_store)),
+                                    Bc::PopDerefStore(Value::Ref(Ref::Reg(rhs_store))),
+                                ]
+                                .into_iter(),
+                            )
                             .collect()
                     }
                 };
                 Ok(Thunk::Code(code))
-            },
+            }
             // Loop over a block
             ActionKind::Loop(block) => {
                 let entry = self.0.label_scope.reserve_symbol();
@@ -170,12 +183,20 @@ impl<'r, 's> TryTransformMut<ir::Action> for RootBlock<'s> {
                 let mut jump_block = JumpBlock::new(entry, exit, self.0);
                 let mut code = jump_block.try_transform_block(block)?;
                 code.push(Bc::JumpSymbol(entry, JumpCond::Always));
-                Ok(Thunk::Labeled { entry, code: Box::new(code), exit })
-            },
+                Ok(Thunk::Labeled {
+                    entry,
+                    code: Box::new(code),
+                    exit,
+                })
+            }
             // Add a block of actions
             ActionKind::Block(block) => self.try_transform_block(block),
             // Execute conditional blocks
-            ActionKind::ConditionBlock { if_block, elseif_blocks, else_block, } => {
+            ActionKind::ConditionBlock {
+                if_block,
+                elseif_blocks,
+                else_block,
+            } => {
                 // entry and exit symbols for the entire statement
                 let cond_entry = self.0.label_scope.reserve_symbol();
                 let cond_exit = self.0.label_scope.reserve_symbol();
@@ -196,7 +217,11 @@ impl<'r, 's> TryTransformMut<ir::Action> for RootBlock<'s> {
                     cond_code.push(Bc::JumpSymbol(if_exit, JumpCond::CondFalse));
                     let mut block_code = self.try_transform_mut(if_block.action)?;
                     block_code.push(Bc::JumpSymbol(cond_exit, JumpCond::Always));
-                    Thunk::Labeled { entry: if_entry, code: Box::new(block_code), exit: if_exit }
+                    Thunk::Labeled {
+                        entry: if_entry,
+                        code: Box::new(block_code),
+                        exit: if_exit,
+                    }
                 };
 
                 let elif_thunk = if elseif_blocks.is_empty() {
@@ -215,7 +240,11 @@ impl<'r, 's> TryTransformMut<ir::Action> for RootBlock<'s> {
 
                         let mut block_code = self.try_transform_mut(elif.action)?;
                         block_code.push(Bc::JumpSymbol(cond_exit, JumpCond::Always));
-                        thunks.push(Thunk::Labeled { entry: elif_entry, code: Box::new(block_code), exit: elif_exit });
+                        thunks.push(Thunk::Labeled {
+                            entry: elif_entry,
+                            code: Box::new(block_code),
+                            exit: elif_exit,
+                        });
 
                         // update entry and exit symbols if we're not on the last element
                         if idx != last_index {
@@ -225,31 +254,42 @@ impl<'r, 's> TryTransformMut<ir::Action> for RootBlock<'s> {
                     }
                     else_entry = elif_exit;
                     // use if_exit for the elif_entry since elif_entry has changed in the for loop
-                    Thunk::Labeled { entry: if_exit, code: Box::new(Thunk::Nested(thunks)), exit: elif_exit }
+                    Thunk::Labeled {
+                        entry: if_exit,
+                        code: Box::new(Thunk::Nested(thunks)),
+                        exit: elif_exit,
+                    }
                 };
 
                 let else_thunk = if let Some(else_block) = else_block {
                     let block_code = self.try_transform_mut(*else_block)?;
-                    Thunk::Labeled { entry: else_entry, code: Box::new(block_code), exit: else_exit }
+                    Thunk::Labeled {
+                        entry: else_entry,
+                        code: Box::new(block_code),
+                        exit: else_exit,
+                    }
                 } else {
                     Thunk::Empty
                 };
 
                 let condition_thunk = Thunk::Nested(vec![if_thunk, elif_thunk, else_thunk]);
                 // Gather our children together
-                Ok(Thunk::Labeled { entry: cond_entry, code: Box::new(condition_thunk), exit: cond_exit })
-            },
+                Ok(Thunk::Labeled {
+                    entry: cond_entry,
+                    code: Box::new(condition_thunk),
+                    exit: cond_exit,
+                })
+            }
             // Return from the current function
-            ActionKind::Return(val) => {
-                val.map(|val| {
+            ActionKind::Return(val) => val
+                .map(|val| {
                     let ctx = ValueContext::new(ValueContextKind::Ret, self.0);
-                    ctx.try_transform(val)
-                        .map(Thunk::Code)
-                }).unwrap_or_else(|| {
+                    ctx.try_transform(val).map(Thunk::Code)
+                })
+                .unwrap_or_else(|| {
                     let ctx = ValueContextKind::Ret;
                     Ok(Thunk::Code(vec![ctx.transform(Value::None)]))
-                })
-            },
+                }),
             ActionKind::Break => Err(Error::break_outside_of_loop(range)),
             ActionKind::Continue => Err(Error::continue_outside_of_loop(range)),
         }
@@ -265,7 +305,7 @@ pub struct JumpBlock<'s> {
 impl<'s> JumpBlock<'s> {
     pub fn new(entry: vm::BlockSymbol, exit: vm::BlockSymbol, state: &'s mut State) -> Self {
         let root = RootBlock(state);
-        JumpBlock { entry, exit, root, }
+        JumpBlock { entry, exit, root }
     }
 }
 
@@ -276,13 +316,18 @@ impl<'s> TryTransformMut<ir::Action> for JumpBlock<'s> {
         use crate::ir::ActionKind;
         match &action.1 {
             // Break out of the current block loop
-            ActionKind::Break => Ok(Thunk::Code(vec![Bc::JumpSymbol(self.exit, JumpCond::Always)])),
+            ActionKind::Break => Ok(Thunk::Code(vec![Bc::JumpSymbol(
+                self.exit,
+                JumpCond::Always,
+            )])),
             // Continue to the top of this loop
-            ActionKind::Continue => Ok(Thunk::Code(vec![Bc::JumpSymbol(self.entry, JumpCond::Always)])),
+            ActionKind::Continue => Ok(Thunk::Code(vec![Bc::JumpSymbol(
+                self.entry,
+                JumpCond::Always,
+            )])),
             //
             _ => self.root.try_transform_mut(action),
         }
-    
     }
 }
 

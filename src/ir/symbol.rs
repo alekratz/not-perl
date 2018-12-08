@@ -1,7 +1,5 @@
 use crate::common::pos::RangeWrapper;
-use crate::syntax::{
-    token::Token,
-};
+use crate::syntax::token::Token;
 
 /// A symbol which is used to point to a value.
 #[derive(Clone, Debug)]
@@ -27,16 +25,14 @@ impl Symbol {
                 } else {
                     Symbol::Fun(s.clone())
                 }
-            },
+            }
             _ => panic!("invalid conversion from Token {:?} to Symbol", token),
         }
     }
 
     pub fn name(&self) -> &str {
         match self {
-            | Symbol::Fun(s)
-            | Symbol::Variable(s)
-            | Symbol::Ty(s) => s
+            Symbol::Fun(s) | Symbol::Variable(s) | Symbol::Ty(s) => s,
         }
     }
 }

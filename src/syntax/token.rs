@@ -1,11 +1,6 @@
-use std::fmt::{self, Formatter, Display};
-use crate::common::{
-    lang::Op,
-    pos::RangeWrapper,
-};
-use crate::syntax::{
-    tree::Ast,
-};
+use crate::common::{lang::Op, pos::RangeWrapper};
+use crate::syntax::tree::Ast;
+use std::fmt::{self, Display, Formatter};
 
 // HOW TO ADD A NEW TOKEN:
 //
@@ -15,7 +10,6 @@ use crate::syntax::{
 // 4. If it's a keyword, add it to `fn next_bareword` in the lexer.
 // 5. If it's a lookahead (e.g. for an expression), add it as a lookahead to the appropriate AST
 //    items. Also add it to the parser as a lookahead.
-
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AssignOp {
@@ -43,24 +37,26 @@ impl AssignOp {
 
 impl Display for AssignOp {
     fn fmt(&self, fmt: &mut Formatter) -> fmt::Result {
-        write!(fmt, "{}", match self {
-            AssignOp::Equals => "=",
-            AssignOp::PlusEquals => "+=",
-            AssignOp::MinusEquals => "-=",
-            AssignOp::SplatEquals => "*=",
-            AssignOp::FSlashEquals => "/=",
-            AssignOp::TildeEquals => "~=",
-        })
+        write!(
+            fmt,
+            "{}",
+            match self {
+                AssignOp::Equals => "=",
+                AssignOp::PlusEquals => "+=",
+                AssignOp::MinusEquals => "-=",
+                AssignOp::SplatEquals => "*=",
+                AssignOp::FSlashEquals => "/=",
+                AssignOp::TildeEquals => "~=",
+            }
+        )
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Token {
-
     //
     // Language literals
     //
-
     StrLit(String),
     IntLit(String, usize),
     FloatLit(String),
@@ -68,7 +64,6 @@ pub enum Token {
     //
     // User-defined names n stuff
     //
-
     Comment,
     Variable(String),
     Bareword(String),
@@ -91,7 +86,6 @@ pub enum Token {
     //
     // Symbols
     //
-
     AssignOp(AssignOp),
     Op(Op),
     Comma,
@@ -135,7 +129,10 @@ impl Token {
         if let Token::AssignOp(op) = self {
             op
         } else {
-            panic!("attempted to convert non-Token::AssignOp to AssignOp (got {:?})", self)
+            panic!(
+                "attempted to convert non-Token::AssignOp to AssignOp (got {:?})",
+                self
+            )
         }
     }
 
@@ -147,14 +144,13 @@ impl Token {
         }
     }
 
-
     pub fn canonicalize(&self) -> String {
         use self::Token::*;
         match self {
             StrLit(ref s) => format!("{:?}", s),
             IntLit(i, r) => match r {
-                2  => format!("0b{}", i),
-                8  => format!("0o{}", i),
+                2 => format!("0b{}", i),
+                8 => format!("0o{}", i),
                 10 => format!("{}", i),
                 16 => format!("0x{}", i),
                 _ => unreachable!(),
@@ -210,8 +206,8 @@ impl Display for Token {
             FalseKw => write!(fmt, "false keyword"),
             FunKw => write!(fmt, "fun keyword"),
             TypeKw => write!(fmt, "type keyword"),
-            Op(s) =>  write!(fmt, "operator {}", s),
-            AssignOp(s) =>  write!(fmt, "assignment operator {}", s),
+            Op(s) => write!(fmt, "operator {}", s),
+            AssignOp(s) => write!(fmt, "assignment operator {}", s),
             Comma => write!(fmt, "comma"),
             Colon => write!(fmt, "colon"),
             LParen => write!(fmt, "left paren"),

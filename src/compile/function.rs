@@ -1,15 +1,10 @@
-use std::{
-    ops::{Deref, DerefMut},
-};
 use crate::{
     common::prelude::*,
-    compile::{
-        AllocScope,
-        FunSymbolAlloc,
-    },
+    compile::{AllocScope, FunSymbolAlloc},
     ir,
     vm::{self, Symbolic},
 };
+use std::ops::{Deref, DerefMut};
 
 #[derive(Debug, Clone)]
 pub enum Fun {
@@ -27,8 +22,7 @@ impl Fun {
     pub fn params(&self) -> usize {
         match self {
             Fun::Stub(s) => s.params,
-            | Fun::Vm(b)
-            | Fun::Op(_, b) => b.params(),
+            Fun::Vm(b) | Fun::Op(_, b) => b.params(),
         }
     }
 }
@@ -130,35 +124,57 @@ impl FunScope {
 
     /// Gets a builtin function by its name.
     pub fn get_binary_op(&self, op: &Op) -> Option<&Fun> {
-        self.get_by(|f| if let Fun::Op(o, f) = f { op == o && f.params() == 2 } else { false })
+        self.get_by(|f| {
+            if let Fun::Op(o, f) = f {
+                op == o && f.params() == 2
+            } else {
+                false
+            }
+        })
     }
 
     /// Gets a builtin function by its name.
     pub fn get_unary_op(&self, op: &Op) -> Option<&Fun> {
-        self.get_by(|f| if let Fun::Op(o, f) = f { op == o && f.params() == 1 } else { false })
+        self.get_by(|f| {
+            if let Fun::Op(o, f) = f {
+                op == o && f.params() == 1
+            } else {
+                false
+            }
+        })
     }
 }
 
 impl From<AllocScope<Fun, FunSymbolAlloc>> for FunScope {
-    fn from(scope: AllocScope<Fun, FunSymbolAlloc>) -> Self { FunScope { scope } }
+    fn from(scope: AllocScope<Fun, FunSymbolAlloc>) -> Self {
+        FunScope { scope }
+    }
 }
 
 impl From<FunScope> for AllocScope<Fun, FunSymbolAlloc> {
-    fn from(scope: FunScope) -> Self { scope.scope }
+    fn from(scope: FunScope) -> Self {
+        scope.scope
+    }
 }
 
 impl From<FunScope> for ReadOnlyScope<Fun> {
-    fn from(scope: FunScope) -> Self { ReadOnlyScope::from(scope.scope) }
+    fn from(scope: FunScope) -> Self {
+        ReadOnlyScope::from(scope.scope)
+    }
 }
 
 impl Deref for FunScope {
     type Target = AllocScope<Fun, FunSymbolAlloc>;
 
-    fn deref(&self) -> &AllocScope<Fun, FunSymbolAlloc> { &self.scope }
+    fn deref(&self) -> &AllocScope<Fun, FunSymbolAlloc> {
+        &self.scope
+    }
 }
 
 impl DerefMut for FunScope {
-    fn deref_mut(&mut self) -> &mut AllocScope<Fun, FunSymbolAlloc> { &mut self.scope }
+    fn deref_mut(&mut self) -> &mut AllocScope<Fun, FunSymbolAlloc> {
+        &mut self.scope
+    }
 }
 
 impl Default for FunScope {
@@ -171,10 +187,10 @@ impl Default for FunScope {
 
 #[cfg(test)]
 mod tests {
-    use crate::ir;
-    use crate::compile::{FunStub, self};
-    use crate::vm::*;
     use super::*;
+    use crate::compile::{self, FunStub};
+    use crate::ir;
+    use crate::vm::*;
 
     #[test]
     fn test_fun_scope() {
@@ -185,9 +201,13 @@ mod tests {
 
         // Check that builtin functions are added (use both get_by_name_and_params and get_builtin)
         for builtin in builtin_functions.iter() {
-            let found = fun_scope.get_by_name_and_params(&builtin.name, builtin.params)
+            let found = fun_scope
+                .get_by_name_and_params(&builtin.name, builtin.params)
                 .expect("Failed to get registered builtin");
-            assert_eq!(fun_scope.get_builtin(&builtin.name).unwrap().symbol(), found.symbol());
+            assert_eq!(
+                fun_scope.get_builtin(&builtin.name).unwrap().symbol(),
+                found.symbol()
+            );
         }
 
         // Check that builtin operators are added
@@ -228,8 +248,7 @@ mod tests {
         fun_scope.insert(stub_a);
 
         {
-            let stub_a_lookup = fun_scope.get_by_name_and_params("a", 2)
-                .unwrap();
+            let stub_a_lookup = fun_scope.get_by_name_and_params("a", 2).unwrap();
             assert_eq!(stub_a_lookup.symbol(), new_stub_a_sym);
             assert_ne!(stub_a_lookup.symbol(), stub_a_sym);
         }
@@ -249,18 +268,15 @@ mod tests {
 
         {
             // Check that we get a(arg, arg, arg) correctly
-            let stub_a_lookup = fun_scope.get_by_name_and_params("a", 3)
-                .unwrap();
+            let stub_a_lookup = fun_scope.get_by_name_and_params("a", 3).unwrap();
             assert_eq!(stub_a_lookup.symbol(), params_stub_a_sym);
             assert_ne!(stub_a_lookup.symbol(), stub_a_sym);
             // Check that we get a(arg, arg, arg) correctly with a simple name lookup
-            let stub_a_lookup = fun_scope.get_by_name("a")
-                .unwrap();
+            let stub_a_lookup = fun_scope.get_by_name("a").unwrap();
             assert_eq!(stub_a_lookup.symbol(), params_stub_a_sym);
             assert_ne!(stub_a_lookup.symbol(), stub_a_sym);
             // Check that we get the global a(arg, arg) function
-            let stub_a_lookup = fun_scope.get_by_name_and_params("a", 2)
-                .unwrap();
+            let stub_a_lookup = fun_scope.get_by_name_and_params("a", 2).unwrap();
             assert_eq!(stub_a_lookup.symbol(), stub_a_sym);
             assert_ne!(stub_a_lookup.symbol(), params_stub_a_sym);
         }
@@ -277,7 +293,8 @@ mod tests {
         let stub_a = fun_scope.replace(stub_b);
         assert_eq!(stub_a.symbol(), stub_a_sym);
         {
-            let stub_b_lookup = fun_scope.get_by_name("b")
+            let stub_b_lookup = fun_scope
+                .get_by_name("b")
                 .expect("Failed to get replaced function");
             assert_eq!(stub_b_lookup.symbol(), stub_a.symbol());
         }

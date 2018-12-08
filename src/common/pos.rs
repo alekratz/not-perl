@@ -1,6 +1,6 @@
 use std::{
     cmp::Ordering,
-    fmt::{self, Formatter, Display, Debug},
+    fmt::{self, Debug, Display, Formatter},
     ops::Deref,
     sync::Arc,
 };
@@ -53,8 +53,8 @@ impl Pos {
             Ordering::Less => other,
             Ordering::Equal => match self.col.cmp(&other.col) {
                 Ordering::Less => other,
-                _ => self
-            }
+                _ => self,
+            },
             Ordering::Greater => self,
         }
     }
@@ -64,8 +64,8 @@ impl Pos {
             Ordering::Greater => other,
             Ordering::Equal => match self.col.cmp(&other.col) {
                 Ordering::Greater => other,
-                _ => self
-            }
+                _ => self,
+            },
             Ordering::Less => self,
         }
     }
@@ -99,11 +99,12 @@ impl PartialOrd for Pos {
     }
 }
 
-
 // Pos is only equal during testing
 #[cfg(test)]
 impl PartialEq for Pos {
-    fn eq(&self, _other: &Self) -> bool { true }
+    fn eq(&self, _other: &Self) -> bool {
+        true
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -136,7 +137,7 @@ impl SrcRange {
         let start_source = self.start().source;
         let end_source = self.end().source;
         let start = &self.0;
-        &start.source_text[start_source .. end_source]
+        &start.source_text[start_source..end_source]
     }
 
     pub fn source_name(&self) -> &str {
@@ -150,7 +151,11 @@ impl Display for SrcRange {
         if self.0.line == self.1.line {
             write!(fmt, "{}:{} - {}", self.0.line, self.0.col, self.1.col)
         } else {
-            write!(fmt, "{}:{} - {}:{}", self.0.line, self.0.col, self.1.line, self.1.col)
+            write!(
+                fmt,
+                "{}:{} - {}:{}",
+                self.0.line, self.0.col, self.1.line, self.1.col
+            )
         }
     }
 }
@@ -178,8 +183,7 @@ impl Range {
 
     pub fn union(&self, other: &Range) -> Self {
         match (self, other) {
-            | (Range::Builtin, _)
-            | (_, Range::Builtin) => Range::Builtin,
+            (Range::Builtin, _) | (_, Range::Builtin) => Range::Builtin,
             (Range::Src(first), Range::Src(second)) => Range::Src(first.union(second)),
         }
     }
@@ -196,10 +200,12 @@ impl Display for Range {
 
 #[derive(Clone, Debug)]
 pub struct RangeWrapper<T>(pub Range, pub T)
-    where T: Sized + Clone + Debug;
+where
+    T: Sized + Clone + Debug;
 
 impl<T> RangeWrapper<T>
-    where T: Sized + Clone + Debug
+where
+    T: Sized + Clone + Debug,
 {
     /// Makes a new ranged value.
     ///
@@ -212,7 +218,8 @@ impl<T> RangeWrapper<T>
 
     /// Maps the wrapped value to another value.
     pub fn map<Out>(&self, mapfn: impl FnOnce(&T) -> Out) -> RangeWrapper<Out>
-        where Out: Clone + Debug
+    where
+        Out: Clone + Debug,
     {
         let RangeWrapper(range, ref inner) = self;
         let inner = (mapfn)(inner);
@@ -229,7 +236,8 @@ impl<T> RangeWrapper<T>
 }
 
 impl<T> Deref for RangeWrapper<T>
-    where T: Sized + Clone + Debug
+where
+    T: Sized + Clone + Debug,
 {
     type Target = T;
     fn deref(&self) -> &Self::Target {
@@ -238,7 +246,8 @@ impl<T> Deref for RangeWrapper<T>
 }
 
 impl<T> PartialEq for RangeWrapper<T>
-    where T: Sized + Clone + Debug + PartialEq
+where
+    T: Sized + Clone + Debug + PartialEq,
 {
     fn eq(&self, other: &Self) -> bool {
         self.1.eq(&other.1)
@@ -246,7 +255,8 @@ impl<T> PartialEq for RangeWrapper<T>
 }
 
 impl<T> Ranged for RangeWrapper<T>
-    where T: Sized + Clone + Debug
+where
+    T: Sized + Clone + Debug,
 {
     fn range(&self) -> Range {
         self.0.clone()
@@ -260,11 +270,10 @@ pub trait Ranged: Debug {
 #[macro_export]
 macro_rules! impl_ranged {
     ($ty:ident :: $member:tt) => {
-        impl $crate::common::pos::Ranged for $ty  {
+        impl $crate::common::pos::Ranged for $ty {
             fn range(&self) -> $crate::common::pos::Range {
                 self.$member.clone()
             }
         }
     };
 }
-

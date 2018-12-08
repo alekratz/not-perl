@@ -1,9 +1,9 @@
-use std::{
-    result,
-    fmt::{self, Formatter, Display},
-};
-use failure::{Fail, Context, Backtrace};
 use crate::common::pos::Pos;
+use failure::{Backtrace, Context, Fail};
+use std::{
+    fmt::{self, Display, Formatter},
+    result,
+};
 
 #[derive(Debug, Fail)]
 pub enum ErrorKind {
@@ -22,7 +22,8 @@ pub enum ErrorKind {
 
 #[derive(Debug)]
 pub struct Error
-    where ErrorKind: 'static
+where
+    ErrorKind: 'static,
 {
     pos: Pos,
     kind: Context<ErrorKind>,
@@ -30,7 +31,10 @@ pub struct Error
 
 impl Error {
     pub fn new(pos: Pos, kind: ErrorKind) -> Self {
-        Error { pos, kind: Context::new(kind) }
+        Error {
+            pos,
+            kind: Context::new(kind),
+        }
     }
 
     pub fn kind(&self) -> &ErrorKind {
@@ -43,7 +47,8 @@ impl Error {
 }
 
 impl Fail for Error
-    where Self: 'static
+where
+    Self: 'static,
 {
     fn cause(&self) -> Option<&Fail> {
         self.kind.cause()

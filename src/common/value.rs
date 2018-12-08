@@ -1,4 +1,4 @@
-use std::fmt::{self, Formatter, Display};
+use std::fmt::{self, Display, Formatter};
 
 /// A common "constant value" structure used by all stages of compilation.
 #[derive(Debug, Clone, PartialEq)]

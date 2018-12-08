@@ -1,14 +1,11 @@
+use crate::{
+    common::scope::*,
+    compile::{Alloc, BlockSymbolAlloc},
+    vm::{Label, Symbolic},
+};
 use std::{
     fmt::Debug,
     ops::{Deref, DerefMut},
-};
-use crate::{
-    common::scope::*,
-    compile::{
-        Alloc,
-        BlockSymbolAlloc,
-    },
-    vm::{Label, Symbolic},
 };
 
 /// A scope that is paired with a symbol allocator.
@@ -16,20 +13,21 @@ use crate::{
 /// This is useful for compiler functions that create new symbols.
 #[derive(Debug)]
 pub struct AllocScope<T, A>
-    where T: Symbolic,
-          T::Symbol: Debug,
-          A: Alloc<T::Symbol>,
+where
+    T: Symbolic,
+    T::Symbol: Debug,
+    A: Alloc<T::Symbol>,
 {
     scope: ReadOnlyScope<T>,
     alloc: A,
 }
 
 impl<T, A> AllocScope<T, A>
-    where T: Symbolic + Debug,
-          T::Symbol: Debug,
-          A: Alloc<T::Symbol> + Debug,
+where
+    T: Symbolic + Debug,
+    T::Symbol: Debug,
+    A: Alloc<T::Symbol> + Debug,
 {
-
     /// Reserves a symbol in this scope.
     pub fn reserve_symbol(&mut self) -> T::Symbol {
         self.alloc.reserve()
@@ -57,15 +55,17 @@ impl<T, A> AllocScope<T, A>
     /// values are popped instead.
     pub fn pop_scope(&mut self) -> Vec<T::Symbol> {
         self.alloc.on_pop_scope();
-        self.scope_stack.pop()
+        self.scope_stack
+            .pop()
             .expect("attempted to pop depthless scope")
     }
 }
 
 impl<T, A> Default for AllocScope<T, A>
-    where T: Symbolic,
-          T::Symbol: Debug,
-          A: Alloc<T::Symbol> + Default
+where
+    T: Symbolic,
+    T::Symbol: Debug,
+    A: Alloc<T::Symbol> + Default,
 {
     fn default() -> Self {
         AllocScope {
@@ -76,29 +76,38 @@ impl<T, A> Default for AllocScope<T, A>
 }
 
 impl<T, A> Deref for AllocScope<T, A>
-    where T: Symbolic,
-          T::Symbol: Debug,
-          A: Alloc<T::Symbol>,
+where
+    T: Symbolic,
+    T::Symbol: Debug,
+    A: Alloc<T::Symbol>,
 {
     type Target = ReadOnlyScope<T>;
 
-    fn deref(&self) -> &Self::Target { &self.scope }
+    fn deref(&self) -> &Self::Target {
+        &self.scope
+    }
 }
 
 impl<T, A> DerefMut for AllocScope<T, A>
-    where T: Symbolic,
-          T::Symbol: Debug,
-          A: Alloc<T::Symbol>,
+where
+    T: Symbolic,
+    T::Symbol: Debug,
+    A: Alloc<T::Symbol>,
 {
-    fn deref_mut(&mut self) -> &mut Self::Target { &mut self.scope }
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.scope
+    }
 }
 
 impl<T, A> From<AllocScope<T, A>> for ReadOnlyScope<T>
-    where T: Symbolic,
-          T::Symbol: Debug,
-          A: Alloc<T::Symbol>,
+where
+    T: Symbolic,
+    T::Symbol: Debug,
+    A: Alloc<T::Symbol>,
 {
-    fn from(other: AllocScope<T, A>) -> Self { other.scope }
+    fn from(other: AllocScope<T, A>) -> Self {
+        other.scope
+    }
 }
 
 pub type LabelScope = AllocScope<Label, BlockSymbolAlloc>;

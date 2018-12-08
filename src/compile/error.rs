@@ -1,11 +1,6 @@
-use std::{
-    fmt::{self, Formatter, Display},
-};
-use failure::{Context, Fail, Backtrace};
-use crate::common::{
-    lang::Op,
-    pos::*,
-};
+use crate::common::{lang::Op, pos::*};
+use failure::{Backtrace, Context, Fail};
+use std::fmt::{self, Display, Formatter};
 
 macro_rules! error_kind_def {
     (fn $builder_name:ident ( $($argname:ident : $argty:ty ),* )
@@ -80,7 +75,8 @@ error_kind_def! {
 
 #[derive(Debug)]
 pub struct Error
-    where ErrorKind: 'static
+where
+    ErrorKind: 'static,
 {
     range: Range,
     kind: Context<ErrorKind>,
@@ -88,7 +84,10 @@ pub struct Error
 
 impl Error {
     pub fn new(range: Range, kind: ErrorKind) -> Self {
-        Error { range, kind: Context::new(kind) }
+        Error {
+            range,
+            kind: Context::new(kind),
+        }
     }
 
     pub fn range(&self) -> Range {
@@ -101,7 +100,8 @@ impl Error {
 }
 
 impl Fail for Error
-    where Self: 'static
+where
+    Self: 'static,
 {
     fn cause(&self) -> Option<&Fail> {
         self.kind.cause()

@@ -1,13 +1,6 @@
-use std::{
-    fmt::{self, Debug, Formatter},
-};
 use crate::common::prelude::*;
-use crate::vm::{
-    Bc,
-    symbol::*,
-    storage::*,
-    ty::BuiltinTy,
-};
+use crate::vm::{storage::*, symbol::*, ty::BuiltinTy, Bc};
+use std::fmt::{self, Debug, Formatter};
 
 /// A function in the VM.
 #[derive(Debug, Clone)]
@@ -64,8 +57,20 @@ pub struct UserFun {
 }
 
 impl UserFun {
-    pub fn new(symbol: FunSymbol, name: String, params: usize, body: Vec<Bc>, range: Range) -> Self {
-        UserFun { symbol, name, params, body, range, }
+    pub fn new(
+        symbol: FunSymbol,
+        name: String,
+        params: usize,
+        body: Vec<Bc>,
+        range: Range,
+    ) -> Self {
+        UserFun {
+            symbol,
+            name,
+            params,
+            body,
+            range,
+        }
     }
 }
 
@@ -131,7 +136,7 @@ mod builtins {
     ///     * `TOP`
     ///     * `str` - String - value to write to the file handle
     ///     * `descriptor` - Int - the file descriptor to write the string to.
-    /// 
+    ///
     /// # Postconditions
     /// Leaves an integer on the top of the stack containing the number of bytes written.
     pub fn writef(_storage: &mut Storage) {
@@ -145,7 +150,7 @@ mod builtins {
     /// * Expected stack:
     ///     * `TOP`
     ///     * `descriptor` - Int - the file descriptor to read the string from.
-    /// 
+    ///
     /// # Postconditions
     /// Leaves a string on top of the stack, with the contents of the file.
     pub fn readf(_storage: &mut Storage) {
@@ -155,7 +160,7 @@ mod builtins {
     pub fn print(_storage: &mut Storage) {
         // TODO(builtin) : print to stdout
     }
-    
+
     pub fn println(_storage: &mut Storage) {
         // TODO(builtin) : print to stdout
     }
@@ -175,7 +180,7 @@ mod builtins {
     pub fn splat_binop(_storage: &mut Storage) {
         // TODO(builtin) : * operator
     }
-    
+
     pub fn fslash_binop(_storage: &mut Storage) {
         // TODO(builtin) : / operator
     }
@@ -193,7 +198,6 @@ lazy_static! {
         builtin_fun!(println = println ( 1 ) -> BuiltinTy::None),
         builtin_fun!(readln = readln ( 1 ) -> BuiltinTy::Str),
     ];
-    
     pub static ref builtin_ops: Vec<BuiltinOp> = vec![
         builtin_op!(plus_binop = Plus ( 2 ) -> BuiltinTy::Float),
         builtin_op!(minus_binop = Minus ( 2 ) -> BuiltinTy::Float),

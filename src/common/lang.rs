@@ -1,6 +1,4 @@
-use std::{
-    fmt::{self, Display, Formatter},
-};
+use std::fmt::{self, Display, Formatter};
 
 #[derive(Hash, Debug, Clone, PartialEq, Eq)]
 pub enum Op {
@@ -24,8 +22,9 @@ pub enum Op {
 }
 
 impl<S> From<S> for Op
-    where S: Into<String>,
-          String: From<S>,
+where
+    S: Into<String>,
+    String: From<S>,
 {
     fn from(other: S) -> Self {
         let other = String::from(other);

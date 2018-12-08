@@ -1,9 +1,9 @@
-use crate::common::pos::{Ranged, RangeWrapper};
+use crate::common::pos::{RangeWrapper, Ranged};
 use crate::ir::{Ir, Value};
 use crate::syntax::{
     self,
-    tree::{Stmt, ConditionBlock},
     token::AssignOp,
+    tree::{ConditionBlock, Stmt},
 };
 
 /// An executable action.
@@ -30,9 +30,7 @@ pub type Action = RangeWrapper<ActionKind>;
 
 impl Action {
     pub fn from_syntax_block(block: &syntax::tree::Block) -> Self {
-        let kind = ActionKind::Block(block.iter()
-            .map(Action::from_syntax)
-            .collect());
+        let kind = ActionKind::Block(block.iter().map(Action::from_syntax).collect());
         Action::new(block.range(), kind)
     }
 }
@@ -41,19 +39,25 @@ impl Ir<Stmt> for Action {
     fn from_syntax(stmt: &Stmt) -> Self {
         let action_kind = match stmt {
             Stmt::UserTy(_) => unreachable!(), // user types are covered as non-action types
-            Stmt::Fun(_) => unreachable!(), // functions are covered as non-action types
+            Stmt::Fun(_) => unreachable!(),    // functions are covered as non-action types
             Stmt::Expr(expr) => ActionKind::Eval(Value::from_syntax(expr)),
             Stmt::Assign(lhs, op, rhs) => {
                 let lhs = Value::from_syntax(lhs);
                 let rhs = Value::from_syntax(rhs);
                 ActionKind::Assign(lhs, *op, rhs)
             }
-            Stmt::If { if_block, elseif_blocks, else_block } => {
+            Stmt::If {
+                if_block,
+                elseif_blocks,
+                else_block,
+            } => {
                 let if_cond_action = ConditionAction::from_condition_block(if_block);
-                let elseif_action_blocks = elseif_blocks.iter()
+                let elseif_action_blocks = elseif_blocks
+                    .iter()
                     .map(ConditionAction::from_condition_block)
                     .collect();
-                let else_action_block = else_block.as_ref()
+                let else_action_block = else_block
+                    .as_ref()
                     .map(Action::from_syntax_block)
                     .map(Box::new);
                 ActionKind::ConditionBlock {

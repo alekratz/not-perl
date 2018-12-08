@@ -1,10 +1,4 @@
-use crate::vm::{
-    Ref,
-    Value,
-    FunSymbol,
-    BlockSymbol,
-    TySymbol,
-};
+use crate::vm::{BlockSymbol, FunSymbol, Ref, TySymbol, Value};
 
 /// A condition for when a jump should be taken.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -26,7 +20,6 @@ pub enum Bc {
 
     // Pops the top N values from the stack, discarding them.
     //Pop(usize),
-
     /// Pops the top value of the value from the stack and stores it into the given reference.
     PopStore(Ref),
 
@@ -58,7 +51,6 @@ pub enum Bc {
     // Jumps to the given instruction address in the current function, checking the jump condition
     // against the VM's condition flag.
     //JumpAbs(usize, JumpCond),
-
     /// Jumps to the given block symbol in the current function, checking the jump condition
     /// against the VM's condition flag.
     JumpSymbol(BlockSymbol, JumpCond),
@@ -66,7 +58,6 @@ pub enum Bc {
     /// Pops the top value off of the stack and checks if it is true or not, setting the VM
     /// condition flag appropriately.
     PopTest,
-
     // Checks the given value against a given type predicate, setting the VM condition flag
     // appropriately.
     //Check(Value, TySymbol),

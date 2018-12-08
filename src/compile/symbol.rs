@@ -1,12 +1,10 @@
-use std::{
-    collections::VecDeque,
-    mem,
-};
 use crate::vm::{self, Symbol, SymbolIndex};
+use std::{collections::VecDeque, mem};
 
 /// A symbol allocator for a symbolic VM symbol type.
 pub trait Alloc<T>
-    where T: vm::Symbol
+where
+    T: vm::Symbol,
 {
     /// Reserves the next symbol available.
     fn reserve(&mut self) -> T;
@@ -14,12 +12,12 @@ pub trait Alloc<T>
     /// An optional callback for when a scope is pushed.
     ///
     /// The default behavior is a no-op.
-    fn on_push_scope(&mut self) { }
+    fn on_push_scope(&mut self) {}
 
     /// An optional callback for when a scope is popped.
     ///
     /// The default behavior is a no-op.
-    fn on_pop_scope(&mut self) { }
+    fn on_pop_scope(&mut self) {}
 }
 
 #[derive(Debug)]
@@ -29,9 +27,7 @@ pub struct SymbolAlloc<T: vm::Symbol> {
 
 impl<T: vm::Symbol + Default> Default for SymbolAlloc<T> {
     fn default() -> Self {
-        SymbolAlloc {
-            next: T::default(),
-        }
+        SymbolAlloc { next: T::default() }
     }
 }
 
@@ -90,8 +86,7 @@ impl RegSymbolAlloc {
 
 impl Alloc<vm::RegSymbol> for RegSymbolAlloc {
     fn reserve(&mut self) -> vm::RegSymbol {
-        self.active_mut()
-            .reserve()
+        self.active_mut().reserve()
     }
 
     fn on_push_scope(&mut self) {
@@ -103,7 +98,8 @@ impl Alloc<vm::RegSymbol> for RegSymbolAlloc {
         // this doesn't actually "pop" a value - it moves the top scope value to the front of the
         // list. Thus, new scopes get unique global values, but they are never accessed again (but
         // parent scopes are still available).
-        let back = self.scope_stack
+        let back = self
+            .scope_stack
             .pop_back()
             .expect("tried to pop top value from depthless RegSymbolAlloc");
         self.scope_stack.push_front(back);

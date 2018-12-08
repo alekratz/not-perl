@@ -1,4 +1,4 @@
-use std::fmt::{self, Formatter, Display};
+use std::fmt::{self, Display, Formatter};
 
 pub type SymbolIndex = usize;
 
@@ -19,11 +19,11 @@ pub trait Symbolic {
 macro_rules! symbol_def {
     ($name:ident) => {
         #[derive(Copy, Clone, PartialEq, PartialOrd, Ord, Eq, Debug)]
-        pub struct $name (pub SymbolIndex);
+        pub struct $name(pub SymbolIndex);
 
         impl Default for $name {
             fn default() -> Self {
-                $name ( 0 )
+                $name(0)
             }
         }
 
@@ -42,7 +42,7 @@ macro_rules! symbol_def {
                 write!(fmt, concat!(stringify!($name), "-{}"), self.index())
             }
         }
-    }
+    };
 }
 
 symbol_def!(FunSymbol);
@@ -57,7 +57,10 @@ pub struct RegSymbol {
 
 impl Default for RegSymbol {
     fn default() -> Self {
-        RegSymbol { global: 0, local: 0, }
+        RegSymbol {
+            global: 0,
+            local: 0,
+        }
     }
 }
 
@@ -67,7 +70,10 @@ impl Symbol for RegSymbol {
     }
 
     fn next(&self) -> Self {
-        RegSymbol { global: self.global, local: self.local + 1 }
+        RegSymbol {
+            global: self.global,
+            local: self.local + 1,
+        }
     }
 }
 

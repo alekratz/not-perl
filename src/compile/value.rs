@@ -1,21 +1,12 @@
-use std::{
-    collections::{
-        BTreeSet,
-    },
-    ops::{Deref, DerefMut},
-};
 use crate::{
     common::pos::RangeWrapper,
-    compile::{
-        AllocScope,
-        Error,
-        RegSymbolAlloc,
-        State,
-        Transform,
-        TryTransform,
-    },
+    compile::{AllocScope, Error, RegSymbolAlloc, State, Transform, TryTransform},
     ir,
-    vm::{self, Bc, Ref, Symbolic, Symbol},
+    vm::{self, Bc, Ref, Symbol, Symbolic},
+};
+use std::{
+    collections::BTreeSet,
+    ops::{Deref, DerefMut},
 };
 
 #[derive(Debug, Clone)]
@@ -42,7 +33,7 @@ impl vm::Symbolic for Var {
     }
 }
 
-pub (in super) struct ValueContext<'s> {
+pub(super) struct ValueContext<'s> {
     /// The type of the value context that we're dealing with.
     kind: ValueContextKind,
 
@@ -73,19 +64,28 @@ impl<'r, 's> TryTransform<ir::Value> for ValueContext<'s> {
             ValueKind::Symbol(RangeWrapper(_, s)) => {
                 let ref_value = match s {
                     ir::Symbol::Fun(name) => {
-                        let symbol = self.state.fun_scope.get_by_name(&name)
+                        let symbol = self
+                            .state
+                            .fun_scope
+                            .get_by_name(&name)
                             .ok_or_else(|| Error::unknown_fun(range.clone(), name.clone()))?
                             .symbol();
                         Ref::Fun(symbol)
                     }
                     ir::Symbol::Variable(name) => {
-                        let symbol = self.state.var_scope.get_by_name(&name)
+                        let symbol = self
+                            .state
+                            .var_scope
+                            .get_by_name(&name)
                             .expect(&format!("variable does not exist in this scope: {}", name))
                             .symbol();
                         Ref::Reg(symbol)
                     }
                     ir::Symbol::Ty(name) => {
-                        let symbol = self.state.ty_scope.get_by_name(&name)
+                        let symbol = self
+                            .state
+                            .ty_scope
+                            .get_by_name(&name)
                             .ok_or_else(|| Error::unknown_ty(range.clone(), name.clone()))?
                             .symbol();
                         Ref::Ty(symbol)
@@ -97,28 +97,31 @@ impl<'r, 's> TryTransform<ir::Value> for ValueContext<'s> {
             }
 
             // Array access
-            ValueKind::ArrayAccess(_array, _index) => { unimplemented!("TODO(array) : array access") }
+            ValueKind::ArrayAccess(_array, _index) => unimplemented!("TODO(array) : array access"),
 
             // Binary expression
             ValueKind::BinaryExpr(lhs, op, rhs) => {
-                let op_fun = self.state.fun_scope.get_binary_op(&op)
+                let op_fun = self
+                    .state
+                    .fun_scope
+                    .get_binary_op(&op)
                     .ok_or_else(|| Error::unknown_binary_op(range.clone(), op.clone()))?
                     .symbol();
                 let lhs_sym = self.state.var_scope.insert_anonymous_var();
                 let lhs_code = {
-                    let lhs_ctx = ValueContext::new(ValueContextKind::Store(Ref::Reg(lhs_sym)), self.state);
+                    let lhs_ctx =
+                        ValueContext::new(ValueContextKind::Store(Ref::Reg(lhs_sym)), self.state);
                     lhs_ctx.try_transform(*lhs)?
                 };
 
                 let rhs_sym = self.state.var_scope.insert_anonymous_var();
                 let rhs_code = {
-                    let rhs_ctx = ValueContext::new(ValueContextKind::Store(Ref::Reg(rhs_sym)), self.state);
+                    let rhs_ctx =
+                        ValueContext::new(ValueContextKind::Store(Ref::Reg(rhs_sym)), self.state);
                     rhs_ctx.try_transform(*rhs)?
                 };
-                
-                let mut code: Vec<_> = lhs_code.into_iter()
-                    .chain(rhs_code.into_iter())
-                    .collect();
+
+                let mut code: Vec<_> = lhs_code.into_iter().chain(rhs_code.into_iter()).collect();
                 code.push(Bc::Push(vm::Value::Ref(Ref::Reg(lhs_sym))));
                 code.push(Bc::Push(vm::Value::Ref(Ref::Reg(rhs_sym))));
                 code.push(Bc::Call(op_fun));
@@ -135,12 +138,16 @@ impl<'r, 's> TryTransform<ir::Value> for ValueContext<'s> {
 
             // Unary expression
             ValueKind::UnaryExpr(op, value) => {
-                let _op_fun = self.state.fun_scope.get_unary_op(&op)
+                let _op_fun = self
+                    .state
+                    .fun_scope
+                    .get_unary_op(&op)
                     .ok_or_else(|| Error::unknown_unary_op(range.clone(), op.clone()))?
                     .symbol();
                 let value_sym = self.state.var_scope.insert_anonymous_var();
                 let mut value_code = {
-                    let value_ctx = ValueContext::new(ValueContextKind::Store(Ref::Reg(value_sym)), self.state);
+                    let value_ctx =
+                        ValueContext::new(ValueContextKind::Store(Ref::Reg(value_sym)), self.state);
                     value_ctx.try_transform(*value)?
                 };
                 value_code.push(self.kind.transform(vm::Value::Ref(Ref::Reg(value_sym))));
@@ -153,10 +160,16 @@ impl<'r, 's> TryTransform<ir::Value> for ValueContext<'s> {
                 let mut code = Vec::new();
                 let param_count = args.len();
                 for arg in args {
-                    code.append(&mut ValueContext::new(ValueContextKind::Push, self.state).try_transform(arg)?);
+                    code.append(
+                        &mut ValueContext::new(ValueContextKind::Push, self.state)
+                            .try_transform(arg)?,
+                    );
                 }
-                if let RangeWrapper(_, ValueKind::Symbol(RangeWrapper(_, ir::Symbol::Fun(name)))) = fun.as_ref() {
-                    let fun = self.state
+                if let RangeWrapper(_, ValueKind::Symbol(RangeWrapper(_, ir::Symbol::Fun(name)))) =
+                    fun.as_ref()
+                {
+                    let fun = self
+                        .state
                         .fun_scope
                         .get_by_name_and_params(name, param_count);
                     if let Some(fun) = fun {
@@ -167,7 +180,10 @@ impl<'r, 's> TryTransform<ir::Value> for ValueContext<'s> {
                     }
                 } else {
                     // evaluate LHS and try to call it as a function
-                    code.append(&mut ValueContext::new(ValueContextKind::Push, self.state).try_transform(*fun)?);
+                    code.append(
+                        &mut ValueContext::new(ValueContextKind::Push, self.state)
+                            .try_transform(*fun)?,
+                    );
                     code.push(Bc::PopCall);
                 }
 
@@ -176,7 +192,7 @@ impl<'r, 's> TryTransform<ir::Value> for ValueContext<'s> {
                     ValueContextKind::Store(r) => code.push(Bc::PopStore(r)),
                     // push already happens as a result of the funcall so nothing needs to be done
                     // here
-                    ValueContextKind::Push => { },
+                    ValueContextKind::Push => {}
                     // the return value is already on top of the stack so a simple exit is all
                     // that's required
                     ValueContextKind::Ret => code.push(Bc::Ret),
@@ -188,7 +204,7 @@ impl<'r, 's> TryTransform<ir::Value> for ValueContext<'s> {
     }
 }
 
-pub (in super) enum ValueContextKind {
+pub(super) enum ValueContextKind {
     /// A value that is to be stored into the given reference.
     Store(Ref),
 
@@ -236,18 +252,17 @@ impl VarScope {
     pub fn insert_anonymous_var(&mut self) -> vm::RegSymbol {
         self.ensure_unused_anon_size();
 
-        let has_unused = self.unused_anon
+        let has_unused = self
+            .unused_anon
             .last()
             .map(|u| !u.is_empty())
             .expect("attempted to reserve anonymous variable from depthless scope");
         if has_unused {
-            let active = self.unused_anon
+            let active = self
+                .unused_anon
                 .last_mut()
                 .expect("attempted to free anonymous variable from depthless scope");
-            let sym = *active
-                .iter()
-                .min()
-                .unwrap();
+            let sym = *active.iter().min().unwrap();
             active.remove(&sym);
             sym
         } else {
@@ -265,19 +280,25 @@ impl VarScope {
     pub fn free_anonymous_var(&mut self, sym: vm::RegSymbol) {
         self.ensure_unused_anon_size();
 
-        let active = self.unused_anon
+        let active = self
+            .unused_anon
             .last_mut()
             .expect("attempted to free anonymous variable from depthless scope");
-        assert!(!active.contains(&sym), "attempted to double-free an anonymous variable");
+        assert!(
+            !active.contains(&sym),
+            "attempted to double-free an anonymous variable"
+        );
         active.insert(sym);
     }
 
     /// Pushes or pops an appropriate number of values to the the `unused_anon` stack so that it
     /// matches the current scope stack size.
     fn ensure_unused_anon_size(&mut self) {
-        let size_diff: isize = self.unused_anon.len() as isize - self.scope.scope_stack.len() as isize;
+        let size_diff: isize =
+            self.unused_anon.len() as isize - self.scope.scope_stack.len() as isize;
         if size_diff < 0 {
-            self.unused_anon.append(&mut vec!(BTreeSet::new(); (-size_diff) as usize));
+            self.unused_anon
+                .append(&mut vec![BTreeSet::new(); (-size_diff) as usize]);
         } else if size_diff > 0 {
             self.unused_anon.truncate(size_diff as usize);
         }
@@ -288,23 +309,30 @@ impl From<AllocScope<Var, RegSymbolAlloc>> for VarScope {
     fn from(scope: AllocScope<Var, RegSymbolAlloc>) -> Self {
         let depth = scope.scope_stack.len();
         VarScope {
-            scope, unused_anon: vec!(BTreeSet::new(); depth)
+            scope,
+            unused_anon: vec![BTreeSet::new(); depth],
         }
     }
 }
 
 impl From<VarScope> for AllocScope<Var, RegSymbolAlloc> {
-    fn from(scope: VarScope) -> Self { scope.scope }
+    fn from(scope: VarScope) -> Self {
+        scope.scope
+    }
 }
 
 impl Deref for VarScope {
     type Target = AllocScope<Var, RegSymbolAlloc>;
 
-    fn deref(&self) -> &Self::Target { &self.scope }
+    fn deref(&self) -> &Self::Target {
+        &self.scope
+    }
 }
 
 impl DerefMut for VarScope {
-    fn deref_mut(&mut self) -> &mut Self::Target { &mut self.scope }
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.scope
+    }
 }
 
 impl Default for VarScope {
@@ -318,8 +346,8 @@ impl Default for VarScope {
 
 #[cfg(test)]
 mod tests {
-    use crate::vm::*;
     use super::*;
+    use crate::vm::*;
 
     #[test]
     fn test_reg_scope() {
@@ -327,18 +355,36 @@ mod tests {
         let mut reg_scope = VarScope::default();
         reg_scope.push_empty_scope();
         let a_sym = reg_scope.reserve_symbol();
-        assert_eq!(a_sym, RegSymbol { global: 0, local: 0 });
+        assert_eq!(
+            a_sym,
+            RegSymbol {
+                global: 0,
+                local: 0
+            }
+        );
         let a = Var::new("a".to_string(), a_sym);
         reg_scope.insert(a);
         let b_sym = reg_scope.reserve_symbol();
-        assert_eq!(b_sym, RegSymbol { global: 0, local: 1 });
+        assert_eq!(
+            b_sym,
+            RegSymbol {
+                global: 0,
+                local: 1
+            }
+        );
         let b = Var::new("b".to_string(), b_sym);
         reg_scope.insert(b);
 
         // Check that local layers can be added while still having access to parent layers
         reg_scope.push_empty_scope();
         let c_sym = reg_scope.reserve_symbol();
-        assert_eq!(c_sym, RegSymbol { global: 1, local: 0 });
+        assert_eq!(
+            c_sym,
+            RegSymbol {
+                global: 1,
+                local: 0
+            }
+        );
         let c = Var::new("c".to_string(), c_sym);
         reg_scope.insert(c);
         assert_eq!(reg_scope.get_by_name("a").unwrap().symbol(), a_sym);
@@ -353,14 +399,26 @@ mod tests {
         reg_scope.push_empty_scope();
         assert!(reg_scope.get_by_name("c").is_none());
         let c_sym = reg_scope.reserve_symbol();
-        assert_eq!(c_sym, RegSymbol { global: 2, local: 0 });
+        assert_eq!(
+            c_sym,
+            RegSymbol {
+                global: 2,
+                local: 0
+            }
+        );
         let c = Var::new("c".to_string(), c_sym);
         reg_scope.insert(c);
         assert_eq!(reg_scope.get_by_name("c").unwrap().symbol(), c_sym);
 
         // Check that overriding values in the parent scope yields the correct register
         let new_a_sym = reg_scope.reserve_symbol();
-        assert_eq!(new_a_sym, RegSymbol { global: 2, local: 1 });
+        assert_eq!(
+            new_a_sym,
+            RegSymbol {
+                global: 2,
+                local: 1
+            }
+        );
         let a = Var::new("a".to_string(), new_a_sym);
         reg_scope.insert(a);
         assert_eq!(reg_scope.get_by_name("a").unwrap().symbol(), new_a_sym);
@@ -383,6 +441,12 @@ mod tests {
         let old_a_sym = reg_scope.get_or_insert("a");
         assert_eq!(a_sym, old_a_sym);
         let new_d_sym = reg_scope.get_or_insert("d");
-        assert_eq!(new_d_sym, RegSymbol { global: 0, local: 3 });
+        assert_eq!(
+            new_d_sym,
+            RegSymbol {
+                global: 0,
+                local: 3
+            }
+        );
     }
 }

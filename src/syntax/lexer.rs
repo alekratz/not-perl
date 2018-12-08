@@ -1,24 +1,18 @@
-use std::{
-    mem,
-    str::Chars,
-    sync::Arc,
-};
 use crate::common::prelude::*;
-use crate::syntax::{
-    Result,
-    Error,
-    ErrorKind,
-    token::*,
-};
+use crate::syntax::{token::*, Error, ErrorKind, Result};
+use std::{mem, str::Chars, sync::Arc};
 
 /// A named character class with a predicate to check against.
 ///
 /// The generic function type that comes with this type is cumbersome to type, so this type should
 /// not be used directly. Use the `CharClass` type alias instead.
-struct CharClassBase<F>(&'static str, F) where F: Fn(char) -> bool;
+struct CharClassBase<F>(&'static str, F)
+where
+    F: Fn(char) -> bool;
 
 impl<F> CharClassBase<F>
-    where F: Fn(char) -> bool
+where
+    F: Fn(char) -> bool,
 {
     /// Determines whether the supplied character matches this character class.
     ///
@@ -42,11 +36,15 @@ macro_rules! char_class {
     };
 }
 
-char_class!(VARIABLE_NAME_CHARS, "variable name", |c| { c.is_alphanumeric() || "_-".contains(c) });
-char_class!(OP_CHARS, "operator", |c| { "|&=+-*/~!@%^&?<>".contains(c) });
-char_class!(BAREWORD_START_CHARS, "bareword", |c| { c.is_alphabetic() });
-char_class!(BAREWORD_CHARS, "bareword", |c| { c.is_alphanumeric() || "_-".contains(c) });
-char_class!(STR_LIT_ESCAPE_CHARS, "string escape", |c| { "trn\"\\".contains(c) });
+char_class!(VARIABLE_NAME_CHARS, "variable name", |c| c
+    .is_alphanumeric()
+    || "_-".contains(c));
+char_class!(OP_CHARS, "operator", |c| "|&=+-*/~!@%^&?<>".contains(c));
+char_class!(BAREWORD_START_CHARS, "bareword", |c| c.is_alphabetic());
+char_class!(BAREWORD_CHARS, "bareword", |c| c.is_alphanumeric()
+    || "_-".contains(c));
+char_class!(STR_LIT_ESCAPE_CHARS, "string escape", |c| "trn\"\\"
+    .contains(c));
 
 /// A lexer, which converts a stream of characters into a stream of tokens.
 pub struct Lexer<'c> {
@@ -66,7 +64,10 @@ impl<'c> Lexer<'c> {
             input,
             curr: None,
             next,
-            pos: Pos::new(Arc::new(source_name.to_string()), Arc::new(source_text.to_string())),
+            pos: Pos::new(
+                Arc::new(source_name.to_string()),
+                Arc::new(source_text.to_string()),
+            ),
         }
     }
 
@@ -91,7 +92,7 @@ impl<'c> Lexer<'c> {
             ';' => Some(Ok(Token::LineEnd)),
             ',' => Some(Ok(Token::Comma)),
             ':' => Some(Ok(Token::Colon)),
-            '0' ... '9' => Some(self.next_numeric_token()),
+            '0'...'9' => Some(self.next_numeric_token()),
             e if OP_CHARS.is_match(e) => Some(self.next_op_token()),
             e if BAREWORD_START_CHARS.is_match(e) => Some(self.next_bareword()),
             e if e.is_whitespace() => {
@@ -181,10 +182,11 @@ impl<'c> Lexer<'c> {
                     '"' => str_lit.push('\"'),
                     '\\' => str_lit.push('\\'),
                     _ => unreachable!(),
-                }
+                },
                 Some('"') => break Ok(Token::StrLit(str_lit)),
-                Some('\n') | Some('\r') =>
-                    break Err(self.err(ErrorKind::EarlyStringEnd("newline".to_string()))),
+                Some('\n') | Some('\r') => {
+                    break Err(self.err(ErrorKind::EarlyStringEnd("newline".to_string())))
+                }
                 None => break Err(self.err(ErrorKind::EarlyStringEnd("EOF".to_string()))),
                 Some(c) => str_lit.push(c),
             }
@@ -196,7 +198,10 @@ impl<'c> Lexer<'c> {
     /// # Preconditions
     /// `self.curr` must match the BAREWORD_START_CHARS character class.
     fn next_bareword(&mut self) -> Result<Token> {
-        assert!(BAREWORD_START_CHARS.is_match(self.curr.expect("precondition failed")), "precondition failed");
+        assert!(
+            BAREWORD_START_CHARS.is_match(self.curr.expect("precondition failed")),
+            "precondition failed"
+        );
         let mut bareword = String::new();
         bareword.push(self.curr.unwrap());
         while let Some(c) = self.next {
@@ -226,7 +231,7 @@ impl<'c> Lexer<'c> {
             "fun" => Ok(Token::FunKw),
             "return" => Ok(Token::ReturnKw),
             "type" => Ok(Token::TypeKw),
-            _ => Ok(Token::Bareword(bareword))
+            _ => Ok(Token::Bareword(bareword)),
         }
     }
 
@@ -235,7 +240,13 @@ impl<'c> Lexer<'c> {
     /// # Preconditions
     /// `self.curr` must be a character from `'0'` to `'9'`.
     fn next_numeric_token(&mut self) -> Result<Token> {
-        assert!({ let c = self.curr.unwrap(); c >= '0' && c <= '9'}, "precondition failed");
+        assert!(
+            {
+                let c = self.curr.unwrap();
+                c >= '0' && c <= '9'
+            },
+            "precondition failed"
+        );
         let mut number = String::new();
 
         let mut is_float = false;
@@ -249,7 +260,7 @@ impl<'c> Lexer<'c> {
                 _ => {
                     number.push(self.curr.unwrap());
                     10
-                },
+                }
             }
         } else {
             number.push(self.curr.unwrap());
@@ -265,8 +276,9 @@ impl<'c> Lexer<'c> {
         while let Some(c) = self.next {
             if c == '.' {
                 if radix != 10 {
-                    
-                    return Err(self.err_unexpected("non-base-ten floating point literal: not supported"));
+                    return Err(
+                        self.err_unexpected("non-base-ten floating point literal: not supported")
+                    );
                 } else if is_float {
                     return Err(self.err_unexpected("second decimal in floating point literal"));
                 } else {
@@ -301,10 +313,13 @@ impl<'c> Lexer<'c> {
                 if char_class.is_match(c) {
                     Ok(c)
                 } else {
-                    Err(self.err_expected_got(format!("{} char", char_class.name()), format!("{:?}", c)))
+                    Err(self.err_expected_got(
+                        format!("{} char", char_class.name()),
+                        format!("{:?}", c),
+                    ))
                 }
-            },
-                    
+            }
+
             None => Err(self.err_expected_got(format!("{} char", char_class.name()), "EOF")),
         }
     }
@@ -315,9 +330,10 @@ impl<'c> Lexer<'c> {
     /// # Returns
     /// The previous "current character" that has just been replaced.
     fn next_char(&mut self) -> Option<char> {
-        let old = mem::replace(&mut self.curr,
-                               mem::replace(&mut self.next,
-                                            self.input.next()));
+        let old = mem::replace(
+            &mut self.curr,
+            mem::replace(&mut self.next, self.input.next()),
+        );
         if let Some(c) = old {
             self.pos.adv();
             if c == '\n' {
@@ -330,9 +346,13 @@ impl<'c> Lexer<'c> {
     fn err_unexpected(&self, what: impl ToString) -> Error {
         self.err(ErrorKind::Unexpected(what.to_string()))
     }
-    
+
     fn err_expected_got(&self, expected: impl ToString, got: impl ToString) -> Error {
-        self.err(ErrorKind::ExpectedGot(expected.to_string(), got.to_string(), self.pos()))
+        self.err(ErrorKind::ExpectedGot(
+            expected.to_string(),
+            got.to_string(),
+            self.pos(),
+        ))
     }
 
     fn err(&self, kind: ErrorKind) -> Error {
@@ -358,14 +378,16 @@ mod test {
 
     /// Creates a new lexer with the given input string with a source name of "testing".
     macro_rules! test_lexer {
-        ($input:expr) => {{ Lexer::new("testing", $input) }};
+        ($input:expr) => {{
+            Lexer::new("testing", $input)
+        }};
     }
 
     /// Gets the first token from the given string.
     ///
     /// Utility macro for testing.
     macro_rules! first_token {
-        ($input:expr) => {{ 
+        ($input:expr) => {{
             let mut _lexer = test_lexer!($input);
             _lexer.next_token().unwrap().unwrap()
         }};
@@ -391,7 +413,6 @@ mod test {
 
     #[test]
     fn test_lexer_op() {
-
         let op = first_token!("+");
         assert_eq!(op, Token::Op(Op::Plus));
         let op = first_token!("-");
@@ -412,7 +433,6 @@ mod test {
         let op = first_token!("%%");
         assert_eq!(op, Token::Op(Op::DoublePercent));
 
-
         let double_tilde = first_token!("~~");
         assert_eq!(double_tilde, Token::Op(Op::DoubleTilde));
 
@@ -423,10 +443,19 @@ mod test {
     #[test]
     fn test_lexer_str_lit() {
         let africa = first_token!("\"hurry boy, she's waiting there for you\"");
-        assert_eq!(africa, Token::StrLit(String::from("hurry boy, she's waiting there for you")));
+        assert_eq!(
+            africa,
+            Token::StrLit(String::from("hurry boy, she's waiting there for you"))
+        );
 
-        let boxer = first_token!(r#""\"I am leaving, I am leaving,\" but the fighter still remains""#);
-        assert_eq!(boxer, Token::StrLit(String::from("\"I am leaving, I am leaving,\" but the fighter still remains")));
+        let boxer =
+            first_token!(r#""\"I am leaving, I am leaving,\" but the fighter still remains""#);
+        assert_eq!(
+            boxer,
+            Token::StrLit(String::from(
+                "\"I am leaving, I am leaving,\" but the fighter still remains"
+            ))
+        );
     }
 
     #[test]

@@ -1,21 +1,8 @@
-use std::path::Path;
-use crate::common::{
-    prelude::*,
-    ProcessError,
-};
-use crate::compile::{
-    Error,
-    Var,
-    Fun,
-    FunStub,
-    State,
-    RootBlock,
-    TyStub,
-    Ty,
-    transform::*,
-};
+use crate::common::{prelude::*, ProcessError};
+use crate::compile::{transform::*, Error, Fun, FunStub, RootBlock, State, Ty, TyStub, Var};
 use crate::ir;
 use crate::vm::{self, Symbolic};
+use std::path::Path;
 
 pub struct Compile {
     state: State,
@@ -23,7 +10,9 @@ pub struct Compile {
 
 impl Compile {
     pub fn new() -> Self {
-        let mut compile = Compile { state: State::new() };
+        let mut compile = Compile {
+            state: State::new(),
+        };
         compile.state.insert_builtins();
         compile.state.push_empty_scope();
         compile
@@ -47,8 +36,7 @@ impl Compile {
 
     pub fn update_from_path(&mut self, path: impl AsRef<Path>) -> Result<(), ProcessError> {
         let ir_tree = ir::IrTree::from_path(path)?;
-        self.update(ir_tree)
-            .map_err(|e| e.into())
+        self.update(ir_tree).map_err(|e| e.into())
     }
 }
 
@@ -65,12 +53,13 @@ impl<'s> TryTransform<(Vec<ir::UserTy>, Vec<ir::Fun>)> for GatherCompile<'s> {
 
     fn try_transform(self, (tys, funs): (Vec<ir::UserTy>, Vec<ir::Fun>)) -> Result<(), Error> {
         // Gather all types
-        GatherTyStubs(self.0).try_transform(&tys)
-        // Gather all functions
+        GatherTyStubs(self.0)
+            .try_transform(&tys)
+            // Gather all functions
             .and_then(|_| GatherFunStubs(self.0).try_transform(&funs))
-        // Compile all types
+            // Compile all types
             .and_then(|_| CompileTys(self.0).try_transform(tys))
-        // Compile all functions
+            // Compile all functions
             .and_then(|_| CompileFuns(self.0).try_transform(funs))
     }
 }
@@ -101,15 +90,25 @@ impl<'s> TryTransformMut<ir::UserTy> for CompileTys<'s> {
         } = ty;
         self.0.push_empty_scope();
 
-        GatherFunStubs(self.0).try_transform(&functions)
+        GatherFunStubs(self.0)
+            .try_transform(&functions)
             .and_then(|_| CompileFuns(self.0).try_transform(functions))?;
         // register this type
         self.0.pop_scope();
-        let symbol = self.0.ty_scope.get_local_by_name(&name)
-            .expect(&format!("unregistered type encountered after compilation: {}", name))
+        let symbol = self
+            .0
+            .ty_scope
+            .get_local_by_name(&name)
+            .expect(&format!(
+                "unregistered type encountered after compilation: {}",
+                name
+            ))
             .symbol();
-        Ok(vm::UserTy { name, symbol, range })
-
+        Ok(vm::UserTy {
+            name,
+            symbol,
+            range,
+        })
     }
 }
 
@@ -151,7 +150,11 @@ impl<'r, 's> TryTransform<&'r [ir::Fun]> for GatherFunStubs<'s> {
         for fun in funs {
             let name = fun.name();
             if let Some(f) = self.0.fun_scope.get_local_by_name(name) {
-                return Err(Error::duplicate_fun(fun.range(), f.range(), name.to_string()));
+                return Err(Error::duplicate_fun(
+                    fun.range(),
+                    f.range(),
+                    name.to_string(),
+                ));
             }
             let symbol = self.0.fun_scope.reserve_symbol();
             let stub = FunStub::from_ir_function(symbol, fun);
@@ -199,15 +202,17 @@ impl<'s> TryTransformMut<ir::Fun> for CompileFuns<'s> {
         // Add parameters to the variable scope
         for param in params.iter() {
             assert_matches!(&param.symbol, ir::Symbol::Variable(_));
-            let var = Var::new(param.symbol.name().to_string(), self.0.var_scope.reserve_symbol());
+            let var = Var::new(
+                param.symbol.name().to_string(),
+                self.0.var_scope.reserve_symbol(),
+            );
             self.0.var_scope.insert(var);
         }
 
         GatherCompile(self.0).try_transform((inner_types, inner_functions))?;
 
         // Compile function body
-        let thunk_list = RootBlock(self.0)
-            .try_transform_block(body)?;
+        let thunk_list = RootBlock(self.0).try_transform_block(body)?;
 
         // TODO : Pop function parameters and check their predicates where applicable
         // TODO : Or, let the VM handle it? Don't worry about inserting instructions here, maybe?
@@ -215,8 +220,14 @@ impl<'s> TryTransformMut<ir::Fun> for CompileFuns<'s> {
         let body = thunk_list.flatten(self.0);
         self.0.pop_scope();
 
-        let symbol = self.0.fun_scope.get_local_by_name_and_params(&name, params.len())
-            .expect(&format!("unregistered function encountered after compilation: {}", name))
+        let symbol = self
+            .0
+            .fun_scope
+            .get_local_by_name_and_params(&name, params.len())
+            .expect(&format!(
+                "unregistered function encountered after compilation: {}",
+                name
+            ))
             .symbol();
         // TODO : Check return value
         Ok(vm::UserFun::new(symbol, name, params.len(), body, range))

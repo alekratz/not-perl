@@ -1,8 +1,6 @@
-use std::{
-    fmt::{self, Display, Formatter},
-};
 use crate::common::prelude::*;
 use crate::vm::{Symbolic, TySymbol};
+use std::fmt::{self, Display, Formatter};
 
 #[derive(Debug, Clone)]
 pub enum Ty {

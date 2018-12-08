@@ -1,7 +1,7 @@
-use std::fmt::{self, Display, Formatter};
 use crate::common::pos::{Range, Ranged};
-use crate::syntax::tree;
 use crate::ir::{Fun, Ir};
+use crate::syntax::tree;
+use std::fmt::{self, Display, Formatter};
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum TyExpr {
@@ -32,10 +32,7 @@ impl Ir<tree::UserTy> for UserTy {
         UserTy {
             name: ty.name.clone(),
             parents: ty.parents.clone(),
-            functions: ty.functions
-                .iter()
-                .map(Fun::from_syntax)
-                .collect(),
+            functions: ty.functions.iter().map(Fun::from_syntax).collect(),
             range: ty.range(),
         }
     }

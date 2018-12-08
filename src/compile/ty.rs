@@ -1,9 +1,6 @@
 use crate::{
     common::prelude::*,
-    compile::{
-        AllocScope,
-        TySymbolAlloc
-    },
+    compile::{AllocScope, TySymbolAlloc},
     vm::{self, Symbolic},
 };
 

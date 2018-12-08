@@ -1,9 +1,4 @@
-use crate::compile::{
-    FunScope,
-    VarScope,
-    LabelScope,
-    TyScope,
-};
+use crate::compile::{FunScope, LabelScope, TyScope, VarScope};
 
 #[derive(Debug)]
 pub struct State {

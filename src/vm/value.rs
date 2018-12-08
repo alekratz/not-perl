@@ -1,6 +1,4 @@
-use crate::vm::{
-    symbol::*,
-};
+use crate::vm::symbol::*;
 
 pub use crate::common::value::Const;
 
