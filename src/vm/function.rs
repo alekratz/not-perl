@@ -196,7 +196,7 @@ lazy_static! {
         builtin_fun!(readf = readf ( 1 ) -> BuiltinTy::Str),
         builtin_fun!(print = print ( 1 ) -> BuiltinTy::None),
         builtin_fun!(println = println ( 1 ) -> BuiltinTy::None),
-        builtin_fun!(readln = readln ( 1 ) -> BuiltinTy::Str),
+        builtin_fun!(readln = readln ( 0 ) -> BuiltinTy::Str),
     ];
     pub static ref builtin_ops: Vec<BuiltinOp> = vec![
         builtin_op!(plus_binop = Plus ( 2 ) -> BuiltinTy::Float),

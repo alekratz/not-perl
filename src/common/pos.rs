@@ -149,11 +149,12 @@ impl SrcRange {
 impl Display for SrcRange {
     fn fmt(&self, fmt: &mut Formatter) -> fmt::Result {
         if self.0.line == self.1.line {
-            write!(fmt, "{}:{} - {}", self.0.line, self.0.col, self.1.col)
+            write!(fmt, "{}: {}:{}-{}", self.source_name(), self.0.line, self.0.col, self.1.col)
         } else {
             write!(
                 fmt,
-                "{}:{} - {}:{}",
+                "{}: {}:{}-{}:{}",
+                self.source_name(),
                 self.0.line, self.0.col, self.1.line, self.1.col
             )
         }

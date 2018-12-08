@@ -68,7 +68,7 @@ impl<'r, 's> TryTransform<ir::Value> for ValueContext<'s> {
                             .state
                             .fun_scope
                             .get_by_name(&name)
-                            .ok_or_else(|| Error::unknown_fun(range.clone(), name.clone()))?
+                            .ok_or_else(|| Error::unknown_fun_name(range.clone(), name.clone()))?
                             .symbol();
                         Ref::Fun(symbol)
                     }
@@ -176,7 +176,7 @@ impl<'r, 's> TryTransform<ir::Value> for ValueContext<'s> {
                         // compile function call like normal
                         code.push(Bc::Call(fun.symbol()));
                     } else {
-                        return Err(Error::unknown_fun(range.clone(), name.to_string()));
+                        return Err(Error::unknown_fun(range.clone(), name.to_string(), param_count));
                     }
                 } else {
                     // evaluate LHS and try to call it as a function

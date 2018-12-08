@@ -60,7 +60,9 @@ macro_rules! error_kind_def {
 error_kind_def! {
     fn unknown_unary_op(op: Op)         -> UnknownUnaryOp   => ("unknown unary operator {}", op)
     fn unknown_binary_op(op: Op)        -> UnknownBinaryOp  => ("unknown binary operator {}", op)
-    fn unknown_fun(name: String)        -> UnknownFun       => ("unknown function `{}`", name)
+    fn unknown_fun(name: String, arg_count: usize)
+                                        -> UnknownFun       => ("unknown function `{}/{}`", name, arg_count)
+    fn unknown_fun_name(name: String)   -> UnknownFunName   => ("unknown function name `{}`", name)
     fn unknown_ty(name: String)         -> UnknownTy        => ("unknown type `{}`", name)
     fn invalid_assign_lhs(lhs: String)  -> InvalidAssignLhs => ("invalid left-hand side of assignment: {}", lhs)
     fn duplicate_fun(first_def: Range, name: String)
@@ -114,7 +116,7 @@ where
 
 impl Display for Error {
     fn fmt(&self, fmt: &mut Formatter) -> fmt::Result {
-        Display::fmt(&self.kind, fmt)
+        write!(fmt, "{}: {}", self.range, self.kind)
     }
 }
 
