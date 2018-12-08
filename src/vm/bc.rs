@@ -24,8 +24,8 @@ pub enum Bc {
     /// Pushes the given value to the value stack.
     Push(Value),
 
-    /// Pops the top N values from the stack, discarding them.
-    Pop(usize),
+    // Pops the top N values from the stack, discarding them.
+    //Pop(usize),
 
     /// Pops the top value of the value from the stack and stores it into the given reference.
     PopStore(Ref),
@@ -55,9 +55,9 @@ pub enum Bc {
     /// Pushes the given value to the top of the stack and exits the current function.
     PushRet(Value),
 
-    /// Jumps to the given instruction address in the current function, checking the jump condition
-    /// against the VM's condition flag.
-    JumpAbs(usize, JumpCond),
+    // Jumps to the given instruction address in the current function, checking the jump condition
+    // against the VM's condition flag.
+    //JumpAbs(usize, JumpCond),
 
     /// Jumps to the given block symbol in the current function, checking the jump condition
     /// against the VM's condition flag.
@@ -67,11 +67,11 @@ pub enum Bc {
     /// condition flag appropriately.
     PopTest,
 
-    /// Checks the given value against a given type predicate, setting the VM condition flag
-    /// appropriately.
-    Check(Value, TySymbol),
+    // Checks the given value against a given type predicate, setting the VM condition flag
+    // appropriately.
+    //Check(Value, TySymbol),
 
-    /// Peeks at the top value of the stack, and checks it against the given type predicate,
-    /// setting the VM condition flag appropriately.
-    PeekCheck(TySymbol),
+    // Peeks at the top value of the stack, and checks it against the given type predicate,
+    // setting the VM condition flag appropriately.
+    //PeekCheck(TySymbol),
 }
