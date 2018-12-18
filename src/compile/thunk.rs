@@ -122,7 +122,7 @@ impl<'r, 's> TryTransformMut<ir::Action> for RootBlock<'s> {
                     // unreachable since is_assign_candidate excludes constants
                     ir::ValueKind::Const(_) => unreachable!(),
                     ir::ValueKind::Symbol(RangeWrapper(_, ir::Symbol::Variable(varname))) => {
-                        let lhs_store = Ref::Reg(self.0.var_scope.get_or_insert(&varname));
+                        let lhs_store = Ref::Var(self.0.var_scope.get_or_insert(&varname));
                         ValueContext::new(ValueContextKind::Store(lhs_store), self.0)
                             .try_transform(rhs)?
                     }
@@ -143,7 +143,7 @@ impl<'r, 's> TryTransformMut<ir::Action> for RootBlock<'s> {
                         let lhs_store = self.0.var_scope.insert_anonymous_var();
                         let lhs_code = {
                             let lhs_ctx = ValueContext::new(
-                                ValueContextKind::Store(Ref::Reg(lhs_store)),
+                                ValueContextKind::Store(Ref::Var(lhs_store)),
                                 self.0,
                             );
                             lhs_ctx.try_transform(lhs)?
@@ -151,7 +151,7 @@ impl<'r, 's> TryTransformMut<ir::Action> for RootBlock<'s> {
                         let rhs_store = self.0.var_scope.insert_anonymous_var();
                         let rhs_code = {
                             let rhs_ctx = ValueContext::new(
-                                ValueContextKind::Store(Ref::Reg(rhs_store)),
+                                ValueContextKind::Store(Ref::Var(rhs_store)),
                                 self.0,
                             );
                             rhs_ctx.try_transform(rhs)?
@@ -165,8 +165,8 @@ impl<'r, 's> TryTransformMut<ir::Action> for RootBlock<'s> {
                             // TODO : deref RHS?
                             .chain(
                                 vec![
-                                    Bc::DerefPush(Ref::Reg(lhs_store)),
-                                    Bc::PopDerefStore(Value::Ref(Ref::Reg(rhs_store))),
+                                    Bc::DerefPush(Ref::Var(lhs_store)),
+                                    Bc::PopDerefStore(Value::Ref(Ref::Var(rhs_store))),
                                 ]
                                 .into_iter(),
                             )

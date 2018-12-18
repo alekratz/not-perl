@@ -1,6 +1,6 @@
 use crate::{
     common::pos::RangeWrapper,
-    compile::{AllocScope, Error, RegSymbolAlloc, State, Transform, TryTransform},
+    compile::{AllocScope, Error, VarSymbolAlloc, State, Transform, TryTransform},
     ir,
     vm::{self, Bc, Ref, Symbol, Symbolic},
 };
@@ -12,23 +12,23 @@ use std::{
 #[derive(Debug, Clone)]
 pub struct Var {
     pub name: String,
-    pub symbol: vm::RegSymbol,
+    pub symbol: vm::VarSymbol,
 }
 
 impl Var {
-    pub fn new(name: String, symbol: vm::RegSymbol) -> Self {
+    pub fn new(name: String, symbol: vm::VarSymbol) -> Self {
         Var { name, symbol }
     }
 }
 
 impl vm::Symbolic for Var {
-    type Symbol = vm::RegSymbol;
+    type Symbol = vm::VarSymbol;
 
     fn name(&self) -> &str {
         &self.name
     }
 
-    fn symbol(&self) -> vm::RegSymbol {
+    fn symbol(&self) -> vm::VarSymbol {
         self.symbol
     }
 }
@@ -79,7 +79,7 @@ impl<'r, 's> TryTransform<ir::Value> for ValueContext<'s> {
                             .get_by_name(&name)
                             .expect(&format!("variable does not exist in this scope: {}", name))
                             .symbol();
-                        Ref::Reg(symbol)
+                        Ref::Var(symbol)
                     }
                     ir::Symbol::Ty(name) => {
                         let symbol = self
@@ -110,20 +110,20 @@ impl<'r, 's> TryTransform<ir::Value> for ValueContext<'s> {
                 let lhs_sym = self.state.var_scope.insert_anonymous_var();
                 let lhs_code = {
                     let lhs_ctx =
-                        ValueContext::new(ValueContextKind::Store(Ref::Reg(lhs_sym)), self.state);
+                        ValueContext::new(ValueContextKind::Store(Ref::Var(lhs_sym)), self.state);
                     lhs_ctx.try_transform(*lhs)?
                 };
 
                 let rhs_sym = self.state.var_scope.insert_anonymous_var();
                 let rhs_code = {
                     let rhs_ctx =
-                        ValueContext::new(ValueContextKind::Store(Ref::Reg(rhs_sym)), self.state);
+                        ValueContext::new(ValueContextKind::Store(Ref::Var(rhs_sym)), self.state);
                     rhs_ctx.try_transform(*rhs)?
                 };
 
                 let mut code: Vec<_> = lhs_code.into_iter().chain(rhs_code.into_iter()).collect();
-                code.push(Bc::Push(vm::Value::Ref(Ref::Reg(lhs_sym))));
-                code.push(Bc::Push(vm::Value::Ref(Ref::Reg(rhs_sym))));
+                code.push(Bc::Push(vm::Value::Ref(Ref::Var(lhs_sym))));
+                code.push(Bc::Push(vm::Value::Ref(Ref::Var(rhs_sym))));
                 code.push(Bc::Call(op_fun));
                 // free the anonymous symbols that were just used
                 self.state.var_scope.free_anonymous_var(lhs_sym);
@@ -131,7 +131,7 @@ impl<'r, 's> TryTransform<ir::Value> for ValueContext<'s> {
                 // allocate storage, pop result into storage, and pass storage along to the value
                 // context
                 let result_var = self.state.var_scope.insert_anonymous_var();
-                code.push(self.kind.transform(vm::Value::Ref(Ref::Reg(result_var))));
+                code.push(self.kind.transform(vm::Value::Ref(Ref::Var(result_var))));
                 self.state.var_scope.free_anonymous_var(result_var);
                 Ok(code)
             }
@@ -147,10 +147,10 @@ impl<'r, 's> TryTransform<ir::Value> for ValueContext<'s> {
                 let value_sym = self.state.var_scope.insert_anonymous_var();
                 let mut value_code = {
                     let value_ctx =
-                        ValueContext::new(ValueContextKind::Store(Ref::Reg(value_sym)), self.state);
+                        ValueContext::new(ValueContextKind::Store(Ref::Var(value_sym)), self.state);
                     value_ctx.try_transform(*value)?
                 };
-                value_code.push(self.kind.transform(vm::Value::Ref(Ref::Reg(value_sym))));
+                value_code.push(self.kind.transform(vm::Value::Ref(Ref::Var(value_sym))));
                 self.state.var_scope.free_anonymous_var(value_sym);
                 Ok(value_code)
             }
@@ -228,17 +228,17 @@ impl Transform<vm::Value> for ValueContextKind {
 
 #[derive(Debug)]
 pub struct VarScope {
-    scope: AllocScope<Var, RegSymbolAlloc>,
+    scope: AllocScope<Var, VarSymbolAlloc>,
 
     /// A stack of all unused anonymous variables.
-    unused_anon: Vec<BTreeSet<vm::RegSymbol>>,
+    unused_anon: Vec<BTreeSet<vm::VarSymbol>>,
 }
 
 impl VarScope {
     /// Gets a symbol to a variable with the given name, or inserts it if it doesn't exist.
     ///
     /// This will clone the given name if the inserted variable does not exist.
-    pub fn get_or_insert(&mut self, name: &str) -> vm::RegSymbol {
+    pub fn get_or_insert(&mut self, name: &str) -> vm::VarSymbol {
         if let Some(var) = self.scope.get_by_name(name) {
             return var.symbol();
         }
@@ -249,7 +249,7 @@ impl VarScope {
     }
 
     /// Inserts an anonymous variable.
-    pub fn insert_anonymous_var(&mut self) -> vm::RegSymbol {
+    pub fn insert_anonymous_var(&mut self) -> vm::VarSymbol {
         self.ensure_unused_anon_size();
 
         let has_unused = self
@@ -277,7 +277,7 @@ impl VarScope {
     ///
     /// Note that this does not check if this is actually an anonymous variable being freed. It is
     /// up to the programmer to determine this themselves.
-    pub fn free_anonymous_var(&mut self, sym: vm::RegSymbol) {
+    pub fn free_anonymous_var(&mut self, sym: vm::VarSymbol) {
         self.ensure_unused_anon_size();
 
         let active = self
@@ -305,8 +305,8 @@ impl VarScope {
     }
 }
 
-impl From<AllocScope<Var, RegSymbolAlloc>> for VarScope {
-    fn from(scope: AllocScope<Var, RegSymbolAlloc>) -> Self {
+impl From<AllocScope<Var, VarSymbolAlloc>> for VarScope {
+    fn from(scope: AllocScope<Var, VarSymbolAlloc>) -> Self {
         let depth = scope.scope_stack.len();
         VarScope {
             scope,
@@ -315,14 +315,14 @@ impl From<AllocScope<Var, RegSymbolAlloc>> for VarScope {
     }
 }
 
-impl From<VarScope> for AllocScope<Var, RegSymbolAlloc> {
+impl From<VarScope> for AllocScope<Var, VarSymbolAlloc> {
     fn from(scope: VarScope) -> Self {
         scope.scope
     }
 }
 
 impl Deref for VarScope {
-    type Target = AllocScope<Var, RegSymbolAlloc>;
+    type Target = AllocScope<Var, VarSymbolAlloc>;
 
     fn deref(&self) -> &Self::Target {
         &self.scope
@@ -357,7 +357,7 @@ mod tests {
         let a_sym = reg_scope.reserve_symbol();
         assert_eq!(
             a_sym,
-            RegSymbol {
+            VarSymbol {
                 global: 0,
                 local: 0
             }
@@ -367,7 +367,7 @@ mod tests {
         let b_sym = reg_scope.reserve_symbol();
         assert_eq!(
             b_sym,
-            RegSymbol {
+            VarSymbol {
                 global: 0,
                 local: 1
             }
@@ -380,7 +380,7 @@ mod tests {
         let c_sym = reg_scope.reserve_symbol();
         assert_eq!(
             c_sym,
-            RegSymbol {
+            VarSymbol {
                 global: 1,
                 local: 0
             }
@@ -401,7 +401,7 @@ mod tests {
         let c_sym = reg_scope.reserve_symbol();
         assert_eq!(
             c_sym,
-            RegSymbol {
+            VarSymbol {
                 global: 2,
                 local: 0
             }
@@ -414,7 +414,7 @@ mod tests {
         let new_a_sym = reg_scope.reserve_symbol();
         assert_eq!(
             new_a_sym,
-            RegSymbol {
+            VarSymbol {
                 global: 2,
                 local: 1
             }
@@ -443,7 +443,7 @@ mod tests {
         let new_d_sym = reg_scope.get_or_insert("d");
         assert_eq!(
             new_d_sym,
-            RegSymbol {
+            VarSymbol {
                 global: 0,
                 local: 3
             }

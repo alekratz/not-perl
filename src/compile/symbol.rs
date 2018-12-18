@@ -47,20 +47,20 @@ pub type BlockSymbolAlloc = SymbolAlloc<vm::BlockSymbol>;
 /// Since registers are function-local, this represents symbols being allocated for a single scope
 /// layer. This also implements `Alloc` for convenience.
 #[derive(Debug)]
-struct RegSymbolLayer {
-    next: vm::RegSymbol,
+struct VarSymbolLayer {
+    next: vm::VarSymbol,
 }
 
-impl RegSymbolLayer {
+impl VarSymbolLayer {
     pub fn new(global: SymbolIndex) -> Self {
-        RegSymbolLayer {
-            next: vm::RegSymbol { global, local: 0 },
+        VarSymbolLayer {
+            next: vm::VarSymbol { global, local: 0 },
         }
     }
 }
 
-impl Alloc<vm::RegSymbol> for RegSymbolLayer {
-    fn reserve(&mut self) -> vm::RegSymbol {
+impl Alloc<vm::VarSymbol> for VarSymbolLayer {
+    fn reserve(&mut self) -> vm::VarSymbol {
         let next = self.next.next();
         mem::replace(&mut self.next, next)
     }
@@ -68,30 +68,30 @@ impl Alloc<vm::RegSymbol> for RegSymbolLayer {
 
 /// A register symbol allocator.
 ///
-/// This wraps the logic defined in RegSymbolLayer, except defining a stack of these layers.
+/// This wraps the logic defined in VarSymbolLayer, except defining a stack of these layers.
 #[derive(Debug)]
-pub struct RegSymbolAlloc {
-    scope_stack: VecDeque<RegSymbolLayer>,
+pub struct VarSymbolAlloc {
+    scope_stack: VecDeque<VarSymbolLayer>,
 }
 
-impl RegSymbolAlloc {
+impl VarSymbolAlloc {
     /// Gets the topmost reg symbol layer defined.
-    fn active_mut(&mut self) -> &mut RegSymbolLayer {
+    fn active_mut(&mut self) -> &mut VarSymbolLayer {
         self.scope_stack
             .back_mut()
             // oddly specific error messages are the best error messages
-            .expect("tried to get topmost register symbol allocator from depthless RegSymbolAlloc stack")
+            .expect("tried to get topmost register symbol allocator from depthless VarSymbolAlloc stack")
     }
 }
 
-impl Alloc<vm::RegSymbol> for RegSymbolAlloc {
-    fn reserve(&mut self) -> vm::RegSymbol {
+impl Alloc<vm::VarSymbol> for VarSymbolAlloc {
+    fn reserve(&mut self) -> vm::VarSymbol {
         self.active_mut().reserve()
     }
 
     fn on_push_scope(&mut self) {
         let global = self.scope_stack.len();
-        self.scope_stack.push_back(RegSymbolLayer::new(global));
+        self.scope_stack.push_back(VarSymbolLayer::new(global));
     }
 
     fn on_pop_scope(&mut self) {
@@ -101,14 +101,14 @@ impl Alloc<vm::RegSymbol> for RegSymbolAlloc {
         let back = self
             .scope_stack
             .pop_back()
-            .expect("tried to pop top value from depthless RegSymbolAlloc");
+            .expect("tried to pop top value from depthless VarSymbolAlloc");
         self.scope_stack.push_front(back);
     }
 }
 
-impl Default for RegSymbolAlloc {
+impl Default for VarSymbolAlloc {
     fn default() -> Self {
-        RegSymbolAlloc {
+        VarSymbolAlloc {
             scope_stack: VecDeque::new(),
         }
     }

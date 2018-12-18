@@ -12,14 +12,8 @@ pub enum Value {
 /// A reference to a value stored someplace.
 #[derive(Debug, Clone)]
 pub enum Ref {
-    /// A stack symbol, relative to the current stack frame.
-    Stack(isize),
-
-    /// The current top value of the stack.
-    StackTop,
-
     /// A register local to this function.
-    Reg(RegSymbol),
+    Var(VarSymbol),
 
     /// A reference to a function.
     Fun(FunSymbol),

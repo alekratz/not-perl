@@ -50,35 +50,35 @@ symbol_def!(TySymbol);
 symbol_def!(BlockSymbol);
 
 #[derive(Copy, Clone, PartialEq, PartialOrd, Ord, Eq, Debug)]
-pub struct RegSymbol {
+pub struct VarSymbol {
     pub global: SymbolIndex,
     pub local: SymbolIndex,
 }
 
-impl Default for RegSymbol {
+impl Default for VarSymbol {
     fn default() -> Self {
-        RegSymbol {
+        VarSymbol {
             global: 0,
             local: 0,
         }
     }
 }
 
-impl Symbol for RegSymbol {
+impl Symbol for VarSymbol {
     fn index(&self) -> SymbolIndex {
         self.local
     }
 
     fn next(&self) -> Self {
-        RegSymbol {
+        VarSymbol {
             global: self.global,
             local: self.local + 1,
         }
     }
 }
 
-impl Display for RegSymbol {
+impl Display for VarSymbol {
     fn fmt(&self, fmt: &mut Formatter) -> fmt::Result {
-        write!(fmt, "RegSymbol-{}-{}", self.global, self.local)
+        write!(fmt, "VarSymbol-{}-{}", self.global, self.local)
     }
 }
