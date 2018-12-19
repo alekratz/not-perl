@@ -4,7 +4,7 @@ use crate::{
     ir::Fun,
 };
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Ty {
     pub name: String,
     pub parents: Vec<String>,
@@ -26,5 +26,5 @@ impl From<UserTy> for Ty {
     }
 }
 
-#[derive(Debug)]
-pub struct TyExpr(String);
+#[derive(Debug, Clone)]
+pub struct TyExpr(pub String);

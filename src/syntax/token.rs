@@ -52,6 +52,25 @@ impl Display for AssignOp {
     }
 }
 
+impl AssignOp {
+    pub fn into_op(self) -> Option<Op> {
+        Op::from_assign_op(self)
+    }
+}
+
+impl Op {
+    fn from_assign_op(assign: AssignOp) -> Option<Self> {
+        match assign {
+            AssignOp::Equals => None,
+            AssignOp::PlusEquals => Some(Op::Plus),
+            AssignOp::MinusEquals => Some(Op::Minus),
+            AssignOp::SplatEquals => Some(Op::Splat),
+            AssignOp::FSlashEquals => Some(Op::FSlash),
+            AssignOp::TildeEquals => Some(Op::Tilde),
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Token {
     //

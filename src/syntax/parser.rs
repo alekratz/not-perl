@@ -60,14 +60,9 @@ impl<'c> Parser<'c> {
     }
 
     fn next_tree(&mut self) -> Result<SyntaxTree> {
-        let (range, items) = ranged!(self.lexer, {
-            let mut items = vec![];
-            while self.curr.is_some() {
-                items.push(self.next_item()?);
-            }
-            items
-        });
-        Ok(SyntaxTree::new(items, range))
+        let block = self.next_block()?;
+        let range = block.range();
+        Ok(SyntaxTree::new(block, range))
     }
 
     fn skip_whitespace(&mut self) -> Result<()> {
@@ -209,17 +204,22 @@ impl<'c> Parser<'c> {
     }
 
     fn next_block(&mut self) -> Result<Block> {
-        let (range, items) = ranged!(self.lexer, {
+        let (range, (funs, tys, stmts)) = ranged!(self.lexer, {
             self.match_token(Token::LBrace)?;
-            let mut items = Vec::new();
+            let mut funs = Vec::new();
+            let mut tys = Vec::new();
+            let mut stmts = Vec::new();
             while !self.is_token_match(&Token::RBrace) {
-                let item = self.next_item()?;
-                items.push(item);
+                match self.next_item()? {
+                    Item::Stmt(stmt) => stmts.push(stmt),
+                    Item::UserTy(ty) => tys.push(ty),
+                    Item::Fun(fun) => funs.push(fun),
+                }
             }
             self.match_token(Token::RBrace)?;
-            items
+            (funs, tys, stmts)
         });
-        Ok(RangeWrapper(range, items))
+        Ok(Block::new(funs, tys, stmts, range))
     }
 
     fn next_expr(&mut self) -> Result<Expr> {

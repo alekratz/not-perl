@@ -36,13 +36,13 @@ where
 
 #[derive(Debug, Clone)]
 pub struct SyntaxTree {
-    pub items: Vec<Item>,
+    pub block: Block,
     pub range: Range,
 }
 
 impl SyntaxTree {
-    pub fn new(items: Vec<Item>, range: Range) -> Self {
-        SyntaxTree { items, range }
+    pub fn new(block: Block, range: Range) -> Self {
+        SyntaxTree { block, range }
     }
 }
 
@@ -110,7 +110,26 @@ impl Ranged for Stmt {
     }
 }
 
-pub type Block = RangeWrapper<Vec<Item>>;
+#[derive(Debug, Clone, PartialEq)]
+pub struct Block {
+    pub funs: Vec<Fun>,
+    pub tys: Vec<UserTy>,
+    pub stmts: Vec<Stmt>,
+    pub range: Range,
+}
+
+impl_ranged!(Block::range);
+
+impl Block {
+    pub fn new(funs: Vec<Fun>, tys: Vec<UserTy>, stmts: Vec<Stmt>, range: Range) -> Self {
+        Block {
+            funs,
+            tys,
+            stmts,
+            range,
+        }
+    }
+}
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Item {
@@ -135,13 +154,7 @@ impl Ast for Item {
     }
 
     fn name() -> &'static str {
-        "syntax tree"
-    }
-}
-
-impl AsRef<[Item]> for Block {
-    fn as_ref(&self) -> &[Item] {
-        &self.1
+        "item"
     }
 }
 
