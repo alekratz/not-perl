@@ -1,9 +1,8 @@
-use crate::{compile, syntax, vm};
+use crate::syntax;
 use failure::Fail;
 use std::io;
 
 pub mod lang;
-pub mod scope;
 pub mod strings;
 pub mod value;
 #[macro_use]
@@ -12,7 +11,6 @@ pub mod pos;
 pub mod prelude {
     pub use super::lang::*;
     pub use super::pos::*;
-    pub use super::scope::*;
 }
 
 /// An error type that occurs as a result of processing a piece of code.
@@ -23,11 +21,7 @@ pub enum ProcessError {
     #[fail(display = "{}", _0)]
     Io(#[cause] io::Error),
     #[fail(display = "{}", _0)]
-    Compile(#[cause] compile::Error),
-    #[fail(display = "{}", _0)]
     Syntax(#[cause] syntax::Error),
-    #[fail(display = "{}", _0)]
-    Vm(#[cause] vm::Error),
 }
 
 impl From<io::Error> for ProcessError {
@@ -36,20 +30,8 @@ impl From<io::Error> for ProcessError {
     }
 }
 
-impl From<compile::Error> for ProcessError {
-    fn from(other: compile::Error) -> Self {
-        ProcessError::Compile(other)
-    }
-}
-
 impl From<syntax::Error> for ProcessError {
     fn from(other: syntax::Error) -> Self {
         ProcessError::Syntax(other)
-    }
-}
-
-impl From<vm::Error> for ProcessError {
-    fn from(other: vm::Error) -> Self {
-        ProcessError::Vm(other)
     }
 }

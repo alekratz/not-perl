@@ -36,13 +36,13 @@ where
 
 #[derive(Debug, Clone)]
 pub struct SyntaxTree {
-    pub stmts: Vec<Stmt>,
+    pub items: Vec<Item>,
     pub range: Range,
 }
 
 impl SyntaxTree {
-    pub fn new(stmts: Vec<Stmt>, range: Range) -> Self {
-        SyntaxTree { stmts, range }
+    pub fn new(items: Vec<Item>, range: Range) -> Self {
+        SyntaxTree { items, range }
     }
 }
 
@@ -60,8 +60,6 @@ impl_ranged!(SyntaxTree::range);
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Stmt {
-    Fun(Fun),
-    UserTy(UserTy),
     Expr(Expr),
     Assign(Expr, AssignOp, Expr),
     While(ConditionBlock),
@@ -90,8 +88,6 @@ impl Ast for Stmt {
 impl Ranged for Stmt {
     fn range(&self) -> Range {
         match self {
-            Stmt::Fun(f) => f.range(),
-            Stmt::UserTy(u) => u.range(),
             Stmt::Expr(e) => e.range(),
             Stmt::Assign(lhs, _, rhs) => lhs.range().union(&rhs.range()),
             Stmt::While(c) => c.range(),
@@ -114,10 +110,37 @@ impl Ranged for Stmt {
     }
 }
 
-pub type Block = RangeWrapper<Vec<Stmt>>;
+pub type Block = RangeWrapper<Vec<Item>>;
 
-impl AsRef<[Stmt]> for Block {
-    fn as_ref(&self) -> &[Stmt] {
+#[derive(Debug, Clone, PartialEq)]
+pub enum Item {
+    Fun(Fun),
+    UserTy(UserTy),
+    Stmt(Stmt),
+}
+
+impl Ranged for Item {
+    fn range(&self) -> Range {
+        match self {
+            Item::Fun(f) => f.range(),
+            Item::UserTy(t) => t.range(),
+            Item::Stmt(s) => s.range(),
+        }
+    }
+}
+
+impl Ast for Item {
+    fn token_is_lookahead(token: &Token) -> bool {
+        Fun::token_is_lookahead(token) || UserTy::token_is_lookahead(token) || Stmt::token_is_lookahead(token)
+    }
+
+    fn name() -> &'static str {
+        "syntax tree"
+    }
+}
+
+impl AsRef<[Item]> for Block {
+    fn as_ref(&self) -> &[Item] {
         &self.1
     }
 }
@@ -295,3 +318,4 @@ impl Ranged for Expr {
         }
     }
 }
+

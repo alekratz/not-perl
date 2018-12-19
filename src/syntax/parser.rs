@@ -60,14 +60,14 @@ impl<'c> Parser<'c> {
     }
 
     fn next_tree(&mut self) -> Result<SyntaxTree> {
-        let (range, stmts) = ranged!(self.lexer, {
-            let mut stmts = vec![];
+        let (range, items) = ranged!(self.lexer, {
+            let mut items = vec![];
             while self.curr.is_some() {
-                stmts.push(self.next_stmt()?);
+                items.push(self.next_item()?);
             }
-            stmts
+            items
         });
-        Ok(SyntaxTree::new(stmts, range))
+        Ok(SyntaxTree::new(items, range))
     }
 
     fn skip_whitespace(&mut self) -> Result<()> {
@@ -75,6 +75,28 @@ impl<'c> Parser<'c> {
             self.next_token()?;
         }
         Ok(())
+    }
+
+    fn next_item(&mut self) -> Result<Item> {
+        assert_eq!(self.stmt_level, 0);
+        self.skip_whitespace()?;
+
+        let curr = if let Some(curr) = self.curr.clone() {
+            Token::from(curr)
+        } else {
+            return Err(self.err_expected_got_eof(Stmt::name()));
+        };
+        let item = match curr {
+            Token::FunKw => Item::Fun(self.next_function()?),
+            Token::TypeKw => Item::UserTy(self.next_user_type()?),
+            _ => Item::Stmt(self.next_stmt()?),
+        };
+        let is_newline_needed = matches!(item, Item::UserTy(_)); 
+
+        if is_newline_needed {
+            self.next_eol_or_eof()?;
+        }
+        Ok(item)
     }
 
     fn next_stmt(&mut self) -> Result<Stmt> {
@@ -139,8 +161,6 @@ impl<'c> Parser<'c> {
                     else_block,
                 }
             }
-            Token::FunKw => Stmt::Fun(self.next_function()?),
-            Token::TypeKw => Stmt::UserTy(self.next_user_type()?),
             ref t if t.is_lookahead::<Expr>() => {
                 // expr, assignment
                 let lhs = self.next_expr()?;
@@ -155,7 +175,6 @@ impl<'c> Parser<'c> {
             _ => return Err(self.err_expected_got("statement", self.curr.as_ref())),
         };
         let is_newline_needed = match stmt {
-            Stmt::Fun(_) => false,
             Stmt::While(_) => false,
             Stmt::If {
                 if_block: _,
@@ -190,17 +209,17 @@ impl<'c> Parser<'c> {
     }
 
     fn next_block(&mut self) -> Result<Block> {
-        let (range, stmts) = ranged!(self.lexer, {
+        let (range, items) = ranged!(self.lexer, {
             self.match_token(Token::LBrace)?;
-            let mut stmts = Vec::new();
+            let mut items = Vec::new();
             while !self.is_token_match(&Token::RBrace) {
-                let stmt = self.next_stmt()?;
-                stmts.push(stmt);
+                let item = self.next_item()?;
+                items.push(item);
             }
             self.match_token(Token::RBrace)?;
-            stmts
+            items
         });
-        Ok(RangeWrapper(range, stmts))
+        Ok(RangeWrapper(range, items))
     }
 
     fn next_expr(&mut self) -> Result<Expr> {

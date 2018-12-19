@@ -1,4 +1,3 @@
-use crate::vm::Symbolic;
 use std::{collections::BTreeMap, fmt::Debug};
 
 /// A generic scope over a symbolic value.
