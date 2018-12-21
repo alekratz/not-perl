@@ -94,6 +94,9 @@ impl<T: Sized> VmNew for ArrayList<T> {
 /// A reference to a fixed-size contiguous block of memory in the heap.
 #[derive(Debug, Clone)]
 pub struct ArrayRef<T: Sized> {
+    /// Length of the array.
+    len: usize,
+
     /// Reference to the memory where this array lives.
     heap_ref: HeapRef,
     _ty: PhantomData<T>,
@@ -101,41 +104,39 @@ pub struct ArrayRef<T: Sized> {
 
 impl<T: Sized> ArrayRef<T> {
     pub fn len(&self) -> usize {
-        unsafe { self.as_repr().len }
-    }
-
-    unsafe fn as_repr(&self) -> &ArrayRepr<T> {
-        self.heap_ref.deref()
+        self.len
     }
 
     pub fn with_len<A: Alloc<Ref=HeapRef>>(alloc: &mut A, len: usize) -> Option<Self> {
         let size = len * mem::size_of::<T>();
         let layout = Layout::from_size_align(size, ALIGN)
             .ok()?;
-        let mut heap_ref;
-        unsafe {
-            heap_ref = alloc.alloc(layout)?;
-            let array: &mut ArrayRepr<T> = heap_ref.deref_mut();
-            array.len = len;
-        }
-        Some(ArrayRef { heap_ref, _ty: PhantomData::<T>, })
+        let heap_ref = unsafe {
+            alloc.alloc(layout)?
+        };
+        Some(ArrayRef { len, heap_ref, _ty: PhantomData::<T>, })
     }
 
     pub fn get(&self, index: usize) -> &T {
         unsafe {
-            &*(self.as_repr().at(index) as *const T)
+            &*(self.at(index) as *const T)
         }
     }
 
     pub fn get_mut(&mut self, index: usize) -> &mut T {
         unsafe {
-            &mut *(self.as_repr().at(index) as *mut T)
+            &mut *(self.at(index) as *mut T)
         }
     }
 
     pub fn set(&mut self, index: usize, value: T) {
         let rf = self.get_mut(index);
         *rf = value;
+    }
+
+    unsafe fn at(&self, index: usize) -> *mut T {
+        assert!(index < self.len(), "index outside of array bounds");
+        self.heap_ref.addr.offset(index as isize) as *mut T
     }
 }
 
@@ -148,7 +149,7 @@ impl<T: Sized> VmNew for ArrayRef<T> {
 
 impl<T: Sized> VmSized for ArrayRef<T> {
     fn size_of(&self) -> usize {
-        unsafe { self.as_repr() }.size_of()
+        self.len * mem::size_of::<T>()
     }
 }
 
@@ -163,30 +164,5 @@ impl<T: Sized> Index<usize> for ArrayRef<T> {
 impl<T: Sized> IndexMut<usize> for ArrayRef<T> {
     fn index_mut(&mut self, index: usize) -> &mut Self::Output {
         self.get_mut(index)
-    }
-}
-
-#[derive(Debug, Clone)]
-struct ArrayRepr<T: Sized> {
-    /// Reference to the memory where this array lives.
-    len: usize,
-    _ty: PhantomData<T>,
-}
-
-impl<T: Sized> ArrayRepr<T> {
-    unsafe fn at(&self, index: usize) -> *mut T {
-        if self.len <= index {
-            panic!("index out of range: {}", index);
-        }
-
-        let self_offset = mem::size_of::<Self>() as isize;
-        let base = (self as *const _ as Addr).offset(self_offset) as *mut T;
-        base.offset(index as isize)
-    }
-}
-
-impl<T: Sized> VmSized for ArrayRepr<T> {
-    fn size_of(&self) -> usize {
-        (self.len * mem::size_of::<T>()) + mem::size_of_val(&self.len)
     }
 }

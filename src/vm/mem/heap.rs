@@ -95,7 +95,6 @@ mod test {
         let mut heap: HeapStorage<BuddyAllocator> = HeapStorage::new(heap_size);
         let mut array: ArrayRef<SomeValue> = heap.alloc_array(array_size)
             .unwrap();
-
         let vals = &[
             SomeValue::A(10),
             SomeValue::B(-0.15),
