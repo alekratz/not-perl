@@ -1,37 +1,34 @@
-use crate::syntax;
-use failure::Fail;
-use std::io;
+use std::{
+    path::Path,
+    str::FromStr,
+};
+use crate::util;
 
 pub mod lang;
 pub mod strings;
 pub mod value;
 #[macro_use]
 pub mod pos;
+pub mod error;
+
+use self::error::Error;
 
 pub mod prelude {
     pub use super::lang::*;
     pub use super::pos::*;
+    pub use super::FromPath;
 }
 
-/// An error type that occurs as a result of processing a piece of code.
-///
-/// This may be anything from an I/O error when attempting to read a file, to a compilation error.
-#[derive(Fail, Debug)]
-pub enum ProcessError {
-    #[fail(display = "{}", _0)]
-    Io(#[cause] io::Error),
-    #[fail(display = "{}", _0)]
-    Syntax(#[cause] syntax::Error),
+pub trait FromPath: Sized {
+    type Err;
+
+    fn from_path<P: AsRef<Path>>(path: P) -> Result<Self, Self::Err>;
 }
 
-impl From<io::Error> for ProcessError {
-    fn from(other: io::Error) -> Self {
-        ProcessError::Io(other)
-    }
-}
-
-impl From<syntax::Error> for ProcessError {
-    fn from(other: syntax::Error) -> Self {
-        ProcessError::Syntax(other)
+impl<T: FromStr<Err=Error>> FromPath for T {
+    type Err = Error;
+    fn from_path<P: AsRef<Path>>(path: P) -> Result<Self, Self::Err> {
+        let contents = util::read_file(path)?;
+        Ok(Self::from_str(&contents)?)
     }
 }

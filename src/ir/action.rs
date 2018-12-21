@@ -1,11 +1,7 @@
 use crate::{
     syntax::{tree::{self, Stmt, ConditionBlock}, token::AssignOp},
     common::prelude::*,
-    ir::{
-        Value,
-        Fun,
-        Ty,
-    },
+    ir::{Block, Value},
 };
 
 /// A kind of action that can be taken by the language.
@@ -21,7 +17,7 @@ pub enum ActionKind {
     AugAssign(Value, Op, Value),
 
     Loop(Box<Action>),
-    Block { funs: Vec<Fun>, tys: Vec<Ty>, actions: Vec<Action>, },
+    Block(Block),
     ConditionBlock {
         condition: Value,
         success: Box<Action>,
@@ -34,9 +30,6 @@ pub enum ActionKind {
 }
 
 pub type Action = RangeWrapper<ActionKind>;
-
-/// A list of actions.
-pub type Block = Vec<Action>; 
 
 impl From<Stmt> for Action {
     fn from(stmt: Stmt) -> Self {
@@ -108,11 +101,7 @@ impl From<tree::Block> for Action {
 }
 
 impl From<tree::Block> for ActionKind {
-    fn from(tree::Block { funs, tys, stmts, .. }: tree::Block) -> Self {
-        ActionKind::Block {
-            funs: funs.into_iter().map(From::from).collect(),
-            tys: tys.into_iter().map(From::from).collect(),
-            actions: stmts.into_iter().map(From::from).collect(),
-        }
+    fn from(block: tree::Block) -> Self {
+        ActionKind::Block(block.into())
     }
 }

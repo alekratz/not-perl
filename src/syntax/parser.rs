@@ -1,6 +1,6 @@
+use std::{collections::VecDeque, fmt::Display, mem};
 use crate::common::prelude::*;
 use crate::syntax::{token::*, tree::*, Error, ErrorKind, Lexer, Result};
-use std::{collections::VecDeque, fmt::Display, mem};
 
 macro_rules! ranged {
     ( $lexer:expr, $block:block ) => {{
@@ -34,9 +34,9 @@ impl<'c> Parser<'c> {
         }
     }
 
-    pub fn into_parse_tree(mut self) -> Result<SyntaxTree> {
+    pub fn into_parse_tree(mut self) -> Result<Block> {
         self.init()?;
-        self.next_tree()
+        self.next_block(&[])
     }
 
     /// Readies this parser by filling in the first two tokens.
@@ -57,12 +57,6 @@ impl<'c> Parser<'c> {
         };
         self.skip_whitespace()?;
         Ok(())
-    }
-
-    fn next_tree(&mut self) -> Result<SyntaxTree> {
-        let block = self.next_block()?;
-        let range = block.range();
-        Ok(SyntaxTree::new(block, range))
     }
 
     fn skip_whitespace(&mut self) -> Result<()> {
@@ -130,7 +124,7 @@ impl<'c> Parser<'c> {
             }
             Token::LoopKw => {
                 self.next_token()?;
-                let block = self.next_block()?;
+                let block = self.next_body()?;
                 Stmt::Loop(block)
             }
             Token::IfKw => {
@@ -146,7 +140,7 @@ impl<'c> Parser<'c> {
                         elseif_blocks.push(self.next_condition_block()?);
                     } else {
                         // else block
-                        else_block = Some(self.next_block()?);
+                        else_block = Some(self.next_body()?);
                         break;
                     }
                 }
@@ -199,24 +193,29 @@ impl<'c> Parser<'c> {
 
     fn next_condition_block(&mut self) -> Result<ConditionBlock> {
         let condition = self.next_expr()?;
-        let block = self.next_block()?;
+        let block = self.next_body()?;
         Ok(ConditionBlock::new(condition, block))
     }
 
-    fn next_block(&mut self) -> Result<Block> {
+    fn next_body(&mut self) -> Result<Block> {
+        self.match_token(Token::LBrace)?;
+        let block = self.next_block(&[Token::RBrace])?;
+        self.match_token(Token::RBrace)?;
+        Ok(block)
+    }
+
+    fn next_block(&mut self, end_tokens: &[Token]) -> Result<Block> {
         let (range, (funs, tys, stmts)) = ranged!(self.lexer, {
-            self.match_token(Token::LBrace)?;
             let mut funs = Vec::new();
             let mut tys = Vec::new();
             let mut stmts = Vec::new();
-            while !self.is_token_match(&Token::RBrace) {
+            while !self.is_any_token_match(end_tokens) {
                 match self.next_item()? {
                     Item::Stmt(stmt) => stmts.push(stmt),
                     Item::UserTy(ty) => tys.push(ty),
                     Item::Fun(fun) => funs.push(fun),
                 }
             }
-            self.match_token(Token::RBrace)?;
             (funs, tys, stmts)
         });
         Ok(Block::new(funs, tys, stmts, range))
@@ -384,7 +383,7 @@ impl<'c> Parser<'c> {
             self.next_token()?;
             return_ty = Some(self.next_bareword()?);
         }
-        let body = self.next_block()?;
+        let body = self.next_body()?;
         let end = self.lexer.pos();
         let range = Range::Src(SrcRange::new(begin, end));
         Ok(Fun {
@@ -516,7 +515,11 @@ impl<'c> Parser<'c> {
             .unwrap_or(false)
     }
 
-    fn is_token_match(&mut self, token: &Token) -> bool {
+    fn is_any_token_match(&self, tokens: &[Token]) -> bool {
+        tokens.iter().any(|t| self.is_token_match(t)) || (tokens.is_empty() && self.curr.is_none())
+    }
+
+    fn is_token_match(&self, token: &Token) -> bool {
         if let Some(ref curr) = self.curr {
             curr.token() == token
         } else {
@@ -524,7 +527,7 @@ impl<'c> Parser<'c> {
         }
     }
 
-    fn is_lookahead<A: Ast>(&mut self) -> bool {
+    fn is_lookahead<A: Ast>(&self) -> bool {
         if let Some(ref curr) = self.curr {
             curr.is_lookahead::<A>()
         } else {

@@ -36,6 +36,7 @@ impl From<Expr> for ValueKind {
 
 #[derive(Debug, Clone)]
 pub enum Immediate {
+    Bareword(String),
     Var(String),
     Str(String),
     Int(i64),
@@ -46,6 +47,7 @@ pub enum Immediate {
 impl From<RangedToken> for Immediate {
     fn from(RangeWrapper(r, token): RangedToken) -> Self {
         match token {
+            Token::Bareword(w) => Immediate::Bareword(w),
             Token::Variable(v) => Immediate::Var(v),
             Token::StrLit(s) => Immediate::Str(s),
             Token::IntLit(i, base) => Immediate::Int(i64::from_str_radix(&i, base as u32)

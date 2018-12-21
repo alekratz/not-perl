@@ -1,9 +1,14 @@
+use std::{
+    fmt::Debug,
+    path::Path,
+};
 use crate::common::{
     lang::Op,
     pos::{Range, RangeWrapper, Ranged},
+    error::*,
+    FromPath,
 };
 use crate::syntax::token::*;
-use std::fmt::Debug;
 
 macro_rules! token_is_lookahead {
     ($token:expr, $head:pat $(, $tail:pat)*) => {{
@@ -34,29 +39,41 @@ where
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct SyntaxTree {
-    pub block: Block,
+#[derive(Debug, Clone, PartialEq)]
+pub struct Block {
+    pub funs: Vec<Fun>,
+    pub tys: Vec<UserTy>,
+    pub stmts: Vec<Stmt>,
     pub range: Range,
 }
 
-impl SyntaxTree {
-    pub fn new(block: Block, range: Range) -> Self {
-        SyntaxTree { block, range }
+impl_ranged!(Block::range);
+
+impl Block {
+    pub fn new(funs: Vec<Fun>, tys: Vec<UserTy>, stmts: Vec<Stmt>, range: Range) -> Self {
+        Block {
+            funs,
+            tys,
+            stmts,
+            range,
+        }
     }
 }
 
-impl Ast for SyntaxTree {
-    fn token_is_lookahead(token: &Token) -> bool {
-        Stmt::token_is_lookahead(token)
-    }
-
-    fn name() -> &'static str {
-        "syntax tree"
+impl FromPath for Block {
+    type Err = Error;
+    fn from_path<P: AsRef<Path>>(path: P) -> Result<Self> {
+        use crate::{
+            util,
+            syntax::{Lexer, Parser},
+        };
+        let path = path.as_ref();
+        let contents = util::read_file(path)?;
+        let lexer = Lexer::new(path.display(), &contents);
+        let parser = Parser::from_lexer(lexer);
+        Ok(parser.into_parse_tree()?)
     }
 }
-
-impl_ranged!(SyntaxTree::range);
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Stmt {
@@ -106,27 +123,6 @@ impl Ranged for Stmt {
                 }
             }
             Stmt::Continue(r) | Stmt::Break(r) | Stmt::Return(_, r) => r.clone(),
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct Block {
-    pub funs: Vec<Fun>,
-    pub tys: Vec<UserTy>,
-    pub stmts: Vec<Stmt>,
-    pub range: Range,
-}
-
-impl_ranged!(Block::range);
-
-impl Block {
-    pub fn new(funs: Vec<Fun>, tys: Vec<UserTy>, stmts: Vec<Stmt>, range: Range) -> Self {
-        Block {
-            funs,
-            tys,
-            stmts,
-            range,
         }
     }
 }

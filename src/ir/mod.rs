@@ -2,12 +2,12 @@ mod fun;
 mod ty;
 mod action;
 mod value;
-mod tree;
+mod block;
 
 pub use self::{
     fun::*,
     ty::*,
     action::*,
     value::*,
-    tree::*,
+    block::*,
 };
