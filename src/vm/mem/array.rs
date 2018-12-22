@@ -99,6 +99,7 @@ pub struct ArrayRef<T: Sized> {
 
     /// Reference to the memory where this array lives.
     heap_ref: HeapRef,
+
     _ty: PhantomData<T>,
 }
 
@@ -109,7 +110,8 @@ impl<T: Sized> ArrayRef<T> {
 
     pub fn with_len<A: Alloc<Ref=HeapRef>>(alloc: &mut A, len: usize) -> Option<Self> {
         let size = len * mem::size_of::<T>();
-        let layout = Layout::from_size_align(size, ALIGN)
+        let t_layout = Layout::new::<T>();
+        let layout = Layout::from_size_align(size, t_layout.align())
             .ok()?;
         let heap_ref = unsafe {
             alloc.alloc(layout)?
@@ -136,7 +138,8 @@ impl<T: Sized> ArrayRef<T> {
 
     unsafe fn at(&self, index: usize) -> *mut T {
         assert!(index < self.len(), "index outside of array bounds");
-        self.heap_ref.addr.offset(index as isize) as *mut T
+        //println!("{}", (self.heap_ref.addr.offset(index as isize) as usize);
+        (self.heap_ref.addr as *mut T).offset(index as isize)
     }
 }
 
